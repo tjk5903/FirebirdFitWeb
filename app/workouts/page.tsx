@@ -173,7 +173,7 @@ export default function WorkoutsPage() {
         exercises: exercises,
         assignedAthletes: 0,
         completionRate: 0,
-        lastUsed: null,
+        lastUsed: 'Never',
         createdAt: new Date().toISOString().split('T')[0]
       }
 
