@@ -323,8 +323,8 @@ export default function WorkoutsPage() {
         </div>
 
         {/* Workouts Grid */}
-        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 transition-all duration-500 delay-300 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
-          {filteredWorkouts.map((workout, index) => (
+                 <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 transition-all duration-500 delay-300 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+           {filteredWorkouts.map((workout: any, index: number) => (
             <div 
               key={workout.id} 
               className="card-elevated hover-lift cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl"
@@ -375,9 +375,9 @@ export default function WorkoutsPage() {
               {/* Exercise Preview */}
               <div className="mb-4">
                 <h4 className="text-sm font-semibold text-gray-700 mb-2">Exercises:</h4>
-                <div className="space-y-1">
-                  {workout.exercises.slice(0, 3).map((exercise, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-xs text-gray-600">
+                                 <div className="space-y-1">
+                   {workout.exercises.slice(0, 3).map((exercise: any, idx: number) => (
+                     <div key={idx} className="flex items-center justify-between text-xs text-gray-600">
                       <span>{exercise.name}</span>
                       <span>{exercise.sets}×{exercise.reps}</span>
                     </div>
@@ -563,8 +563,8 @@ export default function WorkoutsPage() {
                             className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-sm"
                           >
                             <option value="">Select exercise...</option>
-                            {exerciseLibrary.map((exercise) => (
-                              <option key={exercise.name} value={exercise.name}>
+                                                         {exerciseLibrary.map((exercise: any) => (
+                               <option key={exercise.name} value={exercise.name}>
                                 {exercise.name}
                               </option>
                             ))}
@@ -606,8 +606,8 @@ export default function WorkoutsPage() {
                     </div>
 
                     {/* Exercise List */}
-                    <div className="space-y-3">
-                      {exercises.map((exercise, index) => (
+                                         <div className="space-y-3">
+                       {exercises.map((exercise: any, index: number) => (
                         <div key={index} className="flex items-center justify-between p-4 bg-white border-2 border-gray-200 rounded-2xl">
                           <div className="flex items-center space-x-4">
                             <div className="h-10 w-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
@@ -731,9 +731,9 @@ export default function WorkoutsPage() {
                   {/* Exercises */}
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-4">Exercises</h4>
-                    <div className="space-y-3">
-                      {selectedWorkout.exercises.map((exercise, index) => (
-                        <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+                                         <div className="space-y-3">
+                       {selectedWorkout.exercises.map((exercise: any, index: number) => (
+                         <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
                           <div className="flex items-center space-x-3">
                             <div className="h-8 w-8 bg-gradient-to-br from-royal-blue to-dark-blue rounded-full flex items-center justify-center">
                               <span className="text-white text-xs font-bold">{index + 1}</span>
