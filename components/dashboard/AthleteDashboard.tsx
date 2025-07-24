@@ -97,6 +97,15 @@ export default function AthleteDashboard() {
                 <Bell className="h-5 w-5 sm:h-6 sm:w-6" />
                 <span className="absolute -top-1 -right-1 h-2 w-2 sm:h-3 sm:w-3 bg-red-500 rounded-full animate-pulse"></span>
               </button>
+              <button 
+                onClick={() => router.push('/profile')}
+                className="flex items-center space-x-2 sm:space-x-3 bg-white rounded-xl px-2 sm:px-3 py-2 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105 cursor-pointer"
+              >
+                <div className="h-6 w-6 sm:h-8 sm:w-8 bg-gradient-to-br from-royal-blue to-dark-blue rounded-full flex items-center justify-center border-2 border-royal-blue">
+                  <Users className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+                </div>
+                <span className="text-xs sm:text-sm font-semibold text-gray-700 hidden sm:block">{user?.name}</span>
+              </button>
               <div className="flex items-center space-x-2 sm:space-x-3 bg-white rounded-xl px-2 sm:px-3 py-2 shadow-sm hover:shadow-md transition-all duration-200">
                 <div className="h-6 w-6 sm:h-8 sm:w-8 bg-gradient-to-br from-royal-blue to-dark-blue rounded-full flex items-center justify-center border-2 border-royal-blue">
                   <Activity className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
