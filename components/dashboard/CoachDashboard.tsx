@@ -96,7 +96,7 @@ export default function CoachDashboard() {
     if (pathname.startsWith('/workouts')) return 'workouts'
     if (pathname.startsWith('/calendar')) return 'calendar'
     if (pathname.startsWith('/messages')) return 'messages'
-    return 'workouts'
+    return '' // No active tab when on dashboard
   })
   const [isLoaded, setIsLoaded] = useState(false)
   const [showCreateWorkout, setShowCreateWorkout] = useState(false)
@@ -291,7 +291,6 @@ export default function CoachDashboard() {
         {/* Welcome Section */}
         <div className={`mb-6 sm:mb-8 transition-all duration-500 delay-200 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Welcome back, Coach!</h2>
-          <p className="text-gray-600 mobile-text">Your team is ready for today's challenges. Here's what's happening:</p>
         </div>
 
 

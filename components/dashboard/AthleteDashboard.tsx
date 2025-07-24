@@ -15,7 +15,6 @@ import {
   CheckCircle,
   Target,
   Trophy,
-  Bell,
   Video,
   Phone,
   Send,
@@ -60,7 +59,7 @@ export default function AthleteDashboard() {
     if (pathname.startsWith('/workouts')) return 'workouts'
     if (pathname.startsWith('/calendar')) return 'calendar'
     if (pathname.startsWith('/messages')) return 'messages'
-    return 'workouts'
+    return '' // No active tab when on dashboard
   })
   const [isLoaded, setIsLoaded] = useState(false)
 
@@ -93,10 +92,6 @@ export default function AthleteDashboard() {
             </div>
             
             <div className="flex items-center space-x-2 sm:space-x-4">
-              <button className="relative p-2 text-gray-400 hover:text-gray-600 transition-all duration-200 hover:scale-110 focus-ring">
-                <Bell className="h-5 w-5 sm:h-6 sm:w-6" />
-                <span className="absolute -top-1 -right-1 h-2 w-2 sm:h-3 sm:w-3 bg-red-500 rounded-full animate-pulse"></span>
-              </button>
               <button 
                 onClick={() => router.push('/profile')}
                 className="flex items-center space-x-2 sm:space-x-3 bg-white rounded-xl px-2 sm:px-3 py-2 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105 cursor-pointer"
@@ -152,8 +147,7 @@ export default function AthleteDashboard() {
       <div className="container-responsive py-6 sm:py-8">
         {/* Welcome Section */}
         <div className={`mb-6 sm:mb-8 transition-all duration-500 delay-200 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Welcome back, {user?.name}!</h2>
-          <p className="text-gray-600 mobile-text">Ready to crush your next workout and connect with your team?</p>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Welcome back, Athlete!</h2>
         </div>
 
 
