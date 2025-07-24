@@ -23,6 +23,7 @@ import {
   ArrowLeft
 } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
+import MainNavigation from '@/components/navigation/MainNavigation'
 
 // Mock workout data
 const mockWorkouts = [
@@ -43,42 +44,6 @@ const mockWorkouts = [
     completionRate: 85,
     lastUsed: '2024-01-15',
     createdAt: '2024-01-10'
-  },
-  {
-    id: 2,
-    name: 'Cardio Blast',
-    type: 'cardio',
-    duration: 45,
-    difficulty: 'advanced',
-    description: 'High-intensity interval training for endurance',
-    exercises: [
-      { name: 'Burpees', sets: 5, reps: 20, rest: 30 },
-      { name: 'Mountain Climbers', sets: 4, reps: 30, rest: 45 },
-      { name: 'Jumping Jacks', sets: 3, reps: 50, rest: 30 },
-      { name: 'High Knees', sets: 4, reps: 40, rest: 30 }
-    ],
-    assignedAthletes: 8,
-    completionRate: 92,
-    lastUsed: '2024-01-14',
-    createdAt: '2024-01-08'
-  },
-  {
-    id: 3,
-    name: 'Core Crusher',
-    type: 'core',
-    duration: 30,
-    difficulty: 'beginner',
-    description: 'Target all core muscles with progressive difficulty',
-    exercises: [
-      { name: 'Planks', sets: 3, reps: '60s', rest: 30 },
-      { name: 'Russian Twists', sets: 3, reps: 20, rest: 45 },
-      { name: 'Crunches', sets: 3, reps: 25, rest: 30 },
-      { name: 'Leg Raises', sets: 3, reps: 15, rest: 45 }
-    ],
-    assignedAthletes: 15,
-    completionRate: 78,
-    lastUsed: '2024-01-12',
-    createdAt: '2024-01-05'
   }
 ]
 
@@ -112,17 +77,16 @@ export default function WorkoutsPage() {
   const [filteredWorkouts, setFilteredWorkouts] = useState(mockWorkouts)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedType, setSelectedType] = useState('all')
-  const [selectedDifficulty, setSelectedDifficulty] = useState('all')
   const [showCreateWorkout, setShowCreateWorkout] = useState(false)
   const [selectedWorkout, setSelectedWorkout] = useState<any>(null)
   const [showWorkoutDetails, setShowWorkoutDetails] = useState(false)
   const [isLoaded, setIsLoaded] = useState(false)
 
+  const isCoach = user?.role === 'coach'
+
   // Create workout form state
   const [workoutName, setWorkoutName] = useState('')
   const [workoutType, setWorkoutType] = useState('strength')
-  const [workoutDuration, setWorkoutDuration] = useState('60')
-  const [workoutDifficulty, setWorkoutDifficulty] = useState('intermediate')
   const [workoutDescription, setWorkoutDescription] = useState('')
   const [exercises, setExercises] = useState<any[]>([])
   const [selectedExercise, setSelectedExercise] = useState('')
@@ -137,7 +101,7 @@ export default function WorkoutsPage() {
 
   useEffect(() => {
     filterWorkouts()
-  }, [searchTerm, selectedType, selectedDifficulty, workouts])
+  }, [searchTerm, selectedType, workouts])
 
   const filterWorkouts = () => {
     let filtered = workouts
@@ -153,10 +117,6 @@ export default function WorkoutsPage() {
       filtered = filtered.filter(workout => workout.type === selectedType)
     }
 
-    if (selectedDifficulty !== 'all') {
-      filtered = filtered.filter(workout => workout.difficulty === selectedDifficulty)
-    }
-
     setFilteredWorkouts(filtered)
   }
 
@@ -167,8 +127,8 @@ export default function WorkoutsPage() {
         id: Date.now(),
         name: workoutName,
         type: workoutType,
-        duration: parseInt(workoutDuration),
-        difficulty: workoutDifficulty,
+        duration: 60, // Default duration
+        difficulty: 'intermediate', // Default difficulty
         description: workoutDescription,
         exercises: exercises,
         assignedAthletes: 0,
@@ -183,8 +143,6 @@ export default function WorkoutsPage() {
       // Reset form
       setWorkoutName('')
       setWorkoutType('strength')
-      setWorkoutDuration('60')
-      setWorkoutDifficulty('intermediate')
       setWorkoutDescription('')
       setExercises([])
     }
@@ -229,8 +187,8 @@ export default function WorkoutsPage() {
   const getTypeIcon = (type: string) => {
     switch (type) {
       case 'strength': return <Dumbbell className="h-4 w-4" />
-      case 'cardio': return <Zap className="h-4 w-4" />
-      case 'core': return <Target className="h-4 w-4" />
+      case 'running': return <Zap className="h-4 w-4" />
+      case 'mobility': return <Target className="h-4 w-4" />
       default: return <Activity className="h-4 w-4" />
     }
   }
@@ -238,208 +196,182 @@ export default function WorkoutsPage() {
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'strength': return 'bg-blue-100 text-blue-800'
-      case 'cardio': return 'bg-red-100 text-red-800'
-      case 'core': return 'bg-green-100 text-green-800'
+      case 'running': return 'bg-red-100 text-red-800'
+      case 'mobility': return 'bg-green-100 text-green-800'
       default: return 'bg-gray-100 text-gray-800'
     }
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Header */}
-      <header className="glass-effect border-b border-white/20 shadow-sm sticky top-0 z-50 backdrop-blur-md">
-        <div className="container-responsive">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4 sm:space-x-6">
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="p-2 text-gray-400 hover:text-gray-600 transition-all duration-200 hover:scale-110 focus-ring"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-              <div className={`transition-all duration-500 ${isLoaded ? 'scale-100 opacity-100' : 'scale-90 opacity-0'}`}>
-                <FirebirdLogo className="h-10 w-10 sm:h-12 sm:w-12" />
-              </div>
-              <div className={`transition-all duration-500 delay-100 ${isLoaded ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'}`}>
-                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold gradient-text font-elegant">Workouts</h1>
-                <p className="text-xs sm:text-sm text-gray-600 font-medium hidden sm:block">Manage your training programs</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <button
-                onClick={() => setShowCreateWorkout(true)}
-                className="flex items-center space-x-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-royal-blue to-dark-blue text-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105 focus-ring"
-              >
-                <Plus className="h-4 w-4" />
-                <span className="text-xs sm:text-sm font-semibold hidden sm:block">Create Workout</span>
-              </button>
+      <MainNavigation />
+      
+      <div className={`container-responsive py-6 transition-all duration-500 delay-200 ${
+        isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+      }`}>
+                         {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 gap-4 sm:gap-0">
+          <div className="flex items-center space-x-3 sm:space-x-4">
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5" />
+              <span className="hidden sm:inline">Back to Dashboard</span>
+            </button>
+            <div className="h-6 w-px bg-gray-300 hidden sm:block"></div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Workouts</h1>
+              <p className="text-sm sm:text-base text-gray-600">Manage your training programs</p>
             </div>
           </div>
+
+          {isCoach && (
+            <button
+              onClick={() => setShowCreateWorkout(true)}
+              className="flex items-center space-x-2 bg-blue-500 hover:bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-2xl transition-colors text-sm sm:text-base"
+            >
+              <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span>Create Workout</span>
+            </button>
+          )}
         </div>
-      </header>
-
-      <div className="container-responsive py-6 sm:py-8">
         {/* Search and Filters */}
-        <div className={`mb-6 sm:mb-8 transition-all duration-500 delay-200 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
-          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
-            {/* Search */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search workouts..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
-              />
-            </div>
+        <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 mb-6 sm:mb-8">
+          {/* Search */}
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 sm:h-5 sm:w-5 text-blue-400" />
+            <input
+              type="text"
+              placeholder="Search workouts..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 bg-white/80 backdrop-blur-sm border-2 border-blue-200/50 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 placeholder-blue-400/70 shadow-lg text-sm sm:text-base"
+            />
+          </div>
 
-            {/* Filters */}
-            <div className="flex gap-3">
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
-              >
-                <option value="all">All Types</option>
-                <option value="strength">Strength</option>
-                <option value="cardio">Cardio</option>
-                <option value="core">Core</option>
-              </select>
-
-              <select
-                value={selectedDifficulty}
-                onChange={(e) => setSelectedDifficulty(e.target.value)}
-                className="px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
-              >
-                <option value="all">All Levels</option>
-                <option value="beginner">Beginner</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
-              </select>
-            </div>
+          {/* Filters */}
+          <div className="flex gap-3">
+            <select
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value)}
+              className="px-3 sm:px-4 py-2.5 sm:py-3 bg-white/80 backdrop-blur-sm border-2 border-blue-200/50 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-gray-700 shadow-lg text-sm sm:text-base"
+            >
+              <option value="all">All Types</option>
+              <option value="strength">Strength</option>
+              <option value="running">Running</option>
+              <option value="mobility">Mobility</option>
+            </select>
           </div>
         </div>
 
         {/* Workouts Grid */}
-                 <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 transition-all duration-500 delay-300 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
-           {filteredWorkouts.map((workout: any, index: number) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {filteredWorkouts.map((workout: any) => (
             <div 
               key={workout.id} 
-              className="card-elevated hover-lift cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl"
-              style={{ animationDelay: `${index * 100}ms` }}
+              className="group relative bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden hover:shadow-3xl transition-all duration-300 hover:scale-[1.02] cursor-pointer"
               onClick={() => {
                 setSelectedWorkout(workout)
                 setShowWorkoutDetails(true)
               }}
             >
-              {/* Workout Header */}
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className={`h-10 w-10 ${getTypeColor(workout.type)} rounded-xl flex items-center justify-center`}>
-                    {getTypeIcon(workout.type)}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-gray-900 mobile-text">{workout.name}</h3>
-                    <p className="text-sm text-gray-500">{workout.description}</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getDifficultyColor(workout.difficulty)}`}>
-                    {workout.difficulty}
-                  </span>
-                </div>
-              </div>
-
-              {/* Workout Stats */}
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="flex items-center space-x-2">
-                  <Clock className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm text-gray-600">{workout.duration} min</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Users className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm text-gray-600">{workout.assignedAthletes} athletes</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Target className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm text-gray-600">{workout.exercises.length} exercises</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Star className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm text-gray-600">{workout.completionRate}% completion</span>
-                </div>
-              </div>
-
-              {/* Exercise Preview */}
-              <div className="mb-4">
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">Exercises:</h4>
-                                 <div className="space-y-1">
-                   {workout.exercises.slice(0, 3).map((exercise: any, idx: number) => (
-                     <div key={idx} className="flex items-center justify-between text-xs text-gray-600">
-                      <span>{exercise.name}</span>
-                      <span>{exercise.sets}×{exercise.reps}</span>
+              {/* Header with type indicator */}
+              <div className={`h-1 ${getTypeColor(workout.type).replace('bg-', 'bg-gradient-to-r from-').replace(' text-', ' to-')}`}></div>
+              
+              <div className="p-4 sm:p-6">
+                {/* Workout Header */}
+                <div className="flex items-start justify-between mb-3 sm:mb-4">
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <div className={`h-8 w-8 sm:h-10 sm:w-10 ${getTypeColor(workout.type)} rounded-xl flex items-center justify-center shadow-sm`}>
+                      {getTypeIcon(workout.type)}
                     </div>
-                  ))}
-                  {workout.exercises.length > 3 && (
-                    <div className="text-xs text-gray-500">
-                      +{workout.exercises.length - 3} more exercises
+                    <div className="flex-1">
+                      <h3 className="font-bold text-gray-900 text-base sm:text-lg mb-1">{workout.name}</h3>
+                      <p className="text-xs sm:text-sm text-gray-600" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {workout.description}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Exercise Preview */}
+                <div className="mb-3 sm:mb-4">
+                  <div className="space-y-1.5 sm:space-y-2">
+                    {workout.exercises.slice(0, 3).map((exercise: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between p-1.5 sm:p-2 bg-gray-50 rounded-lg">
+                        <span className="text-xs sm:text-sm font-medium text-gray-700 truncate">{exercise.name}</span>
+                        <span className="text-xs font-bold text-gray-500 bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ml-1.5 sm:ml-2">
+                          {exercise.sets}×{exercise.reps}
+                        </span>
+                      </div>
+                    ))}
+                    {workout.exercises.length > 3 && (
+                      <div className="text-center pt-1">
+                        <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full">
+                          +{workout.exercises.length - 3} more
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                 
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                  <div className="flex items-center space-x-1.5 sm:space-x-2 text-xs sm:text-sm text-gray-500">
+                    <Calendar className="h-3 w-3" />
+                    <span>Date Given: {workout.createdAt}</span>
+                  </div>
+                  
+                  {isCoach && (
+                    <div className="flex items-center space-x-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          // Edit workout logic
+                        }}
+                        className="p-1 sm:p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
+                      >
+                        <Edit className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          deleteWorkout(workout.id)
+                        }}
+                        className="p-1 sm:p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      // Edit workout logic
-                    }}
-                    className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      deleteWorkout(workout.id)
-                    }}
-                    className="p-2 text-gray-400 hover:text-red-600 transition-colors"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setSelectedWorkout(workout)
-                    setShowWorkoutDetails(true)
-                  }}
-                  className="flex items-center space-x-1 text-royal-blue hover:text-dark-blue text-sm font-semibold transition-colors"
-                >
-                  <Eye className="h-4 w-4" />
-                  <span>View Details</span>
-                </button>
-              </div>
+              {/* Hover Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-3xl"></div>
             </div>
           ))}
         </div>
 
         {/* Empty State */}
         {filteredWorkouts.length === 0 && (
-          <div className={`text-center py-12 transition-all duration-500 delay-400 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
-            <Dumbbell className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-600 mb-2">No workouts found</h3>
-            <p className="text-gray-500 mb-6">Create your first workout to get started</p>
-            <button
-              onClick={() => setShowCreateWorkout(true)}
-              className="bg-gradient-to-r from-royal-blue to-dark-blue text-white px-6 py-3 rounded-2xl hover:shadow-lg transition-all duration-300"
-            >
-              Create Workout
-            </button>
+          <div className="bg-white rounded-3xl shadow-2xl p-6 sm:p-12 border border-gray-100 text-center">
+            <Dumbbell className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mx-auto mb-3 sm:mb-4" />
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-600 mb-2">No workouts found</h3>
+            <p className="text-sm sm:text-base text-gray-500 mb-4 sm:mb-6">
+              {isCoach ? 'Create your first workout to get started' : 'No workouts have been assigned yet'}
+            </p>
+            {isCoach && (
+              <button
+                onClick={() => setShowCreateWorkout(true)}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-2xl transition-colors text-sm sm:text-base"
+              >
+                Create Workout
+              </button>
+            )}
           </div>
         )}
 
@@ -469,71 +401,37 @@ export default function WorkoutsPage() {
               {/* Modal Content */}
               <div className="flex-1 overflow-y-auto p-6">
                 <form onSubmit={handleCreateWorkout} className="space-y-6">
-                  {/* Workout Details */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Workout Name
-                      </label>
-                      <input
-                        type="text"
-                        value={workoutName}
-                        onChange={(e) => setWorkoutName(e.target.value)}
-                        placeholder="Enter workout name..."
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-base"
-                        required
-                      />
-                    </div>
+                                     {/* Workout Details */}
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                     <div>
+                       <label className="block text-sm font-semibold text-gray-700 mb-2">
+                         Workout Name
+                       </label>
+                       <input
+                         type="text"
+                         value={workoutName}
+                         onChange={(e) => setWorkoutName(e.target.value)}
+                         placeholder="Enter workout name..."
+                         className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-base"
+                         required
+                       />
+                     </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Workout Type
-                      </label>
-                      <select
-                        value={workoutType}
-                        onChange={(e) => setWorkoutType(e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-base"
-                      >
-                        <option value="strength">Strength Training</option>
-                        <option value="cardio">Cardio</option>
-                        <option value="core">Core Workout</option>
-                        <option value="flexibility">Flexibility</option>
-                        <option value="mixed">Mixed Training</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Duration (minutes)
-                      </label>
-                      <select
-                        value={workoutDuration}
-                        onChange={(e) => setWorkoutDuration(e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-base"
-                      >
-                        <option value="30">30 minutes</option>
-                        <option value="45">45 minutes</option>
-                        <option value="60">60 minutes</option>
-                        <option value="75">75 minutes</option>
-                        <option value="90">90 minutes</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Difficulty Level
-                      </label>
-                      <select
-                        value={workoutDifficulty}
-                        onChange={(e) => setWorkoutDifficulty(e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-base"
-                      >
-                        <option value="beginner">Beginner</option>
-                        <option value="intermediate">Intermediate</option>
-                        <option value="advanced">Advanced</option>
-                      </select>
-                    </div>
-                  </div>
+                     <div>
+                       <label className="block text-sm font-semibold text-gray-700 mb-2">
+                         Workout Type
+                       </label>
+                                               <select
+                          value={workoutType}
+                          onChange={(e) => setWorkoutType(e.target.value)}
+                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-base"
+                        >
+                          <option value="strength">Strength</option>
+                          <option value="running">Running</option>
+                          <option value="mobility">Mobility</option>
+                        </select>
+                     </div>
+                   </div>
 
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -674,10 +572,10 @@ export default function WorkoutsPage() {
                   <div className={`h-10 w-10 ${getTypeColor(selectedWorkout.type)} rounded-full flex items-center justify-center`}>
                     {getTypeIcon(selectedWorkout.type)}
                   </div>
-                  <div>
-                    <h3 className="font-bold text-gray-900">{selectedWorkout.name}</h3>
-                    <p className="text-sm text-gray-500">{selectedWorkout.type} • {selectedWorkout.difficulty}</p>
-                  </div>
+                                     <div>
+                     <h3 className="font-bold text-gray-900">{selectedWorkout.name}</h3>
+                     <p className="text-sm text-gray-500">{selectedWorkout.type}</p>
+                   </div>
                 </div>
                 <button
                   onClick={() => setShowWorkoutDetails(false)}
@@ -696,93 +594,57 @@ export default function WorkoutsPage() {
                     <p className="text-gray-600">{selectedWorkout.description}</p>
                   </div>
 
-                  {/* Stats */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-gray-50 rounded-xl p-4">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Clock className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm font-semibold text-gray-700">Duration</span>
-                      </div>
-                      <p className="text-lg font-bold text-gray-900">{selectedWorkout.duration} minutes</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-xl p-4">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Users className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm font-semibold text-gray-700">Assigned</span>
-                      </div>
-                      <p className="text-lg font-bold text-gray-900">{selectedWorkout.assignedAthletes} athletes</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-xl p-4">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Target className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm font-semibold text-gray-700">Exercises</span>
-                      </div>
-                      <p className="text-lg font-bold text-gray-900">{selectedWorkout.exercises.length}</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-xl p-4">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <Star className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm font-semibold text-gray-700">Completion</span>
-                      </div>
-                      <p className="text-lg font-bold text-gray-900">{selectedWorkout.completionRate}%</p>
-                    </div>
-                  </div>
+                  
 
-                  {/* Exercises */}
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-4">Exercises</h4>
-                                         <div className="space-y-3">
+                                     {/* Exercises */}
+                   <div>
+                     <h4 className="font-semibold text-gray-900 mb-4">Exercises</h4>
+                     <div className="space-y-2">
                        {selectedWorkout.exercises.map((exercise: any, index: number) => (
-                         <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
-                          <div className="flex items-center space-x-3">
-                            <div className="h-8 w-8 bg-gradient-to-br from-royal-blue to-dark-blue rounded-full flex items-center justify-center">
-                              <span className="text-white text-xs font-bold">{index + 1}</span>
-                            </div>
-                            <div>
-                              <h5 className="font-semibold text-gray-900">{exercise.name}</h5>
-                              <p className="text-sm text-gray-500">{exercise.sets} sets × {exercise.reps} reps</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm text-gray-500">Rest: {exercise.rest}s</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                         <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                           <span className="text-sm font-medium text-gray-700">{exercise.name}</span>
+                           <span className="text-xs font-bold text-gray-500 bg-white px-2 py-1 rounded-full">
+                             {exercise.sets}×{exercise.reps}
+                           </span>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
                 </div>
               </div>
 
               {/* Modal Footer */}
               <div className="p-6 border-t border-gray-200">
-                <div className="flex items-center justify-between">
-                  <button
-                    onClick={() => setShowWorkoutDetails(false)}
-                    className="px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors duration-200"
-                  >
-                    Close
-                  </button>
-                  <div className="flex items-center space-x-3">
+                                  <div className="flex items-center justify-between">
                     <button
-                      onClick={() => {
-                        // Edit workout logic
-                        setShowWorkoutDetails(false)
-                      }}
-                      className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl transition-all duration-300"
+                      onClick={() => setShowWorkoutDetails(false)}
+                      className="px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors duration-200"
                     >
-                      Edit Workout
+                      Close
                     </button>
-                    <button
-                      onClick={() => {
-                        // Assign workout logic
-                        setShowWorkoutDetails(false)
-                      }}
-                      className="px-6 py-3 bg-gradient-to-r from-royal-blue to-dark-blue text-white rounded-2xl transition-all duration-300"
-                    >
-                      Assign to Team
-                    </button>
+                    {isCoach && (
+                      <div className="flex items-center space-x-3">
+                        <button
+                          onClick={() => {
+                            // Edit workout logic
+                            setShowWorkoutDetails(false)
+                          }}
+                          className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl transition-all duration-300"
+                        >
+                          Edit Workout
+                        </button>
+                        <button
+                          onClick={() => {
+                            // Assign workout logic
+                            setShowWorkoutDetails(false)
+                          }}
+                          className="px-6 py-3 bg-gradient-to-r from-royal-blue to-dark-blue text-white rounded-2xl transition-all duration-300"
+                        >
+                          Assign to Team
+                        </button>
+                      </div>
+                    )}
                   </div>
-                </div>
               </div>
             </div>
           </div>

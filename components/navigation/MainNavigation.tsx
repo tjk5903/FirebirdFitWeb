@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Dumbbell, Calendar, MessageSquare } from 'lucide-react'
@@ -10,15 +9,17 @@ export default function MainNavigation() {
   const router = useRouter()
   const pathname = usePathname()
   
-  const [activeTab, setActiveTab] = useState(() => {
-    if (pathname.startsWith('/workouts')) return 'workouts'
-    if (pathname.startsWith('/calendar')) return 'calendar'
-    if (pathname.startsWith('/messages')) return 'messages'
-    return 'workouts'
-  })
+  // Determine active tab based on current pathname
+  const getActiveTab = () => {
+    // Only highlight tabs for specific pages
+    if (pathname === '/workouts' || pathname.startsWith('/workouts/')) return 'workouts'
+    if (pathname === '/calendar' || pathname.startsWith('/calendar/')) return 'calendar'
+    if (pathname === '/messages' || pathname.startsWith('/messages/')) return 'messages'
+    // Return null for dashboard and all other pages
+    return null
+  }
 
   const handleTabClick = (tab: string) => {
-    setActiveTab(tab)
     router.push(`/${tab}`)
   }
 
@@ -50,7 +51,7 @@ export default function MainNavigation() {
           <div className="flex space-x-1 p-2 bg-gray-100 rounded-2xl">
             {tabs.map((tab) => {
               const Icon = tab.icon
-              const isActive = activeTab === tab.id
+              const isActive = getActiveTab() === tab.id
               
               return (
                 <button

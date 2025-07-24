@@ -22,10 +22,10 @@ import {
   Users,
   Award,
   Star,
-  Heart
+  Heart,
+  Dumbbell
 } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
-import MainNavigation from '@/components/navigation/MainNavigation'
 
 const mockAthleteStats: AthleteStats = {
   totalWorkouts: 45,
@@ -55,7 +55,13 @@ const mockQuickActions = [
 export default function AthleteDashboard() {
   const { user, logout } = useAuth()
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState(() => {
+    const pathname = window.location.pathname
+    if (pathname.startsWith('/workouts')) return 'workouts'
+    if (pathname.startsWith('/calendar')) return 'calendar'
+    if (pathname.startsWith('/messages')) return 'messages'
+    return 'workouts'
+  })
   const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
@@ -105,11 +111,40 @@ export default function AthleteDashboard() {
               </button>
             </div>
           </div>
+          
+          {/* Navigation Tabs */}
+          <div className="flex justify-center pb-4">
+            <div className="flex space-x-1 p-2 bg-gray-100 rounded-2xl">
+              {[
+                { id: 'workouts', label: 'Workouts', icon: Dumbbell, href: '/workouts' },
+                { id: 'calendar', label: 'Calendar', icon: Calendar, href: '/calendar' },
+                { id: 'messages', label: 'Messages', icon: MessageSquare, href: '/messages' }
+              ].map((tab) => {
+                const Icon = tab.icon
+                const isActive = activeTab === tab.id
+                
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setActiveTab(tab.id)
+                      router.push(tab.href)
+                    }}
+                    className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                      isActive
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                    }`}
+                  >
+                    <Icon className="h-5 w-5" />
+                    <span className="hidden sm:block">{tab.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         </div>
       </header>
-
-      {/* Navigation */}
-      <MainNavigation />
 
       <div className="container-responsive py-6 sm:py-8">
         {/* Welcome Section */}

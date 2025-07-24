@@ -29,7 +29,6 @@ import {
   Zap
 } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
-import MainNavigation from '@/components/navigation/MainNavigation'
 
 const mockTeamStats: TeamStats = {
   totalAthletes: 24,
@@ -39,22 +38,31 @@ const mockTeamStats: TeamStats = {
 }
 
 const mockRecentActivity = [
-  { id: 1, athlete: 'Sarah Johnson', action: 'completed workout', time: '2 hours ago', type: 'workout' },
-  { id: 2, athlete: 'Mike Chen', action: 'sent team message', time: '3 hours ago', type: 'message' },
-  { id: 3, athlete: 'Emma Davis', action: 'completed workout', time: '4 hours ago', type: 'workout' },
-  { id: 4, athlete: 'Alex Thompson', action: 'joined team call', time: '5 hours ago', type: 'call' },
+  { id: 1, athlete: 'Jake Rodriguez', action: 'completed workout', time: '2 hours ago', type: 'workout' },
+  { id: 2, athlete: 'Marcus Johnson', action: 'sent team message', time: '3 hours ago', type: 'message' },
+  { id: 3, athlete: 'Tyler Williams', action: 'completed workout', time: '4 hours ago', type: 'workout' },
+  { id: 4, athlete: 'Brandon Davis', action: 'joined team call', time: '5 hours ago', type: 'call' },
 ]
 
 const mockTeamMessages = [
-  { id: 1, from: 'Sarah Johnson', message: 'Great session today! Feeling stronger already.', time: '1 hour ago', unread: true },
-  { id: 2, from: 'Mike Chen', message: 'Can we discuss the new training schedule?', time: '2 hours ago', unread: false },
-  { id: 3, from: 'Emma Davis', message: 'Team meeting tomorrow at 3 PM confirmed.', time: '3 hours ago', unread: false },
+  { id: 1, from: 'Jake Rodriguez', message: 'Great session today! Feeling stronger already.', time: '1 hour ago', unread: true },
+  { id: 2, from: 'Marcus Johnson', message: 'Can we discuss the new training schedule?', time: '2 hours ago', unread: false },
+  { id: 3, from: 'Tyler Williams', message: 'Team meeting tomorrow at 3 PM confirmed.', time: '3 hours ago', unread: false },
+  { id: 4, from: 'Senior Squad', message: 'Practice moved to 4 PM today', time: '4 hours ago', unread: true },
+  { id: 5, from: 'Ryan Mitchell', message: 'Injured my ankle during practice', time: '5 hours ago', unread: false },
 ]
 
 const mockQuickActions = [
   { id: 1, title: 'Create Workout', icon: Plus, color: 'bg-royal-blue', description: 'Design new training' },
-  { id: 2, title: 'Calendar', icon: Calendar, color: 'bg-green-500', description: 'Schedule & events' },
+  { id: 2, title: 'Add Event', icon: Calendar, color: 'bg-green-500', description: 'Create calendar event' },
   { id: 3, title: 'Send Announcement', icon: Send, color: 'bg-purple-500', description: 'Team message' },
+]
+
+const eventTypes = [
+  { id: 'practice', label: 'Practice', color: 'bg-blue-500' },
+  { id: 'game', label: 'Game', color: 'bg-red-500' },
+  { id: 'meeting', label: 'Meeting', color: 'bg-green-500' },
+  { id: 'training', label: 'Training', color: 'bg-purple-500' }
 ]
 
 const exerciseLibrary = [
@@ -83,9 +91,17 @@ const exerciseLibrary = [
 export default function CoachDashboard() {
   const { user, logout } = useAuth()
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState('overview')
+  const [activeTab, setActiveTab] = useState(() => {
+    const pathname = window.location.pathname
+    if (pathname.startsWith('/workouts')) return 'workouts'
+    if (pathname.startsWith('/calendar')) return 'calendar'
+    if (pathname.startsWith('/messages')) return 'messages'
+    return 'workouts'
+  })
   const [isLoaded, setIsLoaded] = useState(false)
   const [showCreateWorkout, setShowCreateWorkout] = useState(false)
+  const [showCreateEvent, setShowCreateEvent] = useState(false)
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const [workoutName, setWorkoutName] = useState('')
   const [workoutType, setWorkoutType] = useState('strength')
   const [workoutDuration, setWorkoutDuration] = useState('60')
@@ -96,6 +112,18 @@ export default function CoachDashboard() {
   const [exerciseSets, setExerciseSets] = useState('3')
   const [exerciseReps, setExerciseReps] = useState('10')
   const [exerciseRest, setExerciseRest] = useState('60')
+  
+  // Event form state
+  const [eventForm, setEventForm] = useState({
+    title: '',
+    date: '',
+    time: '',
+    duration: '60',
+    location: '',
+    type: 'practice',
+    description: '',
+    attendees: ''
+  })
 
   useEffect(() => {
     // Simulate loading animation
@@ -153,33 +181,59 @@ export default function CoachDashboard() {
     setExercises(exercises.filter((_, i) => i !== index))
   }
 
+  const handleCreateEvent = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (eventForm.title && eventForm.date && eventForm.time) {
+      // Here you would typically save the event to your backend
+      console.log('Creating event:', eventForm)
+      setShowCreateEvent(false)
+      setShowSuccessMessage(true)
+      setEventForm({
+        title: '',
+        date: '',
+        time: '',
+        duration: '60',
+        location: '',
+        type: 'practice',
+        description: '',
+        attendees: ''
+      })
+      
+      // Hide success message after 3 seconds
+      setTimeout(() => setShowSuccessMessage(false), 3000)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Header */}
       <header className="glass-effect border-b border-white/20 shadow-sm sticky top-0 z-50 backdrop-blur-md">
         <div className="container-responsive">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4 sm:space-x-6">
-              <div className={`transition-all duration-500 ${isLoaded ? 'scale-100 opacity-100' : 'scale-90 opacity-0'}`}>
-                <FirebirdLogo className="h-10 w-10 sm:h-12 sm:w-12" />
-              </div>
-              <div className={`transition-all duration-500 delay-100 ${isLoaded ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'}`}>
-                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold gradient-text font-elegant">Firebird Fit</h1>
-                <p className="text-xs sm:text-sm text-gray-600 font-medium hidden sm:block">Team Performance & Communication</p>
-              </div>
-            </div>
+                         <div className="flex items-center space-x-4 sm:space-x-6">
+               <div className={`flex items-center space-x-3 sm:space-x-4 transition-all duration-500 ${isLoaded ? 'scale-100 opacity-100' : 'scale-90 opacity-0'}`}>
+                                   <div className="relative">
+                    <div className="h-12 w-12 sm:h-14 sm:w-14 bg-gradient-to-br from-royal-blue via-blue-600 to-dark-blue rounded-2xl shadow-lg flex items-center justify-center border-2 border-white/20 backdrop-blur-sm">
+                      <FirebirdLogo className="h-6 w-6 sm:h-7 sm:w-7 text-white drop-shadow-sm" />
+                    </div>
+                  </div>
+                 <div className={`transition-all duration-500 delay-100 ${isLoaded ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'}`}>
+                   <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-royal-blue via-blue-600 to-dark-blue bg-clip-text text-transparent font-elegant tracking-tight">Firebird Fit</h1>
+                   <p className="text-xs sm:text-sm text-gray-600 font-medium hidden sm:block tracking-wide">Team Performance & Communication</p>
+                 </div>
+               </div>
+             </div>
             
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <button className="relative p-2 text-gray-400 hover:text-gray-600 transition-all duration-200 hover:scale-110 focus-ring">
-                <Bell className="h-5 w-5 sm:h-6 sm:w-6" />
-                <span className="absolute -top-1 -right-1 h-2 w-2 sm:h-3 sm:w-3 bg-red-500 rounded-full animate-pulse"></span>
-              </button>
-              <div className="flex items-center space-x-2 sm:space-x-3 bg-white rounded-xl px-2 sm:px-3 py-2 shadow-sm hover:shadow-md transition-all duration-200">
-                <div className="h-6 w-6 sm:h-8 sm:w-8 bg-gradient-to-br from-royal-blue to-dark-blue rounded-full flex items-center justify-center border-2 border-royal-blue">
-                  <Users className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-                </div>
-                <span className="text-xs sm:text-sm font-semibold text-gray-700 hidden sm:block">{user?.name}</span>
-              </div>
+                                      <div className="flex items-center space-x-2 sm:space-x-4">
+               <button 
+                 onClick={() => router.push('/profile')}
+                 className="flex items-center space-x-2 sm:space-x-3 bg-white rounded-xl px-2 sm:px-3 py-2 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105 cursor-pointer"
+               >
+                 <div className="h-6 w-6 sm:h-8 sm:w-8 bg-gradient-to-br from-royal-blue to-dark-blue rounded-full flex items-center justify-center border-2 border-royal-blue">
+                   <Users className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+                 </div>
+                 <span className="text-xs sm:text-sm font-semibold text-gray-700 hidden sm:block">{user?.name}</span>
+               </button>
               <button
                 onClick={handleLogout}
                 className="p-2 text-gray-400 hover:text-gray-600 transition-all duration-200 hover:scale-110 focus-ring"
@@ -188,11 +242,50 @@ export default function CoachDashboard() {
               </button>
             </div>
           </div>
+          
+          {/* Navigation Tabs */}
+          <div className="flex justify-center pb-4">
+            <div className="flex space-x-1 p-2 bg-gray-100 rounded-2xl">
+              {[
+                { id: 'workouts', label: 'Workouts', icon: Dumbbell, href: '/workouts' },
+                { id: 'calendar', label: 'Calendar', icon: Calendar, href: '/calendar' },
+                { id: 'messages', label: 'Messages', icon: MessageSquare, href: '/messages' }
+              ].map((tab) => {
+                const Icon = tab.icon
+                const isActive = activeTab === tab.id
+                
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setActiveTab(tab.id)
+                      router.push(tab.href)
+                    }}
+                    className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                      isActive
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                    }`}
+                  >
+                    <Icon className="h-5 w-5" />
+                    <span className="hidden sm:block">{tab.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         </div>
       </header>
 
-      {/* Navigation */}
-      <MainNavigation />
+      {/* Success Message */}
+      {showSuccessMessage && (
+        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-2xl shadow-lg transform transition-all duration-300 animate-in slide-in-from-right">
+          <div className="flex items-center space-x-2">
+            <CheckCircle className="h-5 w-5" />
+            <span className="font-semibold">Event created successfully!</span>
+          </div>
+        </div>
+      )}
 
       <div className="container-responsive py-6 sm:py-8">
         {/* Welcome Section */}
@@ -211,8 +304,8 @@ export default function CoachDashboard() {
               <h3 className="text-lg sm:text-xl font-bold text-gray-900">Team Communication</h3>
             </div>
             
-            <div className="space-y-3 sm:space-y-4">
-              {mockTeamMessages.map((message, index) => (
+            <div className="space-y-2 sm:space-y-3">
+              {mockTeamMessages.slice(0, 3).map((message, index) => (
                 <div 
                   key={message.id} 
                   className={`message-bubble transition-all duration-200 hover:scale-[1.02] ${message.unread ? 'ring-2 ring-royal-blue/20' : ''}`}
@@ -246,21 +339,23 @@ export default function CoachDashboard() {
           {/* Quick Actions */}
           <div className="card-elevated hover-lift">
             <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">Quick Actions</h3>
-            <div className="space-y-3 sm:space-y-4">
+            <div className="space-y-2 sm:space-y-3">
               {mockQuickActions.map((action, index) => (
                 <button 
                   key={action.id} 
-                  className="w-full flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all duration-200 group focus-ring"
+                  className="w-full flex items-center space-x-3 sm:space-x-4 p-2.5 sm:p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all duration-200 group focus-ring"
                   style={{ animationDelay: `${index * 100}ms` }}
                   onClick={() => {
                     if (action.title === 'Create Workout') {
                       setShowCreateWorkout(true)
+                    } else if (action.title === 'Add Event') {
+                      setShowCreateEvent(true)
                     }
                   }}
                 >
-                  <div className={`h-10 w-10 sm:h-12 sm:w-12 ${action.color} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200`}>
-                    <action.icon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-                  </div>
+                                     <div className={`h-8 w-8 sm:h-10 sm:w-10 ${action.color} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200`}>
+                     <action.icon className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                   </div>
                   <div className="text-left">
                     <h4 className="font-semibold text-gray-900 mobile-text">{action.title}</h4>
                     <p className="text-sm text-gray-600 hidden sm:block">{action.description}</p>
@@ -562,6 +657,143 @@ export default function CoachDashboard() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Create Event Modal */}
+        {showCreateEvent && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Create New Event</h3>
+              </div>
+
+              <form onSubmit={handleCreateEvent} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Event Title
+                  </label>
+                  <input
+                    type="text"
+                    value={eventForm.title}
+                    onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Date
+                    </label>
+                    <input
+                      type="date"
+                      value={eventForm.date}
+                      onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Time
+                    </label>
+                    <input
+                      type="time"
+                      value={eventForm.time}
+                      onChange={(e) => setEventForm({ ...eventForm, time: e.target.value })}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Duration (min)
+                    </label>
+                    <select
+                      value={eventForm.duration}
+                      onChange={(e) => setEventForm({ ...eventForm, duration: e.target.value })}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
+                    >
+                      <option value="30">30 minutes</option>
+                      <option value="60">1 hour</option>
+                      <option value="90">1.5 hours</option>
+                      <option value="120">2 hours</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Type
+                    </label>
+                    <select
+                      value={eventForm.type}
+                      onChange={(e) => setEventForm({ ...eventForm, type: e.target.value })}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
+                    >
+                      {eventTypes.map((type) => (
+                        <option key={type.id} value={type.id}>{type.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    value={eventForm.location}
+                    onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description
+                  </label>
+                  <textarea
+                    value={eventForm.description}
+                    onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
+                    rows={3}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 resize-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateEvent(false)
+                      setEventForm({
+                        title: '',
+                        date: '',
+                        time: '',
+                        duration: '60',
+                        location: '',
+                        type: 'practice',
+                        description: '',
+                        attendees: ''
+                      })
+                    }}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-gradient-to-r from-royal-blue to-dark-blue hover:from-dark-blue hover:to-royal-blue text-white px-6 py-2 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
+                  >
+                    Create Event
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
