@@ -56,10 +56,11 @@ export default function AthleteDashboard() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState(() => {
     const pathname = window.location.pathname
+    if (pathname === '/dashboard' || pathname === '/') return '' // No active tab when on dashboard
     if (pathname.startsWith('/workouts')) return 'workouts'
     if (pathname.startsWith('/calendar')) return 'calendar'
     if (pathname.startsWith('/messages')) return 'messages'
-    return '' // No active tab when on dashboard
+    return '' // No active tab for other pages
   })
   const [isLoaded, setIsLoaded] = useState(false)
 
@@ -91,6 +92,38 @@ export default function AthleteDashboard() {
               </div>
             </div>
             
+            {/* Navigation Tabs */}
+            <div className="flex items-center justify-center flex-1">
+              <div className="flex space-x-1 p-2 bg-gray-100 rounded-2xl">
+                {[
+                  { id: 'workouts', label: 'Workouts', icon: Dumbbell, href: '/workouts' },
+                  { id: 'calendar', label: 'Calendar', icon: Calendar, href: '/calendar' },
+                  { id: 'messages', label: 'Messages', icon: MessageSquare, href: '/messages' }
+                ].map((tab) => {
+                  const Icon = tab.icon
+                  const isActive = activeTab === tab.id
+                  
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setActiveTab(tab.id)
+                        router.push(tab.href)
+                      }}
+                      className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-xl font-medium transition-all duration-200 min-w-[80px] ${
+                        isActive
+                          ? 'bg-white text-blue-600 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span className="hidden sm:block text-sm">{tab.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            
             <div className="flex items-center space-x-2 sm:space-x-4">
               <button 
                 onClick={() => router.push('/profile')}
@@ -107,38 +140,6 @@ export default function AthleteDashboard() {
               >
                 <LogOut className="h-5 w-5" />
               </button>
-            </div>
-          </div>
-          
-          {/* Navigation Tabs */}
-          <div className="flex justify-center pb-4">
-            <div className="flex space-x-1 p-2 bg-gray-100 rounded-2xl">
-              {[
-                { id: 'workouts', label: 'Workouts', icon: Dumbbell, href: '/workouts' },
-                { id: 'calendar', label: 'Calendar', icon: Calendar, href: '/calendar' },
-                { id: 'messages', label: 'Messages', icon: MessageSquare, href: '/messages' }
-              ].map((tab) => {
-                const Icon = tab.icon
-                const isActive = activeTab === tab.id
-                
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => {
-                      setActiveTab(tab.id)
-                      router.push(tab.href)
-                    }}
-                    className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
-                      isActive
-                        ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
-                    }`}
-                  >
-                    <Icon className="h-5 w-5" />
-                    <span className="hidden sm:block">{tab.label}</span>
-                  </button>
-                )
-              })}
             </div>
           </div>
         </div>

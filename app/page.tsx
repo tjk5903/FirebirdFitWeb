@@ -12,8 +12,8 @@ export default function HomePage() {
   useEffect(() => {
     if (!isLoading) {
       if (user) {
-        // Redirect to workouts page by default
-        router.push('/workouts')
+        // Redirect to dashboard by default
+        router.push('/dashboard')
       } else {
         router.push('/login')
       }

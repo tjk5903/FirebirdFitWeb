@@ -93,10 +93,11 @@ export default function CoachDashboard() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState(() => {
     const pathname = window.location.pathname
+    if (pathname === '/dashboard' || pathname === '/') return '' // No active tab when on dashboard
     if (pathname.startsWith('/workouts')) return 'workouts'
     if (pathname.startsWith('/calendar')) return 'calendar'
     if (pathname.startsWith('/messages')) return 'messages'
-    return '' // No active tab when on dashboard
+    return '' // No active tab for other pages
   })
   const [isLoaded, setIsLoaded] = useState(false)
   const [showCreateWorkout, setShowCreateWorkout] = useState(false)
@@ -209,69 +210,69 @@ export default function CoachDashboard() {
       {/* Header */}
       <header className="glass-effect border-b border-white/20 shadow-sm sticky top-0 z-50 backdrop-blur-md">
         <div className="container-responsive">
-          <div className="flex justify-between items-center h-16">
-                         <div className="flex items-center space-x-4 sm:space-x-6">
-               <div className={`flex items-center space-x-3 sm:space-x-4 transition-all duration-500 ${isLoaded ? 'scale-100 opacity-100' : 'scale-90 opacity-0'}`}>
-                                   <div className="relative">
-                    <div className="h-12 w-12 sm:h-14 sm:w-14 bg-gradient-to-br from-royal-blue via-blue-600 to-dark-blue rounded-2xl shadow-lg flex items-center justify-center border-2 border-white/20 backdrop-blur-sm">
-                      <FirebirdLogo className="h-6 w-6 sm:h-7 sm:w-7 text-white drop-shadow-sm" />
-                    </div>
+                    <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-4 sm:space-x-6">
+              <div className={`flex items-center space-x-3 sm:space-x-4 transition-all duration-500 ${isLoaded ? 'scale-100 opacity-100' : 'scale-90 opacity-0'}`}>
+                <div className="relative">
+                  <div className="h-12 w-12 sm:h-14 sm:w-14 bg-gradient-to-br from-royal-blue via-blue-600 to-dark-blue rounded-2xl shadow-lg flex items-center justify-center border-2 border-white/20 backdrop-blur-sm">
+                    <FirebirdLogo className="h-6 w-6 sm:h-7 sm:w-7 text-white drop-shadow-sm" />
                   </div>
-                 <div className={`transition-all duration-500 delay-100 ${isLoaded ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'}`}>
-                   <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-royal-blue via-blue-600 to-dark-blue bg-clip-text text-transparent font-elegant tracking-tight">Firebird Fit</h1>
-                   <p className="text-xs sm:text-sm text-gray-600 font-medium hidden sm:block tracking-wide">Team Performance & Communication</p>
-                 </div>
-               </div>
-             </div>
+                </div>
+                <div className={`transition-all duration-500 delay-100 ${isLoaded ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'}`}>
+                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-royal-blue via-blue-600 to-dark-blue bg-clip-text text-transparent font-elegant tracking-tight">Firebird Fit</h1>
+                  <p className="text-xs sm:text-sm text-gray-600 font-medium hidden sm:block tracking-wide">Team Performance & Communication</p>
+                </div>
+              </div>
+            </div>
             
-                                      <div className="flex items-center space-x-2 sm:space-x-4">
-               <button 
-                 onClick={() => router.push('/profile')}
-                 className="flex items-center space-x-2 sm:space-x-3 bg-white rounded-xl px-2 sm:px-3 py-2 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105 cursor-pointer"
-               >
-                 <div className="h-6 w-6 sm:h-8 sm:w-8 bg-gradient-to-br from-royal-blue to-dark-blue rounded-full flex items-center justify-center border-2 border-royal-blue">
-                   <Users className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-                 </div>
-                 <span className="text-xs sm:text-sm font-semibold text-gray-700 hidden sm:block">{user?.name}</span>
-               </button>
+            {/* Navigation Tabs */}
+            <div className="flex items-center justify-center flex-1">
+              <div className="flex space-x-1 p-2 bg-gray-100 rounded-2xl">
+                {[
+                  { id: 'workouts', label: 'Workouts', icon: Dumbbell, href: '/workouts' },
+                  { id: 'calendar', label: 'Calendar', icon: Calendar, href: '/calendar' },
+                  { id: 'messages', label: 'Messages', icon: MessageSquare, href: '/messages' }
+                ].map((tab) => {
+                  const Icon = tab.icon
+                  const isActive = activeTab === tab.id
+                  
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setActiveTab(tab.id)
+                        router.push(tab.href)
+                      }}
+                      className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-xl font-medium transition-all duration-200 min-w-[80px] ${
+                        isActive
+                          ? 'bg-white text-blue-600 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span className="hidden sm:block text-sm">{tab.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              <button 
+                onClick={() => router.push('/profile')}
+                className="flex items-center space-x-2 sm:space-x-3 bg-white rounded-xl px-2 sm:px-3 py-2 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105 cursor-pointer"
+              >
+                <div className="h-6 w-6 sm:h-8 sm:w-8 bg-gradient-to-br from-royal-blue to-dark-blue rounded-full flex items-center justify-center border-2 border-royal-blue">
+                  <Users className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+                </div>
+                <span className="text-xs sm:text-sm font-semibold text-gray-700 hidden sm:block">{user?.name}</span>
+              </button>
               <button
                 onClick={handleLogout}
                 className="p-2 text-gray-400 hover:text-gray-600 transition-all duration-200 hover:scale-110 focus-ring"
               >
                 <LogOut className="h-5 w-5" />
               </button>
-            </div>
-          </div>
-          
-          {/* Navigation Tabs */}
-          <div className="flex justify-center pb-4">
-            <div className="flex space-x-1 p-2 bg-gray-100 rounded-2xl">
-              {[
-                { id: 'workouts', label: 'Workouts', icon: Dumbbell, href: '/workouts' },
-                { id: 'calendar', label: 'Calendar', icon: Calendar, href: '/calendar' },
-                { id: 'messages', label: 'Messages', icon: MessageSquare, href: '/messages' }
-              ].map((tab) => {
-                const Icon = tab.icon
-                const isActive = activeTab === tab.id
-                
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => {
-                      setActiveTab(tab.id)
-                      router.push(tab.href)
-                    }}
-                    className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
-                      isActive
-                        ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
-                    }`}
-                  >
-                    <Icon className="h-5 w-5" />
-                    <span className="hidden sm:block">{tab.label}</span>
-                  </button>
-                )
-              })}
             </div>
           </div>
         </div>
