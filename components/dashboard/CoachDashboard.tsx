@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { TeamStats } from '@/lib/utils'
@@ -91,17 +91,17 @@ const exerciseLibrary = [
 export default function CoachDashboard() {
   const { user, logout } = useAuth()
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState(() => {
-    const pathname = window.location.pathname
-    if (pathname === '/dashboard' || pathname === '/') return '' // No active tab when on dashboard
-    if (pathname.startsWith('/workouts')) return 'workouts'
-    if (pathname.startsWith('/calendar')) return 'calendar'
-    if (pathname.startsWith('/messages')) return 'messages'
-    return '' // No active tab for other pages
-  })
+  
+  // Refs for modal click-outside detection
+  const createWorkoutModalRef = useRef<HTMLDivElement>(null)
+  const createEventModalRef = useRef<HTMLDivElement>(null)
+  const sendAnnouncementModalRef = useRef<HTMLDivElement>(null)
+  
+  const [activeTab, setActiveTab] = useState('')
   const [isLoaded, setIsLoaded] = useState(false)
   const [showCreateWorkout, setShowCreateWorkout] = useState(false)
   const [showCreateEvent, setShowCreateEvent] = useState(false)
+  const [showSendAnnouncement, setShowSendAnnouncement] = useState(false)
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const [workoutName, setWorkoutName] = useState('')
   const [workoutType, setWorkoutType] = useState('strength')
@@ -126,11 +126,53 @@ export default function CoachDashboard() {
     attendees: ''
   })
 
+  // Announcement form state
+  const [announcementForm, setAnnouncementForm] = useState({
+    title: '',
+    message: '',
+    priority: 'normal',
+    recipients: 'all',
+    scheduled: false,
+    scheduledDate: '',
+    scheduledTime: ''
+  })
+
   useEffect(() => {
     // Simulate loading animation
     const timer = setTimeout(() => setIsLoaded(true), 100)
     return () => clearTimeout(timer)
   }, [])
+
+  // Handle click outside modals
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node
+      
+      // Close Create Workout modal
+      if (showCreateWorkout && createWorkoutModalRef.current && !createWorkoutModalRef.current.contains(target)) {
+        setShowCreateWorkout(false)
+      }
+      
+      // Close Create Event modal
+      if (showCreateEvent && createEventModalRef.current && !createEventModalRef.current.contains(target)) {
+        setShowCreateEvent(false)
+      }
+      
+      // Close Send Announcement modal
+      if (showSendAnnouncement && sendAnnouncementModalRef.current && !sendAnnouncementModalRef.current.contains(target)) {
+        setShowSendAnnouncement(false)
+      }
+    }
+
+    // Add event listener if any modal is open
+    if (showCreateWorkout || showCreateEvent || showSendAnnouncement) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showCreateWorkout, showCreateEvent, showSendAnnouncement])
 
   const handleLogout = () => {
     logout()
@@ -205,6 +247,28 @@ export default function CoachDashboard() {
     }
   }
 
+  const handleSendAnnouncement = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (announcementForm.title && announcementForm.message) {
+      // Here you would typically send the announcement to your backend
+      console.log('Sending announcement:', announcementForm)
+      setShowSendAnnouncement(false)
+      setShowSuccessMessage(true)
+      setAnnouncementForm({
+        title: '',
+        message: '',
+        priority: 'normal',
+        recipients: 'all',
+        scheduled: false,
+        scheduledDate: '',
+        scheduledTime: ''
+      })
+      
+      // Hide success message after 3 seconds
+      setTimeout(() => setShowSuccessMessage(false), 3000)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Header */}
@@ -240,7 +304,6 @@ export default function CoachDashboard() {
                     <button
                       key={tab.id}
                       onClick={() => {
-                        setActiveTab(tab.id)
                         router.push(tab.href)
                       }}
                       className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-xl font-medium transition-all duration-200 min-w-[80px] ${
@@ -283,7 +346,7 @@ export default function CoachDashboard() {
         <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-2xl shadow-lg transform transition-all duration-300 animate-in slide-in-from-right">
           <div className="flex items-center space-x-2">
             <CheckCircle className="h-5 w-5" />
-            <span className="font-semibold">Event created successfully!</span>
+            <span className="font-semibold">Action completed successfully!</span>
           </div>
         </div>
       )}
@@ -350,6 +413,8 @@ export default function CoachDashboard() {
                       setShowCreateWorkout(true)
                     } else if (action.title === 'Add Event') {
                       setShowCreateEvent(true)
+                    } else if (action.title === 'Send Announcement') {
+                      setShowSendAnnouncement(true)
                     }
                   }}
                 >
@@ -443,7 +508,7 @@ export default function CoachDashboard() {
         {/* Create Workout Modal */}
         {showCreateWorkout && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div ref={createWorkoutModalRef} className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
               {/* Modal Header */}
               <div className="flex items-center justify-between p-6 border-b border-gray-200">
                 <div className="flex items-center space-x-3">
@@ -664,111 +729,131 @@ export default function CoachDashboard() {
         {/* Create Event Modal */}
         {showCreateEvent && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Create New Event</h3>
+            <div ref={createEventModalRef} className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <div className="flex items-center space-x-3">
+                  <div className="h-10 w-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
+                    <Calendar className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900">Create New Event</h3>
+                    <p className="text-sm text-gray-500">Schedule team activities and meetings</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowCreateEvent(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
               </div>
 
-              <form onSubmit={handleCreateEvent} className="p-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Event Title
-                  </label>
-                  <input
-                    type="text"
-                    value={eventForm.title}
-                    onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+              {/* Modal Content */}
+              <div className="flex-1 overflow-y-auto p-6">
+                <form onSubmit={handleCreateEvent} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Date
+                      Event Title
                     </label>
                     <input
-                      type="date"
-                      value={eventForm.date}
-                      onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
+                      type="text"
+                      value={eventForm.title}
+                      onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-500/20 focus:border-green-500 transition-all duration-300"
                       required
                     />
                   </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Date
+                      </label>
+                      <input
+                        type="date"
+                        value={eventForm.date}
+                        onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-500/20 focus:border-green-500 transition-all duration-300"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Time
+                      </label>
+                      <input
+                        type="time"
+                        value={eventForm.time}
+                        onChange={(e) => setEventForm({ ...eventForm, time: e.target.value })}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-500/20 focus:border-green-500 transition-all duration-300"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Duration (min)
+                      </label>
+                      <select
+                        value={eventForm.duration}
+                        onChange={(e) => setEventForm({ ...eventForm, duration: e.target.value })}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-500/20 focus:border-green-500 transition-all duration-300"
+                      >
+                        <option value="30">30 minutes</option>
+                        <option value="60">1 hour</option>
+                        <option value="90">1.5 hours</option>
+                        <option value="120">2 hours</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Type
+                      </label>
+                      <select
+                        value={eventForm.type}
+                        onChange={(e) => setEventForm({ ...eventForm, type: e.target.value })}
+                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-500/20 focus:border-green-500 transition-all duration-300"
+                      >
+                        {eventTypes.map((type) => (
+                          <option key={type.id} value={type.id}>{type.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Time
+                      Location
                     </label>
                     <input
-                      type="time"
-                      value={eventForm.time}
-                      onChange={(e) => setEventForm({ ...eventForm, time: e.target.value })}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
-                      required
+                      type="text"
+                      value={eventForm.location}
+                      onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-500/20 focus:border-green-500 transition-all duration-300"
                     />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Duration (min)
+                      Description
                     </label>
-                    <select
-                      value={eventForm.duration}
-                      onChange={(e) => setEventForm({ ...eventForm, duration: e.target.value })}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
-                    >
-                      <option value="30">30 minutes</option>
-                      <option value="60">1 hour</option>
-                      <option value="90">1.5 hours</option>
-                      <option value="120">2 hours</option>
-                    </select>
+                    <textarea
+                      value={eventForm.description}
+                      onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
+                      rows={3}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-500/20 focus:border-green-500 transition-all duration-300 resize-none"
+                    />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Type
-                    </label>
-                    <select
-                      value={eventForm.type}
-                      onChange={(e) => setEventForm({ ...eventForm, type: e.target.value })}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
-                    >
-                      {eventTypes.map((type) => (
-                        <option key={type.id} value={type.id}>{type.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+                </form>
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Location
-                  </label>
-                  <input
-                    type="text"
-                    value={eventForm.location}
-                    onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    value={eventForm.description}
-                    onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
-                    rows={3}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 resize-none"
-                  />
-                </div>
-
-                <div className="flex items-center justify-end space-x-3 pt-4">
+              {/* Modal Footer */}
+              <div className="p-6 border-t border-gray-200">
+                <div className="flex items-center justify-between">
                   <button
-                    type="button"
                     onClick={() => {
                       setShowCreateEvent(false)
                       setEventForm({
@@ -782,18 +867,177 @@ export default function CoachDashboard() {
                         attendees: ''
                       })
                     }}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                    className="px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors duration-200"
                   >
                     Cancel
                   </button>
                   <button
-                    type="submit"
-                    className="bg-gradient-to-r from-royal-blue to-dark-blue hover:from-dark-blue hover:to-royal-blue text-white px-6 py-2 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
+                    onClick={handleCreateEvent}
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
                   >
                     Create Event
                   </button>
                 </div>
-              </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Send Announcement Modal */}
+        {showSendAnnouncement && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div ref={sendAnnouncementModalRef} className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <div className="flex items-center space-x-3">
+                  <div className="h-10 w-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center">
+                    <Send className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900">Send Team Announcement</h3>
+                    <p className="text-sm text-gray-500">Communicate important updates to your team</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowSendAnnouncement(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="flex-1 overflow-y-auto p-6">
+                <form onSubmit={handleSendAnnouncement} className="space-y-6">
+                  {/* Announcement Title */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Announcement Title
+                    </label>
+                    <input
+                      type="text"
+                      value={announcementForm.title}
+                      onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
+                      placeholder="Enter announcement title..."
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all duration-300 text-base"
+                      required
+                    />
+                  </div>
+
+                  {/* Priority Level */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Priority Level
+                    </label>
+                    <select
+                      value={announcementForm.priority}
+                      onChange={(e) => setAnnouncementForm({ ...announcementForm, priority: e.target.value })}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all duration-300 text-base"
+                    >
+                      <option value="low">Low Priority</option>
+                      <option value="normal">Normal Priority</option>
+                      <option value="high">High Priority</option>
+                      <option value="urgent">Urgent</option>
+                    </select>
+                  </div>
+
+                  {/* Recipients */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Recipients
+                    </label>
+                    <select
+                      value={announcementForm.recipients}
+                      onChange={(e) => setAnnouncementForm({ ...announcementForm, recipients: e.target.value })}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all duration-300 text-base"
+                    >
+                      <option value="all">All Team Members</option>
+                      <option value="starters">Starting Lineup Only</option>
+                      <option value="bench">Bench Players Only</option>
+                      <option value="captains">Team Captains Only</option>
+                      <option value="coaches">Coaching Staff Only</option>
+                    </select>
+                  </div>
+
+                  {/* Message Content */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Message Content
+                    </label>
+                    <textarea
+                      value={announcementForm.message}
+                      onChange={(e) => setAnnouncementForm({ ...announcementForm, message: e.target.value })}
+                      placeholder="Enter your announcement message..."
+                      rows={6}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all duration-300 text-base resize-none"
+                      required
+                    />
+                  </div>
+
+                  {/* Schedule Option */}
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      id="schedule-announcement"
+                      checked={announcementForm.scheduled}
+                      onChange={(e) => setAnnouncementForm({ ...announcementForm, scheduled: e.target.checked })}
+                      className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                    />
+                    <label htmlFor="schedule-announcement" className="text-sm font-medium text-gray-700">
+                      Schedule for later
+                    </label>
+                  </div>
+
+                  {/* Schedule Date/Time */}
+                  {announcementForm.scheduled && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Date
+                        </label>
+                        <input
+                          type="date"
+                          value={announcementForm.scheduledDate}
+                          onChange={(e) => setAnnouncementForm({ ...announcementForm, scheduledDate: e.target.value })}
+                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all duration-300"
+                          required={announcementForm.scheduled}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Time
+                        </label>
+                        <input
+                          type="time"
+                          value={announcementForm.scheduledTime}
+                          onChange={(e) => setAnnouncementForm({ ...announcementForm, scheduledTime: e.target.value })}
+                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all duration-300"
+                          required={announcementForm.scheduled}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </form>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-6 border-t border-gray-200">
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => setShowSendAnnouncement(false)}
+                    className="px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors duration-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSendAnnouncement}
+                    disabled={!announcementForm.title.trim() || !announcementForm.message.trim()}
+                    className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-6 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {announcementForm.scheduled ? 'Schedule Announcement' : 'Send Announcement'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

@@ -29,7 +29,7 @@ import FirebirdLogo from '@/components/ui/FirebirdLogo'
 const mockAthleteStats: AthleteStats = {
   totalWorkouts: 45,
   completedWorkouts: 42,
-  nextWorkout: 'Strength Training - Tomorrow 9:00 AM',
+  nextWorkout: 'Upper Body Strength - Tomorrow 9:00 AM',
   upcomingEvents: 2,
   teamMessages: 3
 }
@@ -46,22 +46,15 @@ const mockTeamMessages = [
 ]
 
 const mockQuickActions = [
-  { id: 1, title: 'Start Workout', icon: Play, color: 'bg-royal-blue', description: 'Begin training' },
-  { id: 2, title: 'View Schedule', icon: Calendar, color: 'bg-green-500', description: 'Check calendar' },
-  { id: 3, title: 'Team Chat', icon: MessageSquare, color: 'bg-purple-500', description: 'Send message' },
+  { id: 1, title: 'Start Workout', icon: Play, color: 'bg-royal-blue', description: 'Begin training', href: '/workouts' },
+  { id: 2, title: 'View Schedule', icon: Calendar, color: 'bg-green-500', description: 'Check calendar', href: '/calendar' },
+  { id: 3, title: 'Team Chat', icon: MessageSquare, color: 'bg-purple-500', description: 'Send message', href: '/messages' },
 ]
 
 export default function AthleteDashboard() {
   const { user, logout } = useAuth()
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState(() => {
-    const pathname = window.location.pathname
-    if (pathname === '/dashboard' || pathname === '/') return '' // No active tab when on dashboard
-    if (pathname.startsWith('/workouts')) return 'workouts'
-    if (pathname.startsWith('/calendar')) return 'calendar'
-    if (pathname.startsWith('/messages')) return 'messages'
-    return '' // No active tab for other pages
-  })
+  const [activeTab, setActiveTab] = useState('')
   const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
@@ -83,12 +76,16 @@ export default function AthleteDashboard() {
         <div className="container-responsive">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4 sm:space-x-6">
-              <div className={`transition-all duration-500 ${isLoaded ? 'scale-100 opacity-100' : 'scale-90 opacity-0'}`}>
-                <FirebirdLogo className="h-10 w-10 sm:h-12 sm:w-12" />
-              </div>
-              <div className={`transition-all duration-500 delay-100 ${isLoaded ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'}`}>
-                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold gradient-text font-elegant">Firebird Fit</h1>
-                <p className="text-xs sm:text-sm text-gray-600 font-medium hidden sm:block">Performance & Team Communication</p>
+              <div className={`flex items-center space-x-3 sm:space-x-4 transition-all duration-500 ${isLoaded ? 'scale-100 opacity-100' : 'scale-90 opacity-0'}`}>
+                <div className="relative">
+                  <div className="h-12 w-12 sm:h-14 sm:w-14 bg-gradient-to-br from-royal-blue via-blue-600 to-dark-blue rounded-2xl shadow-lg flex items-center justify-center border-2 border-white/20 backdrop-blur-sm">
+                    <FirebirdLogo className="h-6 w-6 sm:h-7 sm:w-7 text-white drop-shadow-sm" />
+                  </div>
+                </div>
+                <div className={`transition-all duration-500 delay-100 ${isLoaded ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'}`}>
+                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-royal-blue via-blue-600 to-dark-blue bg-clip-text text-transparent font-elegant tracking-tight">Firebird Fit</h1>
+                  <p className="text-xs sm:text-sm text-gray-600 font-medium hidden sm:block tracking-wide">Team Performance & Communication</p>
+                </div>
               </div>
             </div>
             
@@ -107,7 +104,6 @@ export default function AthleteDashboard() {
                     <button
                       key={tab.id}
                       onClick={() => {
-                        setActiveTab(tab.id)
                         router.push(tab.href)
                       }}
                       className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-xl font-medium transition-all duration-200 min-w-[80px] ${
@@ -161,32 +157,22 @@ export default function AthleteDashboard() {
               <h3 className="text-lg sm:text-xl font-bold text-gray-900">Messages</h3>
             </div>
             
-            <div className="space-y-3 sm:space-y-4">
-              {mockTeamMessages.map((message, index) => (
+            <div className="space-y-2 sm:space-y-3">
+              {mockTeamMessages.slice(0, 3).map((message, index) => (
                 <div 
                   key={message.id} 
                   className={`message-bubble transition-all duration-200 hover:scale-[1.02] ${message.unread ? 'ring-2 ring-royal-blue/20' : ''}`}
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
                   <div className="flex items-start space-x-3">
-                    <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center transition-transform duration-200 hover:scale-110 ${
-                      message.type === 'coach' ? 'bg-gradient-to-br from-royal-blue to-dark-blue' : 'bg-gradient-to-br from-gold to-yellow-400'
-                    }`}>
+                    <div className="h-8 w-8 sm:h-10 sm:w-10 bg-gradient-to-br from-royal-blue to-dark-blue rounded-full flex items-center justify-center transition-transform duration-200 hover:scale-110">
                       <span className="text-white font-semibold text-xs sm:text-sm">
                         {message.from.split(' ').map(n => n[0]).join('')}
                       </span>
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center space-x-2">
-                          <p className="font-semibold text-gray-900 mobile-text">{message.from}</p>
-                          {message.type === 'coach' && (
-                            <span className="text-xs bg-royal-blue text-white px-2 py-1 rounded-full">Coach</span>
-                          )}
-                          {message.type === 'captain' && (
-                            <span className="text-xs bg-gold text-gray-800 px-2 py-1 rounded-full">Captain</span>
-                          )}
-                        </div>
+                        <p className="font-semibold text-gray-900 mobile-text">{message.from}</p>
                         <span className="text-xs text-gray-500">{message.time}</span>
                       </div>
                       <p className="text-gray-700 mobile-text">{message.message}</p>
@@ -210,6 +196,7 @@ export default function AthleteDashboard() {
               {mockQuickActions.map((action, index) => (
                 <button 
                   key={action.id} 
+                  onClick={() => router.push(action.href)}
                   className="w-full flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all duration-200 group focus-ring"
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
@@ -228,40 +215,39 @@ export default function AthleteDashboard() {
 
         {/* Next Workout & Upcoming Events */}
         <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 transition-all duration-500 delay-500 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
-          {/* Next Workout */}
-          <div className="card-elevated hover-lift">
-            <div className="flex items-center justify-between mb-4 sm:mb-6">
-              <h3 className="text-lg sm:text-xl font-bold text-gray-900">Next Workout</h3>
-              <div className="h-6 w-6 sm:h-8 sm:w-8 bg-gradient-to-br from-royal-blue to-dark-blue rounded-xl flex items-center justify-center">
-                <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-              </div>
-            </div>
+                     {/* Next Workout */}
+           <div className="card-elevated hover-lift">
+             <div className="flex items-center justify-between mb-4 sm:mb-6">
+               <h3 className="text-lg sm:text-xl font-bold text-gray-900">Next Workout</h3>
+             </div>
             
-            <div className="space-y-3 sm:space-y-4">
-              <div className="p-4 sm:p-6 bg-gradient-to-br from-royal-blue to-dark-blue rounded-2xl text-white shadow-lg">
-                <div className="flex items-center justify-between mb-2 sm:mb-3">
-                  <h4 className="font-bold text-base sm:text-lg">Strength Training</h4>
-                  <Star className="h-4 w-4 sm:h-5 sm:w-5 text-gold" />
-                </div>
-                <p className="text-blue-100 mb-3 sm:mb-4 text-sm sm:text-base">Focus on upper body and core strength. Coach Johnson will be leading this session.</p>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
-                    <span className="text-xs sm:text-sm">Tomorrow • 9:00 AM</span>
-                  </div>
-                  <button className="btn-secondary text-xs sm:text-sm px-3 sm:px-4 py-1 sm:py-2">
-                    Start Training
-                  </button>
-                </div>
+            <div className="relative p-6 bg-gradient-to-br from-royal-blue via-blue-600 to-dark-blue rounded-2xl text-white shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+              {/* Background Pattern */}
+              <div className="absolute inset-0 opacity-10">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white rounded-full -translate-y-16 translate-x-16"></div>
+                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white rounded-full translate-y-12 -translate-x-12"></div>
               </div>
               
-              <div className="flex items-center justify-between text-xs sm:text-sm text-gray-600">
-                <span>Estimated duration: 45 minutes</span>
-                <span className="flex items-center">
-                  <Heart className="h-3 w-3 sm:h-4 sm:w-4 mr-1 text-red-500" />
-                  High Intensity
-                </span>
-              </div>
+                             {/* Content */}
+               <div className="relative flex items-center justify-between">
+                 <div className="flex items-center space-x-3">
+                   <div className="h-12 w-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
+                     <Dumbbell className="h-6 w-6 text-white group-hover:scale-110 transition-transform duration-300" />
+                   </div>
+                                       <div>
+                      <h4 className="font-bold text-lg sm:text-xl">Upper Body Strength</h4>
+                    </div>
+                 </div>
+                                   <button 
+                    onClick={() => router.push('/workouts')}
+                    className="bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-lg backdrop-blur-sm group-hover:bg-white/25"
+                  >
+                    Start
+                  </button>
+               </div>
+              
+              {/* Subtle Animation */}
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/30 to-transparent transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
             </div>
           </div>
 

@@ -161,14 +161,15 @@ export default function CalendarPage() {
     if (events.length > 0) {
       setSelectedEvent(events[0])
       setShowEventDetails(true)
-    } else {
-      // If no events on this date, open create event modal with date pre-filled
+    } else if (isCoach) {
+      // If no events on this date and user is a coach, open create event modal with date pre-filled
       setEventForm({
         ...eventForm,
         date: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
       })
       setShowCreateEvent(true)
     }
+    // If no events and user is not a coach, do nothing (athletes can't create events)
   }
 
   const handleCreateEvent = (e: React.FormEvent) => {
