@@ -63,8 +63,12 @@ export default function AthleteDashboard() {
     return () => clearTimeout(timer)
   }, [])
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch (error) {
+      console.error('Error during logout:', error)
+    }
   }
 
   const progressPercentage = (mockAthleteStats.completedWorkouts / mockAthleteStats.totalWorkouts) * 100

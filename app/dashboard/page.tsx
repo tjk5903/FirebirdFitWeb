@@ -17,12 +17,14 @@ export default function DashboardPage() {
     }
   }, [user, isLoading, router])
 
+  // Show loading spinner while checking auth state
   if (isLoading) {
     return <LoadingSpinner />
   }
 
+  // Redirect to login if no user (this should happen automatically via useEffect)
   if (!user) {
-    return null
+    return <LoadingSpinner />
   }
 
   return (

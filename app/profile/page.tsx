@@ -35,8 +35,12 @@ export default function ProfilePage() {
     return () => clearTimeout(timer)
   }, [])
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch (error) {
+      console.error('Error during logout:', error)
+    }
   }
 
   const handleSave = () => {

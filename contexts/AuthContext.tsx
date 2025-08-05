@@ -1,12 +1,15 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { User, UserRole } from '@/lib/utils'
+import { supabase } from '@/lib/supabaseClient'
+import { User, UserRole, upsertUser } from '@/lib/utils'
 
 interface AuthContextType {
   user: User | null
   login: (email: string, password: string, role: UserRole) => Promise<void>
-  logout: () => void
+  signInWithMagicLink: (email: string, role: UserRole) => Promise<void>
+  signup: (email: string, password: string, role: UserRole) => Promise<void>
+  logout: () => Promise<void>
   isLoading: boolean
 }
 
@@ -16,36 +19,174 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  // Check session on mount and handle auth state changes
   useEffect(() => {
-    // Always start with no user to ensure login screen is shown
-    // Comment out the auto-login functionality to always show login screen
-    // const savedUser = localStorage.getItem('firebird-user')
-    // if (savedUser) {
-    //   setUser(JSON.parse(savedUser))
-    // }
-    setIsLoading(false)
+    const getSession = async () => {
+      try {
+        console.log('Getting session...')
+        const { data: { session } } = await supabase.auth.getSession()
+        console.log('Session result:', session ? 'Session found' : 'No session')
+        if (session?.user) {
+          await handleUserSession(session.user)
+        }
+      } catch (error) {
+        console.error('Error getting session:', error)
+      } finally {
+        console.log('Setting isLoading to false')
+        setIsLoading(false)
+      }
+    }
+
+    const handleUserSession = async (supabaseUser: any) => {
+      try {
+        console.log('Handling user session for:', supabaseUser.email)
+        // Check if user exists in our users table
+        const { data: profile, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', supabaseUser.id)
+          .single()
+
+        if (error && error.code === 'PGRST116') {
+          console.log('User not found in database, creating new user')
+          // User doesn't exist in our table, create them
+          const storedRole = localStorage.getItem('selectedRole') as UserRole || 'athlete'
+          
+          const { data: newProfile, error: insertError } = await supabase
+            .from('users')
+            .insert({
+              id: supabaseUser.id,
+              email: supabaseUser.email,
+              full_name: '',
+              role: storedRole,
+            })
+            .select()
+            .single()
+
+          if (insertError) {
+            console.error('Error creating user profile:', insertError)
+            // Don't return here, continue to set user state
+          } else {
+            // Clear stored role
+            localStorage.removeItem('selectedRole')
+
+            setUser({
+              id: newProfile.id,
+              name: newProfile.full_name || '',
+              email: newProfile.email,
+              role: newProfile.role as UserRole,
+            })
+            console.log('New user created and set')
+          }
+        } else if (profile) {
+          console.log('User found in database')
+          // User exists, set their profile
+          setUser({
+            id: profile.id,
+            name: profile.full_name || '',
+            email: profile.email,
+            role: profile.role as UserRole,
+          })
+        } else {
+          // Handle case where profile is null but no error
+          console.log('No user profile found')
+        }
+      } catch (error) {
+        console.error('Error handling user session:', error)
+      }
+    }
+
+    getSession()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event, session?.user?.email)
+      
+      if (event === 'SIGNED_IN' && session?.user) {
+        await handleUserSession(session.user)
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null)
+        localStorage.removeItem('selectedRole')
+        // Redirect to login page
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login'
+        }
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        await handleUserSession(session.user)
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [])
 
-  const login = async (email: string, password: string, role: UserRole) => {
-    // Simulate authentication
-    const mockUser: User = {
-      id: '1',
-      name: 'Test User',
+  // Login existing user (password-based)
+  const login = async (email: string, password: string, _role: UserRole) => {
+    const { error } = await supabase.auth.signInWithPassword({
       email,
-      role,
-    }
-    
-    setUser(mockUser)
-    localStorage.setItem('firebird-user', JSON.stringify(mockUser))
+      password,
+    })
+    if (error) throw error
   }
 
-  const logout = () => {
-    setUser(null)
-    localStorage.removeItem('firebird-user')
+  // Sign in with magic link
+  const signInWithMagicLink = async (email: string, role: UserRole) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/dashboard`,
+      },
+    })
+    if (error) throw error
+  }
+
+  // Signup new user
+  const signup = async (email: string, password: string, role: UserRole) => {
+    // Sign up with Supabase
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    })
+    if (error) throw error
+
+    // Insert profile into users table
+    const { error: insertError } = await supabase.from('users').insert({
+      id: data.user?.id,
+      email,
+      full_name: '',
+      role,
+    })
+    if (insertError) throw insertError
+  }
+
+  // Logout
+  const logout = async () => {
+    try {
+      // Clear user state immediately
+      setUser(null)
+      localStorage.removeItem('selectedRole')
+      
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        console.error('Error signing out:', error)
+      }
+      
+      // Redirect to login page
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login'
+      }
+    } catch (error) {
+      console.error('Error during logout:', error)
+      // Still redirect even if there's an error
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login'
+      }
+    }
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, signInWithMagicLink, signup, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   )
@@ -57,4 +198,4 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider')
   }
   return context
-} 
+}

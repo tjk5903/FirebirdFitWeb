@@ -1,36 +1,64 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { UserRole } from '@/lib/utils'
-import { Eye, EyeOff, Shield, Users, MessageSquare, Activity } from 'lucide-react'
+import { Shield, Users, Activity, Mail, CheckCircle, AlertCircle } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [role, setRole] = useState<UserRole>('athlete')
-  const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
+  const [isCheckingSession, setIsCheckingSession] = useState(true)
   
-  const { login } = useAuth()
+  const { user, signInWithMagicLink } = useAuth()
   const router = useRouter()
+
+  // Check if user is already authenticated
+  useEffect(() => {
+    if (!isLoading) {
+      if (user) {
+        router.push('/dashboard')
+      } else {
+        setIsCheckingSession(false)
+      }
+    }
+  }, [user, isLoading, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setSuccess(false)
     setIsLoading(true)
 
     try {
-      await login(email, password, role)
-      router.push('/dashboard')
-    } catch (err) {
-      setError('Invalid credentials. Please try again.')
+      // Store the selected role in localStorage for retrieval after magic link auth
+      localStorage.setItem('selectedRole', role)
+      
+      await signInWithMagicLink(email, role)
+      setSuccess(true)
+    } catch (err: any) {
+      setError(err.message || 'Failed to send magic link. Please try again.')
     } finally {
       setIsLoading(false)
     }
+  }
+
+
+
+  if (isCheckingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white text-lg">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -93,78 +121,86 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Email Field */}
-            <div className="relative group">
-              <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-300">
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                </svg>
-              </div>
-              <input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-base bg-white/90 backdrop-blur-sm hover:border-gray-300 group-hover:shadow-md"
-                placeholder="Email"
-              />
-            </div>
-
-            {/* Password Field */}
-            <div className="relative group">
-              <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-300">
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-              </div>
-              <input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-12 pr-12 py-4 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-base bg-white/90 backdrop-blur-sm hover:border-gray-300 group-hover:shadow-md"
-                placeholder="Password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-300 hover:scale-110"
-              >
-                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
-            </div>
-
-            {/* Error Message */}
-            {error && (
-              <div className="bg-red-50 border-2 border-red-200 text-red-600 px-4 py-3 rounded-2xl text-sm font-medium animate-bounce-in">
-                {error}
-              </div>
-            )}
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-4 px-8 rounded-2xl transition-all duration-500 transform hover:scale-105 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed text-lg shadow-lg active:scale-95"
-            >
-              {isLoading ? (
-                <div className="flex items-center justify-center space-x-2">
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span>Signing in...</span>
+          {!success ? (
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Email Field */}
+              <div className="relative group">
+                <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors duration-300">
+                  <Mail className="h-5 w-5" />
                 </div>
-              ) : (
-                'Sign In'
-              )}
-            </button>
-          </form>
+                <input
+                  id="email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-base bg-white/90 backdrop-blur-sm hover:border-gray-300 group-hover:shadow-md"
+                  placeholder="Enter your email"
+                />
+              </div>
 
-          {/* Demo Credentials */}
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-50 border-2 border-red-200 text-red-600 px-4 py-3 rounded-2xl text-sm font-medium animate-bounce-in flex items-center space-x-2">
+                  <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-4 px-8 rounded-2xl transition-all duration-500 transform hover:scale-105 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed text-lg shadow-lg active:scale-95"
+              >
+                {isLoading ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <span>Sending magic link...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center space-x-2">
+                    <Mail className="h-5 w-5" />
+                    <span>Send Magic Link</span>
+                  </div>
+                )}
+              </button>
+            </form>
+          ) : (
+            /* Success Message */
+            <div className="text-center space-y-4">
+              <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                <CheckCircle className="h-8 w-8 text-green-600" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Check your email!</h3>
+                <p className="text-gray-600 mb-4">
+                  We've sent a magic link to <span className="font-semibold text-blue-600">{email}</span>
+                </p>
+                <p className="text-sm text-gray-500">
+                  Click the link in your email to sign in as a <span className="font-semibold">{role}</span>.
+                </p>
+              </div>
+              
+              {/* Resend option */}
+              <div className="pt-4 border-t border-gray-100">
+                <button
+                  onClick={() => {
+                    setSuccess(false)
+                    setError('')
+                  }}
+                  className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                >
+                  Send to a different email
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Info */}
           <div className="text-center pt-4 border-t border-gray-100">
             <p className="text-sm text-gray-500 font-medium">
-              Demo: Use any email/password combination
+              No password required - just click the link in your email
             </p>
           </div>
         </div>

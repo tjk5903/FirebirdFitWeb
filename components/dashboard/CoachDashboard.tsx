@@ -174,8 +174,12 @@ export default function CoachDashboard() {
     }
   }, [showCreateWorkout, showCreateEvent, showSendAnnouncement])
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch (error) {
+      console.error('Error during logout:', error)
+    }
   }
 
   const handleCreateWorkout = (e: React.FormEvent) => {
