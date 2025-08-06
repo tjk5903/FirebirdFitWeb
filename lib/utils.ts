@@ -531,3 +531,173 @@ function formatTimeAgo(dateString: string): string {
     return `${days} day${days > 1 ? 's' : ''} ago`
   }
 } 
+
+// Get team events for a user
+export async function getTeamEvents(userId: string): Promise<Array<{
+  id: string
+  title: string
+  description: string | null
+  event_type: string
+  start_time: string
+  end_time: string
+  location: string | null
+  created_at: string
+}>> {
+  try {
+    // First, get the user's team
+    const { data: userTeam, error: teamError } = await supabase
+      .from('team_members')
+      .select('team_id')
+      .eq('user_id', userId)
+      .single()
+
+    if (teamError) {
+      console.error('Error fetching user team:', teamError)
+      throw new Error('Unable to verify team membership')
+    }
+
+    if (!userTeam) {
+      return []
+    }
+
+    // Get events for the user's team, ordered by start_time
+    const { data: events, error: eventsError } = await supabase
+      .from('events')
+      .select(`
+        id,
+        title,
+        description,
+        event_type,
+        start_time,
+        end_time,
+        location,
+        created_at
+      `)
+      .eq('team_id', userTeam.team_id)
+      .order('start_time', { ascending: true })
+
+    if (eventsError) {
+      console.error('Error fetching team events:', eventsError)
+      throw eventsError
+    }
+
+    return events || []
+  } catch (error) {
+    console.error('Error in getTeamEvents:', error)
+    throw error
+  }
+}
+
+// Create a new event
+export async function createEvent(
+  userId: string,
+  eventData: {
+    title: string
+    description?: string
+    event_type: string
+    start_time: string
+    end_time: string
+    location?: string
+  }
+): Promise<{ success: boolean; eventId?: string; error?: string }> {
+  try {
+    // First, get the user's team
+    const { data: userTeam, error: teamError } = await supabase
+      .from('team_members')
+      .select('team_id')
+      .eq('user_id', userId)
+      .single()
+
+    if (teamError) {
+      console.error('Error fetching user team:', teamError)
+      return { success: false, error: 'Unable to verify team membership' }
+    }
+
+    if (!userTeam) {
+      return { success: false, error: 'User is not part of any team' }
+    }
+
+    // Insert the new event
+    const { data: newEvent, error: insertError } = await supabase
+      .from('events')
+      .insert({
+        team_id: userTeam.team_id,
+        title: eventData.title,
+        description: eventData.description || null,
+        event_type: eventData.event_type,
+        start_time: eventData.start_time,
+        end_time: eventData.end_time,
+        location: eventData.location || null,
+        created_at: new Date().toISOString()
+      })
+      .select('id')
+      .single()
+
+    if (insertError) {
+      console.error('Error inserting event:', insertError)
+      return { success: false, error: 'Failed to create event' }
+    }
+
+    return { success: true, eventId: newEvent.id }
+  } catch (error) {
+    console.error('Error in createEvent:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+// Update an existing event
+export async function updateEvent(
+  eventId: string,
+  eventData: {
+    title: string
+    description?: string
+    event_type: string
+    start_time: string
+    end_time: string
+    location?: string
+  }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error: updateError } = await supabase
+      .from('events')
+      .update({
+        title: eventData.title,
+        description: eventData.description || null,
+        event_type: eventData.event_type,
+        start_time: eventData.start_time,
+        end_time: eventData.end_time,
+        location: eventData.location || null
+      })
+      .eq('id', eventId)
+
+    if (updateError) {
+      console.error('Error updating event:', updateError)
+      return { success: false, error: 'Failed to update event' }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('Error in updateEvent:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+// Delete an event
+export async function deleteEvent(eventId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error: deleteError } = await supabase
+      .from('events')
+      .delete()
+      .eq('id', eventId)
+
+    if (deleteError) {
+      console.error('Error deleting event:', deleteError)
+      return { success: false, error: 'Failed to delete event' }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('Error in deleteEvent:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+} 

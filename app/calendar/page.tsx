@@ -3,68 +3,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { getTeamEvents, createEvent, updateEvent, deleteEvent } from '@/lib/utils'
 import { Calendar, Plus, Edit, Trash2, Clock, MapPin, Users, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 import MainNavigation from '@/components/navigation/MainNavigation'
 
-// Mock calendar events
-const mockEvents = [
-  {
-    id: 1,
-    title: 'Team Practice',
-    date: '2024-12-15',
-    time: '15:00',
-    duration: '90',
-    location: 'Main Gym',
-    type: 'practice',
-    attendees: ['Jake Rodriguez', 'Marcus Johnson', 'Tyler Williams'],
-    description: 'Focus on strength training and team coordination'
-  },
-  {
-    id: 2,
-    title: 'Championship Game',
-    date: '2024-12-20',
-    time: '14:00',
-    duration: '120',
-    location: 'Stadium',
-    type: 'game',
-    attendees: ['All Team Members'],
-    description: 'Final championship match against rival team'
-  },
-  {
-    id: 3,
-    title: 'Team Meeting',
-    date: '2024-12-18',
-    time: '10:00',
-    duration: '60',
-    location: 'Conference Room',
-    type: 'meeting',
-    attendees: ['Coaches', 'Team Captains'],
-    description: 'Strategy discussion and upcoming schedule review'
-  },
-  {
-    id: 4,
-    title: 'Morning Training',
-    date: '2024-12-22',
-    time: '07:00',
-    duration: '60',
-    location: 'Training Center',
-    type: 'training',
-    attendees: ['All Athletes'],
-    description: 'Early morning conditioning session'
-  },
-  {
-    id: 5,
-    title: 'Recovery Session',
-    date: '2024-12-25',
-    time: '16:00',
-    duration: '45',
-    location: 'Recovery Room',
-    type: 'training',
-    attendees: ['Selected Athletes'],
-    description: 'Active recovery and stretching'
-  }
-]
-
+// Event types configuration
 const eventTypes = [
   { id: 'practice', label: 'Practice', color: 'bg-blue-500' },
   { id: 'game', label: 'Game', color: 'bg-red-500' },
@@ -73,7 +16,7 @@ const eventTypes = [
 ]
 
 export default function CalendarPage() {
-  const { user } = useAuth()
+  const { user, isLoading } = useAuth()
   const router = useRouter()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showCreateEvent, setShowCreateEvent] = useState(false)
@@ -82,6 +25,17 @@ export default function CalendarPage() {
   const [showEventDetails, setShowEventDetails] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<any>(null)
   const [isLoaded, setIsLoaded] = useState(false)
+  const [events, setEvents] = useState<Array<{
+    id: string
+    title: string
+    description: string | null
+    event_type: string
+    start_time: string
+    end_time: string
+    location: string | null
+    created_at: string
+  }>>([])
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false)
   
   const [eventForm, setEventForm] = useState({
     title: '',
@@ -95,6 +49,25 @@ export default function CalendarPage() {
   })
 
   const isCoach = user?.role === 'coach'
+
+  // Load events when user loads
+  useEffect(() => {
+    const loadEvents = async () => {
+      if (!user) return
+      
+      setIsLoadingEvents(true)
+      try {
+        const teamEvents = await getTeamEvents(user.id)
+        setEvents(teamEvents)
+      } catch (error) {
+        console.error('Error loading events:', error)
+      } finally {
+        setIsLoadingEvents(false)
+      }
+    }
+
+    loadEvents()
+  }, [user])
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoaded(true), 100)
@@ -143,7 +116,12 @@ export default function CalendarPage() {
     const month = String(date.getMonth() + 1).padStart(2, '0')
     const day = String(date.getDate()).padStart(2, '0')
     const dateString = `${year}-${month}-${day}`
-    return mockEvents.filter(event => event.date === dateString)
+    
+    return events.filter(event => {
+      const eventDate = new Date(event.start_time)
+      const eventDateString = `${eventDate.getFullYear()}-${String(eventDate.getMonth() + 1).padStart(2, '0')}-${String(eventDate.getDate()).padStart(2, '0')}`
+      return eventDateString === dateString
+    })
   }
 
   const isToday = (date: Date) => {
@@ -172,43 +150,104 @@ export default function CalendarPage() {
     // If no events and user is not a coach, do nothing (athletes can't create events)
   }
 
-  const handleCreateEvent = (e: React.FormEvent) => {
+  const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (eventForm.title && eventForm.date && eventForm.time) {
-      // Here you would typically save the event to your backend
-      console.log('Creating event:', eventForm)
-      setShowCreateEvent(false)
-      setEventForm({
-        title: '',
-        date: '',
-        time: '',
-        duration: '60',
-        location: '',
-        type: 'practice',
-        description: '',
-        attendees: ''
-      })
+    if (!eventForm.title || !eventForm.date || !eventForm.time || !user) {
+      return
+    }
+
+    try {
+      // Calculate end time based on duration
+      const startDateTime = new Date(`${eventForm.date}T${eventForm.time}`)
+      const endDateTime = new Date(startDateTime.getTime() + parseInt(eventForm.duration) * 60 * 1000)
+      
+      const eventData = {
+        title: eventForm.title,
+        description: eventForm.description || undefined,
+        event_type: eventForm.type,
+        start_time: startDateTime.toISOString(),
+        end_time: endDateTime.toISOString(),
+        location: eventForm.location || undefined
+      }
+
+      let result
+      if (editingEvent) {
+        // Update existing event
+        result = await updateEvent(editingEvent.id, eventData)
+      } else {
+        // Create new event
+        result = await createEvent(user.id, eventData)
+      }
+      
+      if (result.success) {
+        // Refresh events
+        const teamEvents = await getTeamEvents(user.id)
+        setEvents(teamEvents)
+        
+        setShowCreateEvent(false)
+        setEditingEvent(null)
+        setEventForm({
+          title: '',
+          date: '',
+          time: '',
+          duration: '60',
+          location: '',
+          type: 'practice',
+          description: '',
+          attendees: ''
+        })
+      } else {
+        alert(`Failed to ${editingEvent ? 'update' : 'create'} event: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('Error creating/updating event:', error)
+      alert(`An error occurred while ${editingEvent ? 'updating' : 'creating'} the event`)
     }
   }
 
   const handleEditEvent = (event: any) => {
     setEditingEvent(event)
+    
+    // Convert start_time to date and time for the form
+    const startDateTime = new Date(event.start_time)
+    const date = startDateTime.toISOString().split('T')[0]
+    const time = startDateTime.toTimeString().slice(0, 5)
+    
+    // Calculate duration from start and end time
+    const endDateTime = new Date(event.end_time)
+    const durationMs = endDateTime.getTime() - startDateTime.getTime()
+    const durationMinutes = Math.round(durationMs / (1000 * 60))
+    
     setEventForm({
       title: event.title,
-      date: event.date,
-      time: event.time,
-      duration: event.duration,
-      location: event.location,
-      type: event.type,
-      description: event.description,
-      attendees: event.attendees.join(', ')
+      date: date,
+      time: time,
+      duration: durationMinutes.toString(),
+      location: event.location || '',
+      type: event.event_type,
+      description: event.description || '',
+      attendees: ''
     })
     setShowCreateEvent(true)
   }
 
-  const handleDeleteEvent = (eventId: number) => {
-    // Here you would typically delete the event from your backend
-    console.log('Deleting event:', eventId)
+  const handleDeleteEvent = async (eventId: string) => {
+    try {
+      const result = await deleteEvent(eventId)
+      
+      if (result.success) {
+        // Refresh events
+        if (user) {
+          const teamEvents = await getTeamEvents(user.id)
+          setEvents(teamEvents)
+        }
+      } else {
+        alert(`Failed to delete event: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('Error deleting event:', error)
+      alert('An error occurred while deleting the event')
+    }
   }
 
   const formatDate = (dateString: string) => {
@@ -220,12 +259,13 @@ export default function CalendarPage() {
     })
   }
 
-  const formatTime = (timeString: string) => {
-    const [hours, minutes] = timeString.split(':')
-    const hour = parseInt(hours)
-    const ampm = hour >= 12 ? 'PM' : 'AM'
-    const displayHour = hour % 12 || 12
-    return `${displayHour}:${minutes} ${ampm}`
+  const formatTime = (dateTimeString: string) => {
+    const date = new Date(dateTimeString)
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    })
   }
 
   const getEventTypeColor = (type: string) => {
@@ -242,11 +282,11 @@ export default function CalendarPage() {
     today.setHours(0, 0, 0, 0) // Reset time to start of day
     const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)
     
-    return mockEvents.filter(event => {
-      const eventDate = new Date(event.date)
+    return events.filter(event => {
+      const eventDate = new Date(event.start_time)
       eventDate.setHours(0, 0, 0, 0) // Reset time to start of day
       return eventDate >= today && eventDate <= nextWeek
-    }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    }).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
   }
 
   const calendarDays = getDaysInMonth(currentDate)
@@ -254,6 +294,24 @@ export default function CalendarPage() {
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ]
+
+  // Show loading state while auth is loading
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading calendar...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Redirect to login if no user
+  if (!user) {
+    router.push('/login')
+    return null
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -372,8 +430,8 @@ export default function CalendarPage() {
                         {events.slice(0, 2).map((event) => (
                           <div
                             key={event.id}
-                            className={`text-xs p-1 rounded truncate ${getEventTypeColor(event.type)} text-white font-medium`}
-                            title={`${event.title} - ${formatTime(event.time)}`}
+                            className={`text-xs p-1 rounded truncate ${getEventTypeColor(event.event_type)} text-white font-medium`}
+                            title={`${event.title} - ${formatTime(event.start_time)}`}
                           >
                             {event.title}
                           </div>
@@ -399,8 +457,13 @@ export default function CalendarPage() {
           </div>
           
           <div className="space-y-3 sm:space-y-4">
-                         {getUpcomingEvents().length > 0 ? (
-               getUpcomingEvents().map((event) => (
+            {isLoadingEvents ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-3"></div>
+                <span className="text-gray-600">Loading events...</span>
+              </div>
+            ) : getUpcomingEvents().length > 0 ? (
+              getUpcomingEvents().map((event) => (
                  <div 
                    key={event.id} 
                    className="group relative bg-gradient-to-r from-gray-50 to-white border border-gray-200 rounded-2xl p-3 sm:p-4 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] hover:border-blue-200 cursor-pointer"
@@ -412,29 +475,29 @@ export default function CalendarPage() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 sm:space-x-3 mb-2 sm:mb-3">
-                        <div className={`h-2 w-2 sm:h-3 sm:w-3 rounded-full ${getEventTypeColor(event.type)} shadow-md`}></div>
+                        <div className={`h-2 w-2 sm:h-3 sm:w-3 rounded-full ${getEventTypeColor(event.event_type)} shadow-md`}></div>
                         <h4 className="font-semibold text-gray-900 text-sm sm:text-base">{event.title}</h4>
                         <span className="text-xs bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full font-semibold">
-                          {getEventTypeLabel(event.type)}
+                          {getEventTypeLabel(event.event_type)}
                         </span>
                       </div>
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                         <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600">
                           <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500" />
-                          <span>{formatDate(event.date)}</span>
+                          <span>{formatDate(event.start_time)}</span>
                         </div>
                         <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600">
                           <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
-                          <span>{formatTime(event.time)}</span>
+                          <span>{formatTime(event.start_time)}</span>
                         </div>
                         <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600">
                           <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-purple-500" />
-                          <span>{event.location}</span>
+                          <span>{event.location || 'No location'}</span>
                         </div>
                         <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600">
                           <Users className="h-3 w-3 sm:h-4 sm:w-4 text-orange-500" />
-                          <span>{Array.isArray(event.attendees) ? event.attendees.length : 'All'} people</span>
+                          <span>Team Event</span>
                         </div>
                       </div>
                       
@@ -650,7 +713,7 @@ export default function CalendarPage() {
               <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-2xl">
                 <Calendar className="h-5 w-5 text-blue-600" />
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">{formatDate(selectedEvent.date)}</p>
+                  <p className="text-sm font-semibold text-gray-900">{formatDate(selectedEvent.start_time)}</p>
                   <p className="text-xs text-gray-500">Date</p>
                 </div>
               </div>
@@ -658,23 +721,25 @@ export default function CalendarPage() {
               <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-2xl">
                 <Clock className="h-5 w-5 text-green-600" />
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">{formatTime(selectedEvent.time)}</p>
-                  <p className="text-xs text-gray-500">{selectedEvent.duration} min</p>
+                  <p className="text-sm font-semibold text-gray-900">{formatTime(selectedEvent.start_time)}</p>
+                  <p className="text-xs text-gray-500">
+                    {Math.round((new Date(selectedEvent.end_time).getTime() - new Date(selectedEvent.start_time).getTime()) / (1000 * 60))} min
+                  </p>
                 </div>
               </div>
               
               <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-2xl">
                 <MapPin className="h-5 w-5 text-purple-600" />
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">{selectedEvent.location}</p>
+                  <p className="text-sm font-semibold text-gray-900">{selectedEvent.location || 'No location'}</p>
                   <p className="text-xs text-gray-500">Location</p>
                 </div>
               </div>
               
               <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-2xl">
-                <div className={`h-5 w-5 rounded-full ${getEventTypeColor(selectedEvent.type)}`}></div>
+                <div className={`h-5 w-5 rounded-full ${getEventTypeColor(selectedEvent.event_type)}`}></div>
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">{getEventTypeLabel(selectedEvent.type)}</p>
+                  <p className="text-sm font-semibold text-gray-900">{getEventTypeLabel(selectedEvent.event_type)}</p>
                   <p className="text-xs text-gray-500">Event Type</p>
                 </div>
               </div>
