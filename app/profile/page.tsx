@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { createTeam, joinTeam, getUserTeams, UserRole } from '@/lib/utils'
 import { 
   ArrowLeft, 
   User, 
@@ -14,21 +15,67 @@ import {
   Camera,
   Edit3,
   Save,
-  X
+  X,
+  Users,
+  Copy,
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
 
 export default function ProfilePage() {
-  const { user, logout } = useAuth()
+  const { user, logout, isLoading } = useAuth()
   const router = useRouter()
   const [isLoaded, setIsLoaded] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
+  const [isCreatingTeam, setIsCreatingTeam] = useState(false)
+  const [showJoinCode, setShowJoinCode] = useState(false)
+  const [joinCode, setJoinCode] = useState('')
+  const [error, setError] = useState('')
+  const [copied, setCopied] = useState(false)
+  const [isJoiningTeam, setIsJoiningTeam] = useState(false)
+  const [joinTeamCode, setJoinTeamCode] = useState('')
+  const [joinTeamError, setJoinTeamError] = useState('')
+  const [joinTeamSuccess, setJoinTeamSuccess] = useState('')
+  const [userTeams, setUserTeams] = useState<Array<{ id: string, name: string, joinCode: string, role: string }>>([])
+  const [isLoadingTeams, setIsLoadingTeams] = useState(false)
   const [profileData, setProfileData] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
-    role: user?.role || 'coach',
-    avatar: user?.avatar || ''
+    name: '',
+    email: '',
+    role: 'coach' as UserRole,
+    avatar: ''
   })
+
+  // Update profile data when user loads
+  useEffect(() => {
+    if (user) {
+      setProfileData({
+        name: user.name || '',
+        email: user.email || '',
+        role: user.role || 'coach',
+        avatar: user.avatar || ''
+      })
+    }
+  }, [user])
+
+  // Load user's teams when user loads
+  useEffect(() => {
+    const loadUserTeams = async () => {
+      if (!user) return
+      
+      setIsLoadingTeams(true)
+      try {
+        const teams = await getUserTeams(user.id)
+        setUserTeams(teams)
+      } catch (error) {
+        console.error('Error loading user teams:', error)
+      } finally {
+        setIsLoadingTeams(false)
+      }
+    }
+
+    loadUserTeams()
+  }, [user])
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoaded(true), 100)
@@ -57,6 +104,86 @@ export default function ProfilePage() {
       avatar: user?.avatar || ''
     })
     setIsEditing(false)
+  }
+
+  const handleCreateTeam = async () => {
+    if (!user) return
+
+    setIsCreatingTeam(true)
+    setError('')
+    setShowJoinCode(false)
+    setJoinCode('')
+
+    try {
+      const result = await createTeam(user.id, user.name)
+      setJoinCode(result.joinCode)
+      setShowJoinCode(true)
+      
+      // Refresh user teams after creating
+      const teams = await getUserTeams(user.id)
+      setUserTeams(teams)
+    } catch (err: any) {
+      setError(err.message || 'Failed to create team. Please try again.')
+    } finally {
+      setIsCreatingTeam(false)
+    }
+  }
+
+  const handleCopyJoinCode = async () => {
+    try {
+      await navigator.clipboard.writeText(joinCode)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy join code:', err)
+    }
+  }
+
+  const handleCloseJoinCode = () => {
+    setShowJoinCode(false)
+    setJoinCode('')
+    setError('')
+  }
+
+  const handleJoinTeam = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!user) return
+
+    setIsJoiningTeam(true)
+    setJoinTeamError('')
+    setJoinTeamSuccess('')
+
+    try {
+      const result = await joinTeam(user.id, joinTeamCode)
+      setJoinTeamSuccess(`Successfully joined ${result.teamName}!`)
+      setJoinTeamCode('')
+      
+      // Refresh user teams after joining
+      const teams = await getUserTeams(user.id)
+      setUserTeams(teams)
+    } catch (err: any) {
+      setJoinTeamError(err.message || 'Failed to join team. Please try again.')
+    } finally {
+      setIsJoiningTeam(false)
+    }
+  }
+
+  // Show loading state while auth is loading
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading profile...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Redirect to login if no user
+  if (!user) {
+    router.push('/login')
+    return null
   }
 
   return (
@@ -211,6 +338,206 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
+
+            {/* Create Team Section - Only for Coaches */}
+            {user?.role === 'coach' && (
+              <div className="card-elevated hover-lift mt-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900">Team Management</h3>
+                </div>
+
+                {!showJoinCode ? (
+                  <div className="space-y-4">
+                    <p className="text-gray-600">
+                      Create a new team and get a unique join code to share with your athletes.
+                    </p>
+                    
+                    {error && (
+                      <div className="bg-red-50 border-2 border-red-200 text-red-600 px-4 py-3 rounded-2xl text-sm font-medium flex items-center space-x-2">
+                        <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                        <span>{error}</span>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={handleCreateTeam}
+                      disabled={isCreatingTeam}
+                      className="flex items-center space-x-3 px-6 py-3 bg-gradient-to-r from-royal-blue to-dark-blue hover:from-dark-blue hover:to-royal-blue text-white rounded-2xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isCreatingTeam ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          <span>Creating Team...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Users className="h-5 w-5" />
+                          <span>Create New Team</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="bg-green-50 border-2 border-green-200 text-green-800 px-6 py-4 rounded-2xl">
+                      <div className="flex items-center space-x-2 mb-3">
+                        <CheckCircle className="h-6 w-6 text-green-600" />
+                        <h4 className="font-semibold text-lg">Team Created Successfully!</h4>
+                      </div>
+                      <p className="text-green-700 mb-4">
+                        Share this join code with your athletes so they can join your team:
+                      </p>
+                      
+                      <div className="bg-white border-2 border-green-300 rounded-xl p-4 mb-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-green-600 font-medium mb-1">Join Code</p>
+                            <p className="text-3xl font-bold text-green-800 tracking-wider">{joinCode}</p>
+                          </div>
+                          <button
+                            onClick={handleCopyJoinCode}
+                            className="flex items-center space-x-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl transition-all duration-200"
+                          >
+                            {copied ? (
+                              <>
+                                <CheckCircle className="h-4 w-4" />
+                                <span>Copied!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-4 w-4" />
+                                <span>Copy</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <button
+                        onClick={handleCloseJoinCode}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl transition-all duration-200"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+                         {/* Join Team Section - Only for Athletes */}
+             {user?.role === 'athlete' && (
+               <div className="card-elevated hover-lift mt-6">
+                 <div className="flex items-center justify-between mb-6">
+                   <h3 className="text-lg sm:text-xl font-bold text-gray-900">Join Team</h3>
+                 </div>
+
+                 <div className="space-y-4">
+                   <p className="text-gray-600">
+                     Enter the 6-digit join code provided by your coach to join their team.
+                   </p>
+                   
+                   {joinTeamError && (
+                     <div className="bg-red-50 border-2 border-red-200 text-red-600 px-4 py-3 rounded-2xl text-sm font-medium flex items-center space-x-2">
+                       <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                       <span>{joinTeamError}</span>
+                     </div>
+                   )}
+
+                   {joinTeamSuccess && (
+                     <div className="bg-green-50 border-2 border-green-200 text-green-800 px-4 py-3 rounded-2xl text-sm font-medium flex items-center space-x-2">
+                       <CheckCircle className="h-5 w-5 flex-shrink-0" />
+                       <span>{joinTeamSuccess}</span>
+                     </div>
+                   )}
+
+                   <form onSubmit={handleJoinTeam} className="space-y-4">
+                     <div>
+                       <label htmlFor="joinCode" className="block text-sm font-semibold text-gray-700 mb-2">
+                         Join Code
+                       </label>
+                       <input
+                         id="joinCode"
+                         type="text"
+                         value={joinTeamCode}
+                         onChange={(e) => setJoinTeamCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                         placeholder="Enter 6-digit code"
+                         className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-center text-2xl font-bold tracking-wider"
+                         maxLength={6}
+                         required
+                       />
+                     </div>
+
+                     <button
+                       type="submit"
+                       disabled={isJoiningTeam || joinTeamCode.length !== 6}
+                       className="w-full flex items-center justify-center space-x-3 px-6 py-3 bg-gradient-to-r from-royal-blue to-dark-blue hover:from-dark-blue hover:to-royal-blue text-white rounded-2xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                     >
+                       {isJoiningTeam ? (
+                         <>
+                           <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                           <span>Joining Team...</span>
+                         </>
+                       ) : (
+                         <>
+                           <Users className="h-5 w-5" />
+                           <span>Join Team</span>
+                         </>
+                       )}
+                     </button>
+                   </form>
+                 </div>
+               </div>
+             )}
+
+             {/* My Teams Section - For All Users */}
+             <div className="card-elevated hover-lift mt-6">
+               <div className="flex items-center justify-between mb-6">
+                 <h3 className="text-lg sm:text-xl font-bold text-gray-900">My Teams</h3>
+               </div>
+
+               <div className="space-y-4">
+                 {isLoadingTeams ? (
+                   <div className="flex items-center justify-center py-8">
+                     <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-3"></div>
+                     <span className="text-gray-600">Loading teams...</span>
+                   </div>
+                 ) : userTeams.length > 0 ? (
+                   <div className="space-y-3">
+                     {userTeams.map((team) => (
+                       <div key={team.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border-2 border-gray-100 hover:border-blue-200 transition-all duration-200">
+                         <div className="flex items-center space-x-4">
+                           <div className="h-12 w-12 bg-gradient-to-br from-royal-blue to-dark-blue rounded-xl flex items-center justify-center">
+                             <Users className="h-6 w-6 text-white" />
+                           </div>
+                           <div>
+                             <h4 className="font-semibold text-gray-900">{team.name}</h4>
+                             <p className="text-sm text-gray-600 capitalize">Role: {team.role}</p>
+                           </div>
+                         </div>
+                         <div className="text-right">
+                           <p className="text-xs text-gray-500 font-medium mb-1">Join Code</p>
+                           <p className="text-lg font-bold text-gray-900 tracking-wider">{team.joinCode}</p>
+                         </div>
+                       </div>
+                     ))}
+                   </div>
+                 ) : (
+                   <div className="text-center py-8">
+                     <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                       <Users className="h-8 w-8 text-gray-400" />
+                     </div>
+                     <h4 className="text-lg font-semibold text-gray-900 mb-2">No Teams Yet</h4>
+                     <p className="text-gray-600">
+                       {user?.role === 'coach' 
+                         ? "Create your first team to get started!" 
+                         : "You are not part of any teams yet."
+                       }
+                     </p>
+                   </div>
+                 )}
+               </div>
+             </div>
           </div>
 
           {/* Settings & Actions */}
@@ -245,7 +572,10 @@ export default function ProfilePage() {
             <div className="card-elevated hover-lift">
               <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">Account</h3>
               <div className="space-y-3">
-                <button className="w-full flex items-center space-x-3 p-3 rounded-xl bg-red-50 hover:bg-red-100 transition-all duration-200 group">
+                <button 
+                  onClick={handleLogout}
+                  className="w-full flex items-center space-x-3 p-3 rounded-xl bg-red-50 hover:bg-red-100 transition-all duration-200 group"
+                >
                   <div className="h-10 w-10 bg-red-100 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
                     <LogOut className="h-5 w-5 text-red-600" />
                   </div>
