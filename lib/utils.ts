@@ -268,3 +268,266 @@ export async function getUserTeams(userId: string): Promise<Array<{ id: string, 
     throw error
   }
 } 
+
+// Get messages for the current user's team
+export async function getTeamMessages(userId: string): Promise<Array<{
+  id: string
+  name: string
+  lastMessage: string
+  time: string
+  unread: boolean
+  avatar: string
+  type: 'athlete' | 'group'
+  conversationId: string
+}>> {
+  try {
+    // First, get the user's team
+    const { data: userTeam, error: teamError } = await supabase
+      .from('team_members')
+      .select(`
+        team_id,
+        teams (
+          id,
+          name
+        )
+      `)
+      .eq('user_id', userId)
+      .single()
+
+    if (teamError) {
+      throw teamError
+    }
+
+    if (!userTeam) {
+      return []
+    }
+
+    // Get all team members for this team
+    const { data: teamMembers, error: membersError } = await supabase
+      .from('team_members')
+      .select(`
+        user_id,
+        role,
+        users (
+          id,
+          full_name,
+          email
+        )
+      `)
+      .eq('team_id', userTeam.team_id)
+
+    if (membersError) {
+      throw membersError
+    }
+
+    // Get the latest message for each conversation
+    const { data: conversations, error: conversationsError } = await supabase
+      .from('messages')
+      .select(`
+        id,
+        content,
+        created_at,
+        sender_id,
+        conversation_id,
+        users!messages_sender_id_fkey (
+          full_name
+        )
+      `)
+      .eq('team_id', userTeam.team_id)
+      .order('created_at', { ascending: false })
+
+    if (conversationsError) {
+      throw conversationsError
+    }
+
+    // Group messages by conversation and get the latest one for each
+    const conversationMap = new Map()
+    conversations?.forEach(message => {
+      if (!conversationMap.has(message.conversation_id)) {
+        conversationMap.set(message.conversation_id, message)
+      }
+    })
+
+    // Create conversation list with team members and team chat
+    const conversationsList = []
+
+    // Add team chat (group conversation)
+    const teamChatMessage = Array.from(conversationMap.values()).find((msg: any) => 
+      msg.conversation_id === `team_${userTeam.team_id}`
+    )
+    
+    if (teamChatMessage) {
+      conversationsList.push({
+        id: `team_${userTeam.team_id}`,
+        name: `${(userTeam.teams as any).name} Team Chat`,
+        lastMessage: teamChatMessage.content,
+        time: formatTimeAgo(teamChatMessage.created_at),
+        unread: false, // TODO: Implement unread logic
+        avatar: (userTeam.teams as any).name.split(' ').map((n: string) => n[0]).join('').slice(0, 2),
+        type: 'group' as const,
+        conversationId: `team_${userTeam.team_id}`
+      })
+    }
+
+    // Add individual conversations with team members
+    teamMembers?.forEach((member: any) => {
+      if (member.user_id !== userId) { // Don't show self
+        const memberMessage = Array.from(conversationMap.values()).find((msg: any) => 
+          msg.conversation_id === `direct_${userId}_${member.user_id}` ||
+          msg.conversation_id === `direct_${member.user_id}_${userId}`
+        )
+
+        if (memberMessage) {
+          conversationsList.push({
+            id: member.user_id,
+            name: member.users.full_name || member.users.email,
+            lastMessage: memberMessage.content,
+            time: formatTimeAgo(memberMessage.created_at),
+            unread: false, // TODO: Implement unread logic
+            avatar: (member.users.full_name || member.users.email).split(' ').map((n: string) => n[0]).join('').slice(0, 2),
+            type: 'athlete' as const,
+            conversationId: memberMessage.conversation_id
+          })
+        }
+      }
+    })
+
+    return conversationsList
+  } catch (error) {
+    console.error('Error fetching team messages:', error)
+    throw error
+  }
+}
+
+// Get conversation messages
+export async function getConversationMessages(conversationId: string): Promise<Array<{
+  id: string
+  sender: string
+  message: string
+  time: string
+  isCoach: boolean
+}>> {
+  try {
+    const { data: messages, error } = await supabase
+      .from('messages')
+      .select(`
+        id,
+        content,
+        created_at,
+        sender_id,
+        users!messages_sender_id_fkey (
+          full_name,
+          role
+        )
+      `)
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true })
+
+    if (error) {
+      throw error
+    }
+
+    return messages?.map((message: any) => ({
+      id: message.id,
+      sender: message.users.full_name || message.users.email,
+      message: message.content,
+      time: formatTimeAgo(message.created_at),
+      isCoach: message.users.role === 'coach'
+    })) || []
+  } catch (error) {
+    console.error('Error fetching conversation messages:', error)
+    throw error
+  }
+}
+
+// Send a new message to a conversation
+export async function sendMessage(
+  senderId: string,
+  conversationId: string,
+  content: string
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  try {
+    // First, get the user's team to ensure they're sending to their own team
+    const { data: userTeam, error: teamError } = await supabase
+      .from('team_members')
+      .select('team_id')
+      .eq('user_id', senderId)
+      .single()
+
+    if (teamError) {
+      console.error('Error fetching user team:', teamError)
+      return { success: false, error: 'Unable to verify team membership' }
+    }
+
+    if (!userTeam) {
+      return { success: false, error: 'User is not part of any team' }
+    }
+
+    // Validate conversation ID format
+    const isTeamChat = conversationId.startsWith('team_')
+    const isDirectChat = conversationId.startsWith('direct_')
+    
+    if (!isTeamChat && !isDirectChat) {
+      return { success: false, error: 'Invalid conversation ID format' }
+    }
+
+    // For team chats, verify the team ID matches user's team
+    if (isTeamChat) {
+      const teamId = conversationId.replace('team_', '')
+      if (teamId !== userTeam.team_id) {
+        return { success: false, error: 'Cannot send message to other teams' }
+      }
+    }
+
+    // For direct chats, verify the user is part of the conversation
+    if (isDirectChat) {
+      const [userId1, userId2] = conversationId.replace('direct_', '').split('_')
+      if (userId1 !== senderId && userId2 !== senderId) {
+        return { success: false, error: 'Cannot send message to this conversation' }
+      }
+    }
+
+    // Insert the new message
+    const { data: newMessage, error: insertError } = await supabase
+      .from('messages')
+      .insert({
+        sender_id: senderId,
+        team_id: userTeam.team_id,
+        conversation_id: conversationId,
+        content: content.trim(),
+        created_at: new Date().toISOString()
+      })
+      .select('id')
+      .single()
+
+    if (insertError) {
+      console.error('Error inserting message:', insertError)
+      return { success: false, error: 'Failed to send message' }
+    }
+
+    return { success: true, messageId: newMessage.id }
+  } catch (error) {
+    console.error('Error in sendMessage:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+// Helper function to format time ago
+function formatTimeAgo(dateString: string): string {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+
+  if (diffInSeconds < 60) {
+    return 'Just now'
+  } else if (diffInSeconds < 3600) {
+    const minutes = Math.floor(diffInSeconds / 60)
+    return `${minutes} minute${minutes > 1 ? 's' : ''} ago`
+  } else if (diffInSeconds < 86400) {
+    const hours = Math.floor(diffInSeconds / 3600)
+    return `${hours} hour${hours > 1 ? 's' : ''} ago`
+  } else {
+    const days = Math.floor(diffInSeconds / 86400)
+    return `${days} day${days > 1 ? 's' : ''} ago`
+  }
+} 

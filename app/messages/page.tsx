@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { getTeamMessages, getConversationMessages, sendMessage } from '@/lib/utils'
 import { Search, Send, Plus, X, Users, MoreVertical, ArrowLeft } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
 import MainNavigation from '@/components/navigation/MainNavigation'
@@ -150,7 +151,7 @@ const mockStaff = [
 ]
 
 export default function MessagesPage() {
-  const { user } = useAuth()
+  const { user, isLoading } = useAuth()
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedMessage, setSelectedMessage] = useState<number | null>(null)
@@ -159,21 +160,90 @@ export default function MessagesPage() {
   const [newChatName, setNewChatName] = useState('')
   const [selectedMembers, setSelectedMembers] = useState<number[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
+  const [messages, setMessages] = useState<Array<{
+    id: string
+    name: string
+    lastMessage: string
+    time: string
+    unread: boolean
+    avatar: string
+    type: 'athlete' | 'group'
+    conversationId: string
+  }>>([])
+  const [conversations, setConversations] = useState<any>({})
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false)
+  const [isSendingMessage, setIsSendingMessage] = useState(false)
+
+  // Load messages when user loads
+  useEffect(() => {
+    const loadMessages = async () => {
+      if (!user) return
+      
+      setIsLoadingMessages(true)
+      try {
+        const teamMessages = await getTeamMessages(user.id)
+        setMessages(teamMessages)
+      } catch (error) {
+        console.error('Error loading messages:', error)
+      } finally {
+        setIsLoadingMessages(false)
+      }
+    }
+
+    loadMessages()
+  }, [user])
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoaded(true), 100)
     return () => clearTimeout(timer)
   }, [])
 
-  const filteredMessages = mockMessages.filter(message =>
+  const filteredMessages = messages.filter(message =>
     message.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const handleSendMessage = () => {
-    if (newMessage.trim() && selectedMessage) {
-      // Here you would typically send the message to your backend
-      console.log('Sending message:', newMessage)
-      setNewMessage('')
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedMessage || !user) {
+      return
+    }
+
+    // Get the conversation ID for the selected message
+    const selectedMsg = messages.find((msg: any) => msg.id === selectedMessage.toString())
+    if (!selectedMsg) {
+      console.error('Selected message not found')
+      return
+    }
+
+    setIsSendingMessage(true)
+
+    try {
+      // Send the message to Supabase
+      const result = await sendMessage(user.id, selectedMsg.conversationId, newMessage.trim())
+      
+      if (result.success) {
+        // Clear the input field
+        setNewMessage('')
+        
+        // Refresh the conversation to show the new message
+        const conversationMessages = await getConversationMessages(selectedMsg.conversationId)
+        setConversations((prev: any) => ({
+          ...prev,
+          [selectedMessage]: conversationMessages
+        }))
+        
+        // Refresh the messages list to update the last message
+        const teamMessages = await getTeamMessages(user.id)
+        setMessages(teamMessages)
+      } else {
+        // Handle error - you could show a toast notification here
+        console.error('Failed to send message:', result.error)
+        alert(`Failed to send message: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('Error sending message:', error)
+      alert('An error occurred while sending the message')
+    } finally {
+      setIsSendingMessage(false)
     }
   }
 
@@ -195,7 +265,47 @@ export default function MessagesPage() {
     )
   }
 
-  const currentConversation = selectedMessage ? mockConversations[selectedMessage as keyof typeof mockConversations] : []
+  // Load conversation messages when a message is selected
+  useEffect(() => {
+    const loadConversation = async () => {
+      if (!selectedMessage) return
+      
+      const selectedMsg = messages.find((msg: any) => msg.id === selectedMessage.toString())
+      if (!selectedMsg) return
+      
+      try {
+        const conversationMessages = await getConversationMessages(selectedMsg.conversationId)
+        setConversations((prev: any) => ({
+          ...prev,
+          [selectedMessage]: conversationMessages
+        }))
+      } catch (error) {
+        console.error('Error loading conversation:', error)
+      }
+    }
+
+    loadConversation()
+  }, [selectedMessage, messages])
+
+  const currentConversation = selectedMessage ? conversations[selectedMessage] || [] : []
+
+  // Show loading state while auth is loading
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading messages...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Redirect to login if no user
+  if (!user) {
+    router.push('/login')
+    return null
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -263,12 +373,18 @@ export default function MessagesPage() {
 
               {/* Messages List */}
               <div className="flex-1 overflow-y-auto bg-gradient-to-b from-gray-50/50 to-white">
-                {filteredMessages.map((message) => (
+                {isLoadingMessages ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-3"></div>
+                    <span className="text-gray-600">Loading messages...</span>
+                  </div>
+                ) : filteredMessages.length > 0 ? (
+                  filteredMessages.map((message) => (
                   <div
                     key={message.id}
-                    onClick={() => setSelectedMessage(message.id)}
+                    onClick={() => setSelectedMessage(parseInt(message.id))}
                     className={`group p-3 sm:p-4 border-b border-gray-100 cursor-pointer transition-all duration-300 hover:bg-gradient-to-r hover:from-blue-50/80 hover:to-blue-100/80 ${
-                      selectedMessage === message.id ? 'bg-gradient-to-r from-blue-100 to-blue-200 border-blue-300 shadow-sm' : ''
+                                              selectedMessage === parseInt(message.id) ? 'bg-gradient-to-r from-blue-100 to-blue-200 border-blue-300 shadow-sm' : ''
                     }`}
                   >
                     <div className="flex items-center space-x-3 sm:space-x-4">
@@ -298,7 +414,18 @@ export default function MessagesPage() {
                       </div>
                     </div>
                   </div>
-                ))}
+                ))
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Search className="h-8 w-8 text-gray-400" />
+                    </div>
+                    <h4 className="text-lg font-semibold text-gray-900 mb-2">No messages found</h4>
+                    <p className="text-gray-600">
+                      {searchTerm ? 'No conversations match your search.' : 'Start a conversation with your team members.'}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -310,15 +437,15 @@ export default function MessagesPage() {
                   <div className="p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3 sm:space-x-4">
-                        <div className="h-10 w-10 sm:h-12 sm:w-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
-                          <span className="text-white font-bold text-sm sm:text-base">
-                            {mockMessages.find(m => m.id === selectedMessage)?.avatar}
-                          </span>
-                        </div>
-                        <div>
-                          <h2 className="font-bold text-gray-900 text-base sm:text-lg">
-                            {mockMessages.find(m => m.id === selectedMessage)?.name}
-                          </h2>
+                                                 <div className="h-10 w-10 sm:h-12 sm:w-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+                           <span className="text-white font-bold text-sm sm:text-base">
+                             {messages.find(m => m.id === selectedMessage.toString())?.avatar}
+                           </span>
+                         </div>
+                         <div>
+                           <h2 className="font-bold text-gray-900 text-base sm:text-lg">
+                             {messages.find(m => m.id === selectedMessage.toString())?.name}
+                           </h2>
                           <div className="flex items-center space-x-2">
                             <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></span>
                             <p className="text-xs sm:text-sm text-gray-600 font-medium">Active now</p>
@@ -338,7 +465,8 @@ export default function MessagesPage() {
 
                   {/* Messages */}
                   <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gradient-to-b from-gray-50/50 to-white">
-                    {currentConversation.map((msg) => (
+                    {currentConversation.length > 0 ? (
+                      currentConversation.map((msg: any) => (
                       <div
                         key={msg.id}
                         className={`flex ${msg.isCoach ? 'justify-end' : 'justify-start'}`}
@@ -361,7 +489,15 @@ export default function MessagesPage() {
                           </div>
                         </div>
                       </div>
-                    ))}
+                    ))
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="text-center">
+                          <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                          <p className="text-gray-600">Loading conversation...</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Message Input */}
@@ -388,10 +524,14 @@ export default function MessagesPage() {
                         </div>
                         <button
                           onClick={handleSendMessage}
-                          disabled={!newMessage.trim()}
+                          disabled={!newMessage.trim() || isSendingMessage}
                           className="p-3 sm:p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl hover:shadow-lg transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                         >
-                          <Send className="h-4 w-4 sm:h-5 sm:w-5" />
+                          {isSendingMessage ? (
+                            <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          ) : (
+                            <Send className="h-4 w-4 sm:h-5 sm:w-5" />
+                          )}
                         </button>
                       </div>
                     ) : (
