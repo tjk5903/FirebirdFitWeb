@@ -701,3 +701,147 @@ export async function deleteEvent(eventId: string): Promise<{ success: boolean; 
     return { success: false, error: 'An unexpected error occurred' }
   }
 } 
+
+// Get workouts for a user (either assigned to them or to their team)
+export async function getUserWorkouts(userId: string): Promise<Array<{
+  id: string
+  team_id: string
+  title: string
+  description: string | null
+  assigned_to: string[] | null
+  date_assigned: string
+  created_at: string
+}>> {
+  try {
+    console.log('Fetching workouts for user:', userId)
+    
+    // First, get the user's teams
+    const userTeams = await getUserTeams(userId)
+    const teamIds = userTeams.map(team => team.id)
+    
+    console.log('User teams:', userTeams)
+    console.log('Team IDs:', teamIds)
+
+    // If user has no teams, only fetch workouts directly assigned to them
+    if (teamIds.length === 0) {
+      console.log('No teams found, fetching workouts assigned to user only')
+      const { data: workouts, error } = await supabase
+        .from('workouts')
+        .select(`
+          id,
+          team_id,
+          title,
+          description,
+          assigned_to,
+          date_assigned,
+          created_at
+        `)
+        .contains('assigned_to', [userId])
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching workouts:', error)
+        throw error
+      }
+
+      console.log('Workouts fetched (no teams):', workouts)
+      return workouts || []
+    }
+
+    // Fetch workouts that either:
+    // 1. Belong to a team the user is on (team_id)
+    // 2. Are directly assigned to the user (assigned_to)
+    console.log('Fetching workouts for teams and user assignments')
+    const { data: workouts, error } = await supabase
+      .from('workouts')
+      .select(`
+        id,
+        team_id,
+        title,
+        description,
+        assigned_to,
+        date_assigned,
+        created_at
+      `)
+      .or(`team_id.in.(${teamIds.map(id => `"${id}"`).join(',')}),assigned_to.cs.{${userId}}`)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching workouts:', error)
+      throw error
+    }
+
+    console.log('Workouts fetched:', workouts)
+    return workouts || []
+  } catch (error) {
+    console.error('Error in getUserWorkouts:', error)
+    throw error
+  }
+}
+
+// Create a new workout
+export async function createWorkout(
+  userId: string, 
+  workoutData: { 
+    title: string; 
+    description?: string; 
+    assigned_to?: string[]; 
+  }
+): Promise<{ success: boolean; workoutId?: string; error?: string }> {
+  try {
+    console.log('Creating workout for user:', userId)
+    console.log('Workout data:', workoutData)
+    
+    // Get user's teams to get a team_id
+    const userTeams = await getUserTeams(userId)
+    if (userTeams.length === 0) {
+      console.error('User has no teams')
+      return { success: false, error: 'User must be part of a team to create workouts' }
+    }
+    
+    const teamId = userTeams[0].id // Use the first team
+    console.log('Using team ID:', teamId)
+    
+    const { data, error } = await supabase
+      .from('workouts')
+      .insert({
+        team_id: teamId,
+        title: workoutData.title,
+        description: workoutData.description || '',
+        assigned_to: workoutData.assigned_to || [],
+        date_assigned: new Date().toISOString()
+      })
+      .select()
+      .single()
+    
+    if (error) {
+      console.error('Error creating workout:', error)
+      return { success: false, error: error.message }
+    }
+    
+    console.log('Workout created successfully:', data)
+    return { success: true, workoutId: data.id }
+  } catch (error) {
+    console.error('Error in createWorkout:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+// Format date to readable format
+export function formatDate(dateString: string): string {
+  try {
+    const date = new Date(dateString)
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date string:', dateString)
+      return 'Invalid Date'
+    }
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    })
+  } catch (error) {
+    console.error('Error formatting date:', error)
+    return 'Invalid Date'
+  }
+} 

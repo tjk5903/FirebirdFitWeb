@@ -1,67 +1,41 @@
-# Firebird Fit - Performance Dashboard
+# Firebird Fit Web App
 
-A modern, responsive web dashboard for fitness tracking and team management, built with Next.js 14, TypeScript, and Tailwind CSS.
+A Next.js web application for managing team fitness and workouts with Supabase backend.
 
 ## Features
 
-### 🏃‍♂️ Role-Based Dashboards
-- **Coach Dashboard**: Team overview, workout management, athlete tracking
-- **Athlete Dashboard**: Personal progress, workout scheduling, team communication
+### Workouts
+- **Workout Management**: View workouts assigned to your team or directly to you
+- **Supabase Integration**: Fetches workouts using row-level security policies
+- **Real-time Updates**: Workouts are fetched from the database and displayed in cards
+- **Responsive Design**: Beautiful UI with loading states and error handling
 
-### 🎨 Design
-- Professional blue/gold color scheme
-- Responsive design for desktop, tablet, and mobile
-- Modern UI with subtle animations
-- Clean card-based layout
+#### Workout Database Schema
+The workouts table contains the following columns:
+- `id`: Unique identifier
+- `team_id`: Team the workout belongs to
+- `title`: Workout title
+- `description`: Workout description
+- `assigned_to`: User ID if directly assigned to a specific user
+- `date_assigned`: Date when the workout was assigned
+- `created_at`: Timestamp when the workout was created
 
-### 🔐 Authentication
-- Simple email/password authentication
-- Role selection (Coach/Athlete)
-- Persistent session management
-- Protected routes
-
-### 📊 Dashboard Features
-
-#### Coach Features:
-- Team overview with athlete statistics
-- Create and manage workouts
-- Schedule management
-- Team messaging system
-- Recent activity tracking
-
-#### Athlete Features:
-- Personal workout progress
-- Next scheduled workout display
-- Team messages and notifications
-- Upcoming events calendar
-- Quick action buttons
-
-## Tech Stack
-
-- **Framework**: Next.js 14 with App Router
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **Icons**: Lucide React
-- **State Management**: React Context API
-- **Authentication**: Local storage (demo)
+#### Row-Level Security
+The app uses Supabase RLS policies to ensure users can only access:
+- Workouts assigned to teams they belong to (`team_id`)
+- Workouts directly assigned to them (`assigned_to`)
 
 ## Getting Started
 
-### Prerequisites
-- Node.js 18+ 
-- npm or yarn
-
-### Installation
-
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd FirebirdFitWeb
-```
-
-2. Install dependencies:
+1. Install dependencies:
 ```bash
 npm install
+```
+
+2. Set up environment variables:
+```bash
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
 3. Run the development server:
@@ -69,56 +43,36 @@ npm install
 npm run dev
 ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser.
+## Database Setup
 
-### Demo Credentials
-- Use any email/password combination
-- Select your role (Coach or Athlete) during login
+Make sure your Supabase database has the following tables with appropriate RLS policies:
 
-## Project Structure
-
-```
-FirebirdFitWeb/
-├── app/                    # Next.js App Router
-│   ├── dashboard/         # Dashboard pages
-│   ├── login/            # Authentication pages
-│   ├── globals.css       # Global styles
-│   ├── layout.tsx        # Root layout
-│   └── page.tsx          # Home page
-├── components/           # React components
-│   ├── dashboard/        # Dashboard components
-│   └── ui/              # UI components
-├── contexts/            # React contexts
-├── lib/                 # Utility functions
-└── public/              # Static assets
+### workouts table
+```sql
+CREATE TABLE workouts (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  team_id UUID REFERENCES teams(id),
+  title TEXT NOT NULL,
+  description TEXT,
+  assigned_to UUID REFERENCES users(id),
+  date_assigned TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 ```
 
-## Color Scheme
+### RLS Policy for workouts
+```sql
+CREATE POLICY "Users can view workouts for their teams or assigned to them" ON workouts
+FOR SELECT USING (
+  team_id IN (
+    SELECT team_id FROM team_members WHERE user_id = auth.uid()
+  ) OR assigned_to = auth.uid()
+);
+```
 
-- **Royal Blue**: #2B5CB0 (Primary)
-- **Gold**: #FFD700 (Accent)
-- **Soft White**: #FAFAFA (Background)
-- **Dark Blue**: #1E3A8A (Hover states)
+## Technologies Used
 
-## Available Scripts
-
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License.
-
-## Support
-
-For support or questions, please open an issue in the repository. 
+- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
+- **Backend**: Supabase (PostgreSQL, Auth, RLS)
+- **Styling**: Tailwind CSS with custom components
+- **Icons**: Lucide React 

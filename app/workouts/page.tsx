@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { getUserWorkouts, createWorkout, formatDate } from '@/lib/utils'
 import { 
   Plus, 
   Search, 
@@ -73,14 +74,16 @@ const exerciseLibrary = [
 export default function WorkoutsPage() {
   const { user, logout } = useAuth()
   const router = useRouter()
-  const [workouts, setWorkouts] = useState(mockWorkouts)
-  const [filteredWorkouts, setFilteredWorkouts] = useState(mockWorkouts)
+  const [workouts, setWorkouts] = useState<any[]>([])
+  const [filteredWorkouts, setFilteredWorkouts] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedType, setSelectedType] = useState('all')
   const [showCreateWorkout, setShowCreateWorkout] = useState(false)
   const [selectedWorkout, setSelectedWorkout] = useState<any>(null)
   const [showWorkoutDetails, setShowWorkoutDetails] = useState(false)
   const [isLoaded, setIsLoaded] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isCreatingWorkout, setIsCreatingWorkout] = useState(false)
 
   const isCoach = user?.role === 'coach'
 
@@ -93,6 +96,28 @@ export default function WorkoutsPage() {
   const [exerciseSets, setExerciseSets] = useState('3')
   const [exerciseReps, setExerciseReps] = useState('10')
   const [exerciseRest, setExerciseRest] = useState('60')
+
+  // Fetch workouts from Supabase
+  useEffect(() => {
+    const fetchWorkouts = async () => {
+      if (!user?.id) return
+      
+      try {
+        setIsLoading(true)
+        console.log('Fetching workouts for user:', user.id)
+        const fetchedWorkouts = await getUserWorkouts(user.id)
+        setWorkouts(fetchedWorkouts)
+      } catch (error) {
+        console.error('Error fetching workouts:', error)
+        // Fallback to mock data if there's an error
+        setWorkouts(mockWorkouts)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchWorkouts()
+  }, [user?.id])
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoaded(true), 100)
@@ -108,43 +133,64 @@ export default function WorkoutsPage() {
 
     if (searchTerm) {
       filtered = filtered.filter(workout =>
-        workout.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        workout.description.toLowerCase().includes(searchTerm.toLowerCase())
+        workout.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (workout.description && workout.description.toLowerCase().includes(searchTerm.toLowerCase()))
       )
     }
 
-    if (selectedType !== 'all') {
-      filtered = filtered.filter(workout => workout.type === selectedType)
-    }
+    // Note: We'll need to add a type field to the workouts table or handle this differently
+    // For now, we'll skip type filtering since the database schema doesn't include it
+    // if (selectedType !== 'all') {
+    //   filtered = filtered.filter(workout => workout.type === selectedType)
+    // }
 
     setFilteredWorkouts(filtered)
   }
 
-  const handleCreateWorkout = (e: React.FormEvent) => {
+  const handleCreateWorkout = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (workoutName.trim() && exercises.length > 0) {
-      const newWorkout = {
-        id: Date.now(),
-        name: workoutName,
-        type: workoutType,
-        duration: 60, // Default duration
-        difficulty: 'intermediate', // Default difficulty
+    
+    if (!workoutName.trim()) {
+      alert('Please enter a workout name')
+      return
+    }
+    
+    if (!user?.id) {
+      alert('User not authenticated')
+      return
+    }
+    
+    setIsCreatingWorkout(true)
+    
+    try {
+      const result = await createWorkout(user.id, {
+        title: workoutName,
         description: workoutDescription,
-        exercises: exercises,
-        assignedAthletes: 0,
-        completionRate: 0,
-        lastUsed: 'Never',
-        createdAt: new Date().toISOString().split('T')[0]
-      }
-
-      setWorkouts([newWorkout, ...workouts])
-      setShowCreateWorkout(false)
+        assigned_to: [] // Empty array for now
+      })
       
-      // Reset form
-      setWorkoutName('')
-      setWorkoutType('strength')
-      setWorkoutDescription('')
-      setExercises([])
+      if (result.success) {
+        // Refresh the workout list
+        const fetchedWorkouts = await getUserWorkouts(user.id)
+        setWorkouts(fetchedWorkouts)
+        
+        // Reset form and close modal
+        setWorkoutName('')
+        setWorkoutType('strength')
+        setWorkoutDescription('')
+        setExercises([])
+        setShowCreateWorkout(false)
+        
+        alert('Workout created successfully!')
+      } else {
+        console.error('Failed to create workout:', result.error)
+        alert(`Failed to create workout: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('Error creating workout:', error)
+      alert('An error occurred while creating the workout')
+    } finally {
+      setIsCreatingWorkout(false)
     }
   }
 
@@ -184,22 +230,14 @@ export default function WorkoutsPage() {
     }
   }
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'strength': return <Dumbbell className="h-4 w-4" />
-      case 'running': return <Zap className="h-4 w-4" />
-      case 'mobility': return <Target className="h-4 w-4" />
-      default: return <Activity className="h-4 w-4" />
-    }
+  const getTypeIcon = () => {
+    // For now, use a default icon since we don't have type in the database
+    return <Dumbbell className="h-4 w-4" />
   }
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'strength': return 'bg-blue-100 text-blue-800'
-      case 'running': return 'bg-red-100 text-red-800'
-      case 'mobility': return 'bg-green-100 text-green-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
+  const getTypeColor = () => {
+    // For now, use a default color since we don't have type in the database
+    return 'bg-blue-100 text-blue-800'
   }
 
   return (
@@ -266,8 +304,30 @@ export default function WorkoutsPage() {
         </div>
 
         {/* Workouts Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-          {filteredWorkouts.map((workout: any, index: number) => (
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden animate-pulse">
+                <div className="h-1 bg-gray-200"></div>
+                <div className="p-4 sm:p-6">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="h-10 w-10 bg-gray-200 rounded-xl"></div>
+                    <div className="flex-1">
+                      <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded"></div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-3 bg-gray-200 rounded"></div>
+                    <div className="h-3 bg-gray-200 rounded"></div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {filteredWorkouts.map((workout: any, index: number) => (
             <div 
               key={workout.id} 
               className="group relative bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden hover:shadow-3xl transition-all duration-300 hover:scale-[1.02] cursor-pointer active:scale-[0.98]"
@@ -277,39 +337,38 @@ export default function WorkoutsPage() {
               }}
             >
               {/* Header with type indicator */}
-              <div className={`h-1 ${getTypeColor(workout.type).replace('bg-', 'bg-gradient-to-r from-').replace(' text-', ' to-')}`}></div>
+              <div className={`h-1 ${getTypeColor().replace('bg-', 'bg-gradient-to-r from-').replace(' text-', ' to-')}`}></div>
               
               <div className="p-4 sm:p-6">
                 {/* Workout Header */}
                 <div className="flex items-start justify-between mb-3 sm:mb-4">
                   <div className="flex items-center space-x-2 sm:space-x-3">
-                    <div className={`h-8 w-8 sm:h-10 sm:w-10 ${getTypeColor(workout.type)} rounded-xl flex items-center justify-center shadow-sm`}>
-                      {getTypeIcon(workout.type)}
+                    <div className={`h-8 w-8 sm:h-10 sm:w-10 ${getTypeColor()} rounded-xl flex items-center justify-center shadow-sm`}>
+                      {getTypeIcon()}
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-bold text-gray-900 text-base sm:text-lg mb-1">{workout.name}</h3>
+                      <h3 className="font-bold text-gray-900 text-base sm:text-lg mb-1">{workout.title}</h3>
                       <p className="text-xs sm:text-sm text-gray-600" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                        {workout.description}
+                        {workout.description || 'No description available'}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Exercise Preview */}
+                {/* Workout Info */}
                 <div className="mb-3 sm:mb-4">
                   <div className="space-y-1.5 sm:space-y-2">
-                    {workout.exercises.slice(0, 3).map((exercise: any, idx: number) => (
-                      <div key={idx} className="flex items-center justify-between p-1.5 sm:p-2 bg-gray-50 rounded-lg">
-                        <span className="text-xs sm:text-sm font-medium text-gray-700 truncate">{exercise.name}</span>
+                    <div className="flex items-center justify-between p-1.5 sm:p-2 bg-gray-50 rounded-lg">
+                      <span className="text-xs sm:text-sm font-medium text-gray-700">Assigned Date</span>
+                      <span className="text-xs font-bold text-gray-500 bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ml-1.5 sm:ml-2">
+                        {formatDate(workout.date_assigned)}
+                      </span>
+                    </div>
+                    {workout.assigned_to && workout.assigned_to.length > 0 && (
+                      <div className="flex items-center justify-between p-1.5 sm:p-2 bg-gray-50 rounded-lg">
+                        <span className="text-xs sm:text-sm font-medium text-gray-700">Assigned To</span>
                         <span className="text-xs font-bold text-gray-500 bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ml-1.5 sm:ml-2">
-                          {exercise.sets}×{exercise.reps}
-                        </span>
-                      </div>
-                    ))}
-                    {workout.exercises.length > 3 && (
-                      <div className="text-center pt-1">
-                        <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full">
-                          +{workout.exercises.length - 3} more
+                          {workout.assigned_to.length} athlete{workout.assigned_to.length !== 1 ? 's' : ''}
                         </span>
                       </div>
                     )}
@@ -322,7 +381,7 @@ export default function WorkoutsPage() {
                 <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                   <div className="flex items-center space-x-1.5 sm:space-x-2 text-xs sm:text-sm text-gray-500">
                     <Calendar className="h-3 w-3" />
-                    <span>Date Given: {workout.createdAt}</span>
+                    <span>Created: {formatDate(workout.created_at)}</span>
                   </div>
                   
                   {isCoach && (
@@ -355,9 +414,10 @@ export default function WorkoutsPage() {
             </div>
           ))}
         </div>
+        )}
 
         {/* Empty State */}
-        {filteredWorkouts.length === 0 && (
+        {!isLoading && filteredWorkouts.length === 0 && (
           <div className="bg-white rounded-3xl shadow-2xl p-6 sm:p-12 border border-gray-100 text-center">
             <Dumbbell className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mx-auto mb-3 sm:mb-4" />
             <h3 className="text-lg sm:text-xl font-semibold text-gray-600 mb-2">No workouts found</h3>
@@ -377,8 +437,8 @@ export default function WorkoutsPage() {
 
         {/* Create Workout Modal */}
         {showCreateWorkout && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-scale-in">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-24 animate-fade-in">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl flex flex-col animate-scale-in" style={{ maxHeight: 'calc(100vh - 10rem)' }}>
               {/* Modal Header */}
               <div className="flex items-center justify-between p-6 border-b border-gray-200">
                 <div className="flex items-center space-x-3">
@@ -399,7 +459,7 @@ export default function WorkoutsPage() {
               </div>
 
               {/* Modal Content */}
-              <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex-1 p-6 overflow-y-auto">
                 <form onSubmit={handleCreateWorkout} className="space-y-6">
                                      {/* Workout Details */}
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -449,6 +509,7 @@ export default function WorkoutsPage() {
                   {/* Exercises Section */}
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900 mb-4">Exercises</h4>
+                    <p className="text-gray-600 mb-4">Exercise functionality will be added in a future update. For now, you can create workouts with basic information.</p>
                     
                     {/* Add Exercise Form */}
                     <div className="bg-gray-50 rounded-2xl p-4 mb-4">
@@ -459,13 +520,9 @@ export default function WorkoutsPage() {
                             value={selectedExercise}
                             onChange={(e) => setSelectedExercise(e.target.value)}
                             className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-sm"
+                            disabled
                           >
-                            <option value="">Select exercise...</option>
-                                                         {exerciseLibrary.map((exercise: any) => (
-                               <option key={exercise.name} value={exercise.name}>
-                                {exercise.name}
-                              </option>
-                            ))}
+                            <option value="">Coming soon...</option>
                           </select>
                         </div>
                         <div>
@@ -477,6 +534,7 @@ export default function WorkoutsPage() {
                             min="1"
                             max="10"
                             className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-sm"
+                            disabled
                           />
                         </div>
                         <div>
@@ -488,53 +546,27 @@ export default function WorkoutsPage() {
                             min="1"
                             max="50"
                             className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-sm"
+                            disabled
                           />
                         </div>
                         <div className="flex items-end">
                           <button
                             type="button"
                             onClick={addExercise}
-                            disabled={!selectedExercise}
-                            className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={true}
+                            className="w-full bg-gray-400 text-white px-4 py-2 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            Add
+                            Coming Soon
                           </button>
                         </div>
                       </div>
                     </div>
 
                     {/* Exercise List */}
-                                         <div className="space-y-3">
-                       {exercises.map((exercise: any, index: number) => (
-                        <div key={index} className="flex items-center justify-between p-4 bg-white border-2 border-gray-200 rounded-2xl">
-                          <div className="flex items-center space-x-4">
-                            <div className="h-10 w-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
-                              <Dumbbell className="h-5 w-5 text-white" />
-                            </div>
-                            <div>
-                              <h5 className="font-semibold text-gray-900">{exercise.name}</h5>
-                              <p className="text-sm text-gray-500">{exercise.muscle}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-4">
-                            <div className="text-center">
-                              <p className="text-sm font-semibold text-gray-900">{exercise.sets}</p>
-                              <p className="text-xs text-gray-500">Sets</p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-sm font-semibold text-gray-900">{exercise.reps}</p>
-                              <p className="text-xs text-gray-500">Reps</p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeExercise(index)}
-                              className="p-2 text-red-500 hover:text-red-700 transition-colors"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="space-y-3">
+                      <div className="p-4 bg-gray-50 border-2 border-gray-200 rounded-2xl text-center">
+                        <p className="text-gray-500">Exercise management will be available soon</p>
+                      </div>
                     </div>
                   </div>
                 </form>
@@ -551,10 +583,10 @@ export default function WorkoutsPage() {
                   </button>
                   <button
                     onClick={handleCreateWorkout}
-                    disabled={!workoutName.trim() || exercises.length === 0}
+                    disabled={!workoutName.trim() || isCreatingWorkout}
                     className="bg-gradient-to-r from-royal-blue to-dark-blue hover:from-dark-blue hover:to-royal-blue text-white px-6 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Create Workout
+                    {isCreatingWorkout ? 'Creating...' : 'Create Workout'}
                   </button>
                 </div>
               </div>
@@ -569,12 +601,12 @@ export default function WorkoutsPage() {
               {/* Modal Header */}
               <div className="flex items-center justify-between p-6 border-b border-gray-200">
                 <div className="flex items-center space-x-3">
-                  <div className={`h-10 w-10 ${getTypeColor(selectedWorkout.type)} rounded-full flex items-center justify-center`}>
-                    {getTypeIcon(selectedWorkout.type)}
+                  <div className={`h-10 w-10 ${getTypeColor()} rounded-full flex items-center justify-center`}>
+                    {getTypeIcon()}
                   </div>
                                      <div>
-                     <h3 className="font-bold text-gray-900">{selectedWorkout.name}</h3>
-                     <p className="text-sm text-gray-500">{selectedWorkout.type}</p>
+                     <h3 className="font-bold text-gray-900">{selectedWorkout.title}</h3>
+                     <p className="text-sm text-gray-500">Workout</p>
                    </div>
                 </div>
                 <button
@@ -591,25 +623,37 @@ export default function WorkoutsPage() {
                   {/* Workout Info */}
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-2">Description</h4>
-                    <p className="text-gray-600">{selectedWorkout.description}</p>
+                    <p className="text-gray-600">{selectedWorkout.description || 'No description available'}</p>
                   </div>
 
                   
 
-                                     {/* Exercises */}
-                   <div>
-                     <h4 className="font-semibold text-gray-900 mb-4">Exercises</h4>
-                     <div className="space-y-2">
-                       {selectedWorkout.exercises.map((exercise: any, index: number) => (
-                         <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                           <span className="text-sm font-medium text-gray-700">{exercise.name}</span>
-                           <span className="text-xs font-bold text-gray-500 bg-white px-2 py-1 rounded-full">
-                             {exercise.sets}×{exercise.reps}
-                           </span>
-                         </div>
-                       ))}
-                     </div>
-                   </div>
+                  {/* Workout Details */}
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-4">Workout Details</h4>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                        <span className="text-sm font-medium text-gray-700">Assigned Date</span>
+                        <span className="text-xs font-bold text-gray-500 bg-white px-2 py-1 rounded-full">
+                          {formatDate(selectedWorkout.date_assigned)}
+                        </span>
+                      </div>
+                      {selectedWorkout.assigned_to && selectedWorkout.assigned_to.length > 0 && (
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                          <span className="text-sm font-medium text-gray-700">Assigned To</span>
+                          <span className="text-xs font-bold text-gray-500 bg-white px-2 py-1 rounded-full">
+                            {selectedWorkout.assigned_to.length} athlete{selectedWorkout.assigned_to.length !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                        <span className="text-sm font-medium text-gray-700">Created</span>
+                        <span className="text-xs font-bold text-gray-500 bg-white px-2 py-1 rounded-full">
+                          {formatDate(selectedWorkout.created_at)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
