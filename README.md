@@ -10,6 +10,34 @@ A Next.js web application for managing team fitness and workouts with Supabase b
 - **Real-time Updates**: Workouts are fetched from the database and displayed in cards
 - **Responsive Design**: Beautiful UI with loading states and error handling
 
+### Messaging System
+- **Team Communication**: Coaches can create group chats and communicate with team members
+- **Direct Messages**: Individual conversations between team members
+- **Team-wide Chat**: General team communication channel
+- **Flexible Group Chats**: Coaches can create empty group chats and add members later
+- **Supabase Integration**: Messages stored in PostgreSQL with proper team isolation
+- **Fallback Support**: Graceful fallback to mock data if database operations fail
+
+#### Messaging Database Schema
+The messages table contains the following columns:
+- `id`: Unique identifier
+- `team_id`: Team the message belongs to
+- `sender_id`: User ID who sent the message
+- `content`: Message content
+- `created_at`: Timestamp when the message was sent
+
+#### How Conversations Work
+The system organizes messages into conversations using logical grouping:
+
+1. **Team Chat**: All messages with the same `team_id` (general team communication)
+2. **Direct Messages**: Messages between two specific users (filtered by sender_id and team_id)
+3. **Group Chats**: Created by coaches, represented as system messages in the team chat
+
+#### Row-Level Security
+The app uses Supabase RLS policies to ensure users can only access:
+- Messages from teams they belong to (`team_id`)
+- Messages they've sent or received (`sender_id`)
+
 #### Workout Database Schema
 The workouts table contains the following columns:
 - `id`: Unique identifier

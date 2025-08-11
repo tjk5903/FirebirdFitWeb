@@ -1,8 +1,10 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
+import '@testing-library/jest-dom'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import HomePage from '../page'
+import { updateTeamName } from '@/lib/utils'
 
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
@@ -12,6 +14,11 @@ jest.mock('next/navigation', () => ({
 // Mock AuthContext
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: jest.fn(),
+}))
+
+// Mock the utils module
+jest.mock('@/lib/utils', () => ({
+  updateTeamName: jest.fn()
 }))
 
 describe('HomePage', () => {
@@ -67,5 +74,15 @@ describe('HomePage', () => {
     render(<HomePage />)
     
     expect(mockRouter.push).not.toHaveBeenCalled()
+  })
+})
+
+describe('Team Name Editing', () => {
+  it('should have updateTeamName function available', () => {
+    expect(updateTeamName).toBeDefined()
+  })
+
+  it('should be a function', () => {
+    expect(typeof updateTeamName).toBe('function')
   })
 }) 

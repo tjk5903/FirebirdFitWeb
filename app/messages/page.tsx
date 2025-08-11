@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { getTeamMessages, getConversationMessages, sendMessage } from '@/lib/utils'
+import { getTeamMessages, getConversationMessages, sendMessage, createGroupChat, addMembersToGroupChat } from '@/lib/utils'
 import { Search, Send, Plus, X, Users, MoreVertical, ArrowLeft } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
 import MainNavigation from '@/components/navigation/MainNavigation'
 
-// Mock data for messages
+// Mock data for messages (keeping for fallback)
 const mockMessages = [
   {
     id: 1,
@@ -84,7 +84,7 @@ const mockMessages = [
   }
 ]
 
-// Mock conversations
+// Mock conversations (keeping for fallback)
 const mockConversations = {
   1: [
     { id: 1, sender: 'Jake Rodriguez', message: 'Hi Coach!', time: '2 hours ago', isCoach: false },
@@ -99,56 +99,32 @@ const mockConversations = {
     { id: 3, sender: 'Marcus Johnson', message: 'Can we discuss the new training schedule?', time: '2 hours ago', isCoach: false }
   ],
   3: [
-    { id: 1, sender: 'Tyler Williams', message: 'Team meeting tomorrow at 3 PM confirmed.', time: '3 hours ago', isCoach: false }
+    { id: 1, sender: 'Tyler Williams', message: 'Coach, I need to reschedule our meeting', time: '4 hours ago', isCoach: false },
+    { id: 2, sender: 'Coach', message: 'No problem, what time works better for you?', time: '4 hours ago', isCoach: true },
+    { id: 3, sender: 'Tyler Williams', message: 'Team meeting tomorrow at 3 PM confirmed.', time: '3 hours ago', isCoach: false }
   ],
   4: [
-    { id: 1, sender: 'Brandon Davis', message: 'New workout plan looks challenging!', time: '1 day ago', isCoach: false },
-    { id: 2, sender: 'Coach', message: 'It is! But I know you can handle it. Let me know if you need any modifications.', time: '1 day ago', isCoach: true }
+    { id: 1, sender: 'Brandon Davis', message: 'Coach, the new workout plan looks challenging!', time: '1 day ago', isCoach: false },
+    { id: 2, sender: 'Coach', message: 'That\'s the goal! It\'s designed to push you to the next level.', time: '1 day ago', isCoach: true }
   ],
   5: [
     { id: 1, sender: 'Coach Johnson', message: 'Great work everyone! Keep pushing yourselves!', time: '2 days ago', isCoach: true },
-    { id: 2, sender: 'Jake Rodriguez', message: 'Thanks Coach!', time: '2 days ago', isCoach: false },
-    { id: 3, sender: 'Marcus Johnson', message: 'Appreciate it!', time: '2 days ago', isCoach: false }
+    { id: 2, sender: 'Jake Rodriguez', message: 'Thanks Coach! Feeling stronger every day!', time: '2 days ago', isCoach: false },
+    { id: 3, sender: 'Marcus Johnson', message: 'Agreed! The new routine is working wonders.', time: '2 days ago', isCoach: false }
   ],
   6: [
-    { id: 1, sender: 'Coach', message: 'Practice moved to 4 PM today due to field maintenance', time: '4 hours ago', isCoach: true },
-    { id: 2, sender: 'Jake Rodriguez', message: 'Got it, thanks Coach!', time: '4 hours ago', isCoach: false },
-    { id: 3, sender: 'Marcus Johnson', message: 'Will be there!', time: '3 hours ago', isCoach: false },
-    { id: 4, sender: 'Tyler Williams', message: 'Perfect timing', time: '3 hours ago', isCoach: false }
+    { id: 1, sender: 'Coach', message: 'Practice moved to 4 PM today due to field maintenance.', time: '4 hours ago', isCoach: true },
+    { id: 2, sender: 'Tyler Williams', message: 'Got it, thanks for the update!', time: '4 hours ago', isCoach: false }
   ],
   7: [
-    { id: 1, sender: 'Ryan Mitchell', message: 'Coach, I injured my ankle during practice', time: '5 hours ago', isCoach: false },
-    { id: 2, sender: 'Coach', message: 'I\'m sorry to hear that. How bad is it?', time: '5 hours ago', isCoach: true },
-    { id: 3, sender: 'Ryan Mitchell', message: 'It\'s swollen but I can walk on it', time: '4 hours ago', isCoach: false },
-    { id: 4, sender: 'Coach', message: 'Let\'s get you checked out. Take it easy and ice it', time: '4 hours ago', isCoach: true }
+    { id: 1, sender: 'Ryan Mitchell', message: 'Coach, I injured my ankle during practice today.', time: '5 hours ago', isCoach: false },
+    { id: 2, sender: 'Coach', message: 'I\'m sorry to hear that. Let\'s get you checked out and adjust your training plan.', time: '5 hours ago', isCoach: true }
   ],
   8: [
-    { id: 1, sender: 'Coach', message: 'Welcome to the team everyone!', time: '1 day ago', isCoach: true },
-    { id: 2, sender: 'Coach', message: 'This is going to be an exciting season', time: '1 day ago', isCoach: true },
-    { id: 3, sender: 'Brandon Davis', message: 'Excited to be here!', time: '1 day ago', isCoach: false },
-    { id: 4, sender: 'Ryan Mitchell', message: 'Can\'t wait to get started!', time: '1 day ago', isCoach: false }
+    { id: 1, sender: 'Coach', message: 'Welcome to the team, freshmen! We\'re excited to have you.', time: '1 day ago', isCoach: true },
+    { id: 2, sender: 'Freshman 1', message: 'Thank you! We\'re excited to be here!', time: '1 day ago', isCoach: false }
   ]
 }
-
-// Mock athletes and staff for new chat
-const mockAthletes = [
-  { id: 1, name: 'Jake Rodriguez', type: 'athlete' },
-  { id: 2, name: 'Marcus Johnson', type: 'athlete' },
-  { id: 3, name: 'Tyler Williams', type: 'athlete' },
-  { id: 4, name: 'Brandon Davis', type: 'athlete' },
-  { id: 5, name: 'Ryan Mitchell', type: 'athlete' },
-  { id: 6, name: 'Chris Thompson', type: 'athlete' },
-  { id: 7, name: 'Kevin Martinez', type: 'athlete' },
-  { id: 8, name: 'David Wilson', type: 'athlete' },
-  { id: 9, name: 'Anthony Garcia', type: 'athlete' },
-  { id: 10, name: 'Michael Brown', type: 'athlete' }
-]
-
-const mockStaff = [
-  { id: 101, name: 'Dr. Smith', type: 'staff' },
-  { id: 102, name: 'Coach Martinez', type: 'staff' },
-  { id: 103, name: 'Nutritionist Brown', type: 'staff' }
-]
 
 export default function MessagesPage() {
   const { user, isLoading } = useAuth()
@@ -158,7 +134,7 @@ export default function MessagesPage() {
   const [newMessage, setNewMessage] = useState('')
   const [showNewChat, setShowNewChat] = useState(false)
   const [newChatName, setNewChatName] = useState('')
-  const [selectedMembers, setSelectedMembers] = useState<number[]>([])
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
   const [messages, setMessages] = useState<Array<{
     id: string
@@ -173,6 +149,14 @@ export default function MessagesPage() {
   const [conversations, setConversations] = useState<any>({})
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const [isSendingMessage, setIsSendingMessage] = useState(false)
+  const [teamMembers, setTeamMembers] = useState<Array<{
+    id: string
+    name: string
+    role: string
+    type: 'athlete' | 'staff'
+  }>>([])
+  const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false)
+  const [isCreatingGroupChat, setIsCreatingGroupChat] = useState(false)
 
   // Load messages when user loads
   useEffect(() => {
@@ -185,12 +169,91 @@ export default function MessagesPage() {
         setMessages(teamMessages)
       } catch (error) {
         console.error('Error loading messages:', error)
+        // Fallback to mock data if there's an error
+        setMessages(mockMessages.map(msg => ({
+          ...msg,
+          id: msg.id.toString(),
+          type: msg.type as 'athlete' | 'group',
+          conversationId: msg.type === 'group' ? `team_${msg.id}` : `direct_${msg.id}_${user.id}`
+        })))
       } finally {
         setIsLoadingMessages(false)
       }
     }
 
     loadMessages()
+  }, [user])
+
+  // Load team members for group chat creation
+  useEffect(() => {
+    const loadTeamMembers = async () => {
+      if (!user) return
+      
+      setIsLoadingTeamMembers(true)
+      try {
+        // Import supabase client
+        const { supabase } = await import('@/lib/supabaseClient')
+        
+        // Get user's team
+        const { data: userTeam, error: teamError } = await supabase
+          .from('team_members')
+          .select('team_id')
+          .eq('user_id', user.id)
+          .single()
+
+        if (teamError) throw teamError
+
+        // Get all team members
+        const { data: members, error: membersError } = await supabase
+          .from('team_members')
+          .select(`
+            user_id,
+            role,
+            users (
+              id,
+              full_name,
+              email
+            )
+          `)
+          .eq('team_id', userTeam.team_id)
+
+        if (membersError) throw membersError
+
+        // Format team members
+        const formattedMembers = members?.map((member: any) => ({
+          id: member.user_id,
+          name: member.users.full_name || member.users.email,
+          role: member.role,
+          type: (member.role === 'coach' ? 'staff' : 'athlete') as 'athlete' | 'staff'
+        })).filter((member: any) => member.id !== user.id) || []
+
+        setTeamMembers(formattedMembers)
+      } catch (error) {
+        console.error('Error loading team members:', error)
+        // Fallback to mock data
+        setTeamMembers([
+          { id: '1', name: 'Jake Rodriguez', role: 'athlete', type: 'athlete' as const },
+          { id: '2', name: 'Marcus Johnson', role: 'athlete', type: 'athlete' as const },
+          { id: '3', name: 'Tyler Williams', role: 'athlete', type: 'athlete' as const },
+          { id: '4', name: 'Brandon Davis', role: 'athlete', type: 'athlete' as const },
+          { id: '5', name: 'Ryan Mitchell', role: 'athlete', type: 'athlete' as const },
+          { id: '6', name: 'Chris Thompson', role: 'athlete', type: 'athlete' as const },
+          { id: '7', name: 'Kevin Martinez', role: 'athlete', type: 'athlete' as const },
+          { id: '8', name: 'David Wilson', role: 'athlete', type: 'athlete' as const },
+          { id: '9', name: 'Anthony Garcia', role: 'athlete', type: 'athlete' as const },
+          { id: '10', name: 'Michael Brown', role: 'athlete', type: 'athlete' as const },
+          { id: '101', name: 'Dr. Smith', role: 'staff', type: 'staff' as const },
+          { id: '102', name: 'Coach Martinez', role: 'coach', type: 'staff' as const },
+          { id: '103', name: 'Nutritionist Brown', role: 'staff', type: 'staff' as const }
+        ])
+      } finally {
+        setIsLoadingTeamMembers(false)
+      }
+    }
+
+    if (user?.role === 'coach') {
+      loadTeamMembers()
+    }
   }, [user])
 
   useEffect(() => {
@@ -247,17 +310,44 @@ export default function MessagesPage() {
     }
   }
 
-  const handleCreateGroupChat = () => {
-    if (newChatName.trim() && selectedMembers.length > 0) {
-      // Here you would typically create the group chat in your backend
-      console.log('Creating group chat:', { name: newChatName, members: selectedMembers })
-      setShowNewChat(false)
-      setNewChatName('')
-      setSelectedMembers([])
+  const handleCreateGroupChat = async () => {
+    if (!newChatName.trim() || !user) {
+      return
+    }
+
+    setIsCreatingGroupChat(true)
+
+    try {
+      // Create group chat with or without members
+      const result = await createGroupChat(user.id, newChatName.trim(), selectedMembers)
+      
+      if (result.success) {
+        // Refresh messages to show the new group chat
+        const teamMessages = await getTeamMessages(user.id)
+        setMessages(teamMessages)
+        
+        // Close modal and reset form
+        setShowNewChat(false)
+        setNewChatName('')
+        setSelectedMembers([])
+        
+        // Show success message
+        const memberText = selectedMembers.length > 0 
+          ? ` with ${selectedMembers.length} member(s)` 
+          : ' (no members added yet)'
+        alert(`Group chat "${newChatName}" created successfully!${memberText}`)
+      } else {
+        alert(`Failed to create group chat: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('Error creating group chat:', error)
+      alert('An error occurred while creating the group chat')
+    } finally {
+      setIsCreatingGroupChat(false)
     }
   }
 
-  const toggleMemberSelection = (memberId: number) => {
+  const toggleMemberSelection = (memberId: string) => {
     setSelectedMembers(prev => 
       prev.includes(memberId) 
         ? prev.filter(id => id !== memberId)
@@ -281,6 +371,13 @@ export default function MessagesPage() {
         }))
       } catch (error) {
         console.error('Error loading conversation:', error)
+        // Fallback to mock conversations if available
+        if (mockConversations[selectedMessage as keyof typeof mockConversations]) {
+          setConversations((prev: any) => ({
+            ...prev,
+            [selectedMessage]: mockConversations[selectedMessage as keyof typeof mockConversations]
+          }))
+        }
       }
     }
 
@@ -597,44 +694,63 @@ export default function MessagesPage() {
 
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Select Members
+                  Select Members (Optional)
                 </label>
+                <p className="text-xs text-gray-500 mb-3">You can add members now or later. Group chats can be created without initial members.</p>
                 
-                <div className="space-y-3 max-h-60 overflow-y-auto">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-600 mb-2">Athletes</h4>
-                    <div className="space-y-2">
-                      {mockAthletes.map((athlete) => (
-                        <label key={athlete.id} className="flex items-center space-x-3 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={selectedMembers.includes(athlete.id)}
-                            onChange={() => toggleMemberSelection(athlete.id)}
-                            className="h-4 w-4 text-blue-500 rounded focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-900">{athlete.name}</span>
-                        </label>
-                      ))}
-                    </div>
+                {isLoadingTeamMembers ? (
+                  <div className="text-center py-4">
+                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                    <p className="text-sm text-gray-600">Loading team members...</p>
                   </div>
+                ) : teamMembers.length === 0 ? (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-gray-600">No team members found.</p>
+                    <p className="text-xs text-gray-500 mt-1">Make sure you're part of a team.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-60 overflow-y-auto">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-600 mb-2">Athletes</h4>
+                      <div className="space-y-2">
+                        {teamMembers.filter(member => member.type === 'athlete').map((athlete) => (
+                          <label key={athlete.id} className="flex items-center space-x-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedMembers.includes(athlete.id)}
+                              onChange={() => toggleMemberSelection(athlete.id)}
+                              className="h-4 w-4 text-blue-500 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-900">{athlete.name}</span>
+                          </label>
+                        ))}
+                        {teamMembers.filter(member => member.type === 'athlete').length === 0 && (
+                          <p className="text-xs text-gray-500 italic">No athletes found</p>
+                        )}
+                      </div>
+                    </div>
 
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-600 mb-2">Staff</h4>
-                    <div className="space-y-2">
-                      {mockStaff.map((staff) => (
-                        <label key={staff.id} className="flex items-center space-x-3 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={selectedMembers.includes(staff.id)}
-                            onChange={() => toggleMemberSelection(staff.id)}
-                            className="h-4 w-4 text-blue-500 rounded focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-900">{staff.name}</span>
-                        </label>
-                      ))}
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-600 mb-2">Staff</h4>
+                      <div className="space-y-2">
+                        {teamMembers.filter(member => member.type === 'staff').map((staff) => (
+                          <label key={staff.id} className="flex items-center space-x-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedMembers.includes(staff.id)}
+                              onChange={() => toggleMemberSelection(staff.id)}
+                              className="h-4 w-4 text-blue-500 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-900">{staff.name}</span>
+                          </label>
+                        ))}
+                        {teamMembers.filter(member => member.type === 'staff').length === 0 && (
+                          <p className="text-xs text-gray-500 italic">No staff members found</p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
 
               <div className="flex items-center justify-end space-x-3">
@@ -646,10 +762,14 @@ export default function MessagesPage() {
                 </button>
                 <button
                   onClick={handleCreateGroupChat}
-                  disabled={!newChatName.trim() || selectedMembers.length === 0}
+                  disabled={!newChatName.trim() || isCreatingGroupChat}
                   className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Create Chat
+                  {isCreatingGroupChat ? (
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    'Create Chat'
+                  )}
                 </button>
               </div>
             </div>
@@ -658,4 +778,4 @@ export default function MessagesPage() {
       )}
     </div>
   )
-} 
+}

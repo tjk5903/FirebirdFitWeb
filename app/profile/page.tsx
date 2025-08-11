@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { createTeam, joinTeam, getUserTeams, UserRole } from '@/lib/utils'
+import { createTeam, joinTeam, getUserTeams, updateTeamName, UserRole } from '@/lib/utils'
 import { 
   ArrowLeft, 
   User, 
@@ -39,6 +39,10 @@ export default function ProfilePage() {
   const [joinTeamSuccess, setJoinTeamSuccess] = useState('')
   const [userTeams, setUserTeams] = useState<Array<{ id: string, name: string, joinCode: string, role: string }>>([])
   const [isLoadingTeams, setIsLoadingTeams] = useState(false)
+  const [isEditingTeams, setIsEditingTeams] = useState(false)
+  const [editingTeamId, setEditingTeamId] = useState<string | null>(null)
+  const [teamNameError, setTeamNameError] = useState('')
+  const [isSavingTeamName, setIsSavingTeamName] = useState(false)
   const [profileData, setProfileData] = useState({
     name: '',
     email: '',
@@ -166,6 +170,52 @@ export default function ProfilePage() {
     } finally {
       setIsJoiningTeam(false)
     }
+  }
+
+  const handleSaveTeamName = async (teamId: string, newName: string) => {
+    if (!user || !newName.trim()) return
+
+    setIsSavingTeamName(true)
+    setTeamNameError('')
+
+    try {
+      const result = await updateTeamName(user.id, teamId, newName.trim())
+      
+      if (result.success) {
+        // Update local state
+        const updatedTeams = userTeams.map(team => 
+          team.id === teamId ? { ...team, name: newName.trim() } : team
+        )
+        setUserTeams(updatedTeams)
+        setEditingTeamId(null)
+        setIsEditingTeams(false)
+      } else {
+        setTeamNameError(result.error || 'Failed to update team name')
+      }
+    } catch (err: any) {
+      setTeamNameError(err.message || 'An unexpected error occurred')
+    } finally {
+      setIsSavingTeamName(false)
+    }
+  }
+
+  const handleCancelTeamEdit = () => {
+    // Reset to original team names
+    const loadUserTeams = async () => {
+      if (!user) return
+      
+      try {
+        const teams = await getUserTeams(user.id)
+        setUserTeams(teams)
+      } catch (error) {
+        console.error('Error loading user teams:', error)
+      }
+    }
+    
+    loadUserTeams()
+    setEditingTeamId(null)
+    setIsEditingTeams(false)
+    setTeamNameError('')
   }
 
   // Show loading state while auth is loading
@@ -494,9 +544,62 @@ export default function ProfilePage() {
              <div className="card-elevated hover-lift mt-6">
                <div className="flex items-center justify-between mb-6">
                  <h3 className="text-lg sm:text-xl font-bold text-gray-900">My Teams</h3>
+                 {user?.role === 'coach' && userTeams.length > 0 && (
+                   <div className="flex items-center space-x-2">
+                     {!isEditingTeams ? (
+                       <button
+                         onClick={() => setIsEditingTeams(true)}
+                         className="flex items-center space-x-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl transition-all duration-200"
+                       >
+                         <Edit3 className="h-4 w-4" />
+                         <span>Edit Team Name</span>
+                       </button>
+                     ) : (
+                       <div className="flex items-center space-x-2">
+                         <button
+                           onClick={() => {
+                             // Save all changes
+                             userTeams.forEach(team => {
+                               if (editingTeamId === team.id) {
+                                 handleSaveTeamName(team.id, team.name)
+                               }
+                             })
+                           }}
+                           disabled={isSavingTeamName}
+                           className="flex items-center space-x-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-xl transition-all duration-200 disabled:opacity-50"
+                         >
+                           <Save className="h-4 w-4" />
+                           <span>{isSavingTeamName ? 'Saving...' : 'Save All'}</span>
+                         </button>
+                         <button
+                           onClick={handleCancelTeamEdit}
+                           className="flex items-center space-x-2 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-xl transition-all duration-200"
+                         >
+                           <X className="h-4 w-4" />
+                           <span>Cancel</span>
+                         </button>
+                       </div>
+                     )}
+                   </div>
+                 )}
                </div>
 
+               {user?.role === 'coach' && isEditingTeams && (
+                 <div className="mb-4 p-3 bg-blue-50 border-2 border-blue-200 rounded-xl">
+                   <p className="text-sm text-blue-700">
+                     <strong>Note:</strong> You can customize your team's display name (e.g., "Varsity Football" instead of "Team XXXXXX"). 
+                     The join code will remain unchanged so athletes can still join using the same code.
+                   </p>
+                 </div>
+               )}
+
                <div className="space-y-4">
+                 {teamNameError && (
+                   <div className="bg-red-50 border-2 border-red-200 text-red-600 px-4 py-3 rounded-2xl text-sm font-medium flex items-center space-x-2">
+                     <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                     <span>{teamNameError}</span>
+                   </div>
+                 )}
                  {isLoadingTeams ? (
                    <div className="flex items-center justify-center py-8">
                      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-3"></div>
@@ -510,8 +613,54 @@ export default function ProfilePage() {
                            <div className="h-12 w-12 bg-gradient-to-br from-royal-blue to-dark-blue rounded-xl flex items-center justify-center">
                              <Users className="h-6 w-6 text-white" />
                            </div>
-                           <div>
-                             <h4 className="font-semibold text-gray-900">{team.name}</h4>
+                           <div className="flex-1">
+                             {isEditingTeams && user?.role === 'coach' ? (
+                               <div className="space-y-2">
+                                 <input
+                                   type="text"
+                                   value={team.name}
+                                   onChange={(e) => {
+                                     const updatedTeams = userTeams.map(t => 
+                                       t.id === team.id ? { ...t, name: e.target.value } : t
+                                     );
+                                     setUserTeams(updatedTeams);
+                                   }}
+                                   className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
+                                   placeholder="Enter team name"
+                                 />
+                                 <div className="flex items-center space-x-2">
+                                   <button
+                                     onClick={() => handleSaveTeamName(team.id, team.name)}
+                                     disabled={isSavingTeamName}
+                                     className="flex items-center space-x-1 px-3 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-all duration-200 disabled:opacity-50 text-sm"
+                                   >
+                                     <Save className="h-3 w-3" />
+                                     <span>Save</span>
+                                   </button>
+                                   <button
+                                     onClick={() => {
+                                       // Reset this team's name
+                                       const loadUserTeams = async () => {
+                                         if (!user) return
+                                         try {
+                                           const teams = await getUserTeams(user.id)
+                                           setUserTeams(teams)
+                                         } catch (error) {
+                                           console.error('Error loading user teams:', error)
+                                         }
+                                       }
+                                       loadUserTeams()
+                                     }}
+                                     className="flex items-center space-x-1 px-3 py-1 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-all duration-200 text-sm"
+                                   >
+                                     <X className="h-3 w-3" />
+                                     <span>Cancel</span>
+                                   </button>
+                                 </div>
+                               </div>
+                             ) : (
+                               <h4 className="font-semibold text-gray-900">{team.name}</h4>
+                             )}
                              <p className="text-sm text-gray-600 capitalize">Role: {team.role}</p>
                            </div>
                          </div>
