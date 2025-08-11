@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { getTeamMessages, getConversationMessages, sendMessage, createGroupChat, addMembersToGroupChat } from '@/lib/utils'
-import { Search, Send, Plus, X, Users, MoreVertical, ArrowLeft } from 'lucide-react'
+import { Search, Send, Plus, X, Users, MoreVertical, ArrowLeft, MessageCircle, Hash } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
 import MainNavigation from '@/components/navigation/MainNavigation'
 
@@ -157,6 +157,7 @@ export default function MessagesPage() {
   }>>([])
   const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false)
   const [isCreatingGroupChat, setIsCreatingGroupChat] = useState(false)
+  const [isLoadingConversation, setIsLoadingConversation] = useState(false)
 
   // Load messages when user loads
   useEffect(() => {
@@ -363,6 +364,7 @@ export default function MessagesPage() {
       const selectedMsg = messages.find((msg: any) => msg.id === selectedMessage.toString())
       if (!selectedMsg) return
       
+      setIsLoadingConversation(true)
       try {
         const conversationMessages = await getConversationMessages(selectedMsg.conversationId)
         setConversations((prev: any) => ({
@@ -378,6 +380,8 @@ export default function MessagesPage() {
             [selectedMessage]: mockConversations[selectedMessage as keyof typeof mockConversations]
           }))
         }
+      } finally {
+        setIsLoadingConversation(false)
       }
     }
 
@@ -385,6 +389,7 @@ export default function MessagesPage() {
   }, [selectedMessage, messages])
 
   const currentConversation = selectedMessage ? conversations[selectedMessage] || [] : []
+  const selectedMessageData = selectedMessage ? messages.find(m => m.id === selectedMessage.toString()) : null
 
   // Show loading state while auth is loading
   if (isLoading) {
@@ -439,8 +444,6 @@ export default function MessagesPage() {
           )}
         </div>
 
-
-
         {/* Messages Container */}
         <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
           <div className="flex flex-col lg:flex-row h-[calc(100vh-300px)]">
@@ -481,19 +484,39 @@ export default function MessagesPage() {
                     key={message.id}
                     onClick={() => setSelectedMessage(parseInt(message.id))}
                     className={`group p-3 sm:p-4 border-b border-gray-100 cursor-pointer transition-all duration-300 hover:bg-gradient-to-r hover:from-blue-50/80 hover:to-blue-100/80 ${
-                                              selectedMessage === parseInt(message.id) ? 'bg-gradient-to-r from-blue-100 to-blue-200 border-blue-300 shadow-sm' : ''
+                      selectedMessage === parseInt(message.id) 
+                        ? 'bg-gradient-to-r from-blue-100 to-blue-200 border-blue-300 shadow-sm ring-2 ring-blue-300' 
+                        : ''
                     }`}
                   >
                     <div className="flex items-center space-x-3 sm:space-x-4">
-                      <div className={`h-10 w-10 sm:h-12 sm:w-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-110 ${
-                        message.unread ? 'ring-2 ring-blue-300' : ''
-                      }`}>
-                        <span className="text-white font-bold text-sm sm:text-base">{message.avatar}</span>
+                      <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-2xl flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-110 ${
+                        message.type === 'group' 
+                          ? 'bg-gradient-to-br from-purple-500 to-purple-600' 
+                          : 'bg-gradient-to-br from-blue-500 to-blue-600'
+                      } ${message.unread ? 'ring-2 ring-blue-300' : ''}`}>
+                        {message.type === 'group' ? (
+                          <Users className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                        ) : (
+                          <span className="text-white font-bold text-sm sm:text-base">{message.avatar}</span>
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
-                          <h3 className="font-bold text-gray-900 truncate text-sm sm:text-base">{message.name}</h3>
-                          <span className="text-xs text-gray-500 font-medium">{message.time}</span>
+                          <div className="flex items-center space-x-2">
+                            <h3 className="font-bold text-gray-900 truncate text-sm sm:text-base">{message.name}</h3>
+                            {message.type === 'group' && (
+                              <Hash className="h-3 w-3 text-purple-500" />
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {message.unread && (
+                              <div className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[20px] text-center">
+                                New
+                              </div>
+                            )}
+                            <span className="text-xs text-gray-500 font-medium">{message.time}</span>
+                          </div>
                         </div>
                         <p className="text-xs sm:text-sm text-gray-600 truncate mb-1 sm:mb-2">{message.lastMessage}</p>
                         {message.unread && (
@@ -504,8 +527,8 @@ export default function MessagesPage() {
                         )}
                         {message.type === 'group' && (
                           <div className="flex items-center space-x-1 mt-1">
-                            <Users className="h-3 w-3 text-gray-400" />
-                            <span className="text-xs text-gray-500">Group chat</span>
+                            <Users className="h-3 w-3 text-purple-400" />
+                            <span className="text-xs text-purple-500 font-medium">Group chat</span>
                           </div>
                         )}
                       </div>
@@ -534,18 +557,33 @@ export default function MessagesPage() {
                   <div className="p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3 sm:space-x-4">
-                                                 <div className="h-10 w-10 sm:h-12 sm:w-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
-                           <span className="text-white font-bold text-sm sm:text-base">
-                             {messages.find(m => m.id === selectedMessage.toString())?.avatar}
-                           </span>
-                         </div>
-                         <div>
-                           <h2 className="font-bold text-gray-900 text-base sm:text-lg">
-                             {messages.find(m => m.id === selectedMessage.toString())?.name}
-                           </h2>
+                        <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-2xl flex items-center justify-center shadow-lg ${
+                          selectedMessageData?.type === 'group' 
+                            ? 'bg-gradient-to-br from-purple-500 to-purple-600' 
+                            : 'bg-gradient-to-br from-blue-500 to-blue-600'
+                        }`}>
+                          {selectedMessageData?.type === 'group' ? (
+                            <Users className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                          ) : (
+                            <span className="text-white font-bold text-sm sm:text-base">
+                              {selectedMessageData?.avatar}
+                            </span>
+                          )}
+                        </div>
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <h2 className="font-bold text-gray-900 text-base sm:text-lg">
+                              {selectedMessageData?.name}
+                            </h2>
+                            {selectedMessageData?.type === 'group' && (
+                              <Hash className="h-4 w-4 text-purple-500" />
+                            )}
+                          </div>
                           <div className="flex items-center space-x-2">
                             <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></span>
-                            <p className="text-xs sm:text-sm text-gray-600 font-medium">Active now</p>
+                            <p className="text-xs sm:text-sm text-gray-600 font-medium">
+                              {selectedMessageData?.type === 'group' ? 'Group active' : 'Active now'}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -562,36 +600,60 @@ export default function MessagesPage() {
 
                   {/* Messages */}
                   <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gradient-to-b from-gray-50/50 to-white">
-                    {currentConversation.length > 0 ? (
-                      currentConversation.map((msg: any) => (
-                      <div
-                        key={msg.id}
-                        className={`flex ${msg.isCoach ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div
-                          className={`max-w-xs lg:max-w-md px-6 py-4 rounded-3xl shadow-lg transition-all duration-300 hover:shadow-xl ${
-                            msg.isCoach
-                              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
-                              : 'bg-white text-gray-900 border-2 border-gray-100 shadow-md'
-                          }`}
-                        >
-                          <p className="text-sm leading-relaxed">{msg.message}</p>
-                          <div className={`flex items-center justify-between mt-2 ${
-                            msg.isCoach ? 'text-blue-100' : 'text-gray-500'
-                          }`}>
-                            <span className="text-xs font-medium">{msg.time}</span>
-                            {msg.isCoach && (
-                              <span className="text-xs">✓✓</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                    ) : (
+                    {isLoadingConversation ? (
                       <div className="flex items-center justify-center h-full">
                         <div className="text-center">
                           <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                           <p className="text-gray-600">Loading conversation...</p>
+                        </div>
+                      </div>
+                    ) : currentConversation.length > 0 ? (
+                      <>
+                        {/* Conversation Status */}
+                        <div className="text-center mb-6">
+                          <div className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-full">
+                            <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse"></div>
+                            <span className="text-sm text-blue-700 font-medium">
+                              {selectedMessageData?.type === 'group' 
+                                ? `Group chat with ${currentConversation.length} messages` 
+                                : `Direct conversation with ${currentConversation.length} messages`
+                              }
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {/* Messages */}
+                        {currentConversation.map((msg: any) => (
+                        <div
+                          key={msg.id}
+                          className={`flex ${msg.isCoach ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div
+                            className={`max-w-xs lg:max-w-md px-6 py-4 rounded-3xl shadow-lg transition-all duration-300 hover:shadow-xl ${
+                              msg.isCoach
+                                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
+                                : 'bg-white text-gray-900 border-2 border-gray-100 shadow-md'
+                            }`}
+                          >
+                            <p className="text-sm leading-relaxed">{msg.message}</p>
+                            <div className={`flex items-center justify-between mt-2 ${
+                              msg.isCoach ? 'text-blue-100' : 'text-gray-500'
+                            }`}>
+                              <span className="text-xs font-medium">{msg.time}</span>
+                              {msg.isCoach && (
+                                <span className="text-xs">✓✓</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      </>
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="text-center">
+                          <MessageCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                          <h3 className="text-lg font-semibold text-gray-900 mb-2">No messages yet</h3>
+                          <p className="text-gray-600">Start the conversation by sending the first message!</p>
                         </div>
                       </div>
                     )}
@@ -642,7 +704,7 @@ export default function MessagesPage() {
                 <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50/50 to-white">
                   <div className="text-center max-w-md px-4">
                     <div className="h-16 w-16 sm:h-20 sm:w-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
-                      <Search className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
+                      <MessageCircle className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
                     </div>
                     <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2 sm:mb-3">Select a conversation</h3>
                     <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">Choose a message from the list to start chatting with your team</p>
