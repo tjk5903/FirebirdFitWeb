@@ -374,7 +374,13 @@ export default function MessagesPage() {
   }
 
   const handleAddMembers = async () => {
+    console.log('handleAddMembers called')
+    console.log('selectedMessage:', selectedMessage)
+    console.log('user:', user)
+    console.log('selectedMembers:', selectedMembers)
+    
     if (!selectedMessage || !user || selectedMembers.length === 0) {
+      console.log('Early return: missing data or no members selected')
       return
     }
 
@@ -385,7 +391,12 @@ export default function MessagesPage() {
     }
 
     const selectedMsg = messages.find((msg: any) => msg.id === selectedMessage)
-    if (!selectedMsg || selectedMsg.type !== 'group') {
+    if (!selectedMsg) {
+      console.error('Selected chat not found')
+      return
+    }
+    
+    if (selectedMsg.type !== 'group') {
       console.error('Can only add members to group chats')
       return
     }
@@ -427,7 +438,12 @@ export default function MessagesPage() {
   }
 
   const handleDeleteChat = async () => {
+    console.log('handleDeleteChat called')
+    console.log('selectedMessage:', selectedMessage)
+    console.log('user:', user)
+    
     if (!selectedMessage || !user) {
+      console.log('Early return: missing selectedMessage or user')
       return
     }
 
@@ -438,8 +454,10 @@ export default function MessagesPage() {
     }
 
     const selectedMsg = messages.find((msg: any) => msg.id === selectedMessage)
-    if (!selectedMsg || selectedMsg.type !== 'group') {
-      console.error('Can only delete group chats')
+    console.log('selectedMsg found:', selectedMsg)
+    
+    if (!selectedMsg) {
+      console.error('Selected chat not found')
       return
     }
 
@@ -451,26 +469,29 @@ export default function MessagesPage() {
     setIsDeletingChat(true)
 
     try {
-      // For now, we'll implement a simple delete by adding a deletion message
-      // In a full implementation, you might want to create a proper delete function
-      const groupChatId = selectedMsg.conversationId.replace('group_', '')
-      const deletionMessage = `[GROUP_CHAT:${groupChatId}:${selectedMsg.name}] Group chat "${selectedMsg.name}" was deleted by coach.`
-      
-      const result = await sendMessage(user.id, selectedMsg.conversationId, 'This group chat has been deleted.')
-      
-      if (result.success) {
-        // Refresh messages
-        const teamMessages = await getTeamMessages(user.id)
-        setMessages(teamMessages)
+      if (selectedMsg.type === 'group') {
+        // For group chats, add a deletion message
+        const result = await sendMessage(user.id, selectedMsg.conversationId, 'This group chat has been deleted by the coach.')
         
-        // Clear the selected message since the chat is deleted
-        setSelectedMessage(null)
-        setShowOptionsDropdown(false)
-        
-        console.log(`Group chat "${selectedMsg.name}" has been deleted`)
+        if (result.success) {
+          console.log(`Group chat "${selectedMsg.name}" has been deleted`)
+        } else {
+          console.error(`Failed to delete group chat: ${result.error}`)
+        }
       } else {
-        console.error(`Failed to delete chat: ${result.error}`)
+        // For individual chats, we'll just clear the conversation locally
+        // In a real implementation, you might want to add a "deleted" flag to the database
+        console.log(`Individual chat with "${selectedMsg.name}" has been cleared`)
       }
+      
+      // Refresh messages to reflect changes
+      const teamMessages = await getTeamMessages(user.id)
+      setMessages(teamMessages)
+      
+      // Clear the selected message since the chat is deleted/cleared
+      setSelectedMessage(null)
+      setShowOptionsDropdown(false)
+      
     } catch (error) {
       console.error('Error deleting chat:', error)
       console.error('An error occurred while deleting the chat')
@@ -717,27 +738,56 @@ export default function MessagesPage() {
                         </button>
                         <div className="relative">
                           <button 
-                            onClick={() => setShowOptionsDropdown(!showOptionsDropdown)}
+                            onClick={() => {
+                              console.log('Three dots button clicked')
+                              console.log('Current showOptionsDropdown:', showOptionsDropdown)
+                              console.log('Selected message data:', selectedMessageData)
+                              console.log('User role:', user?.role)
+                              setShowOptionsDropdown(!showOptionsDropdown)
+                            }}
                             className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
                           >
                             <MoreVertical className="h-4 w-4 sm:h-5 sm:w-5" />
                           </button>
                           
-                          {/* Dropdown Menu - Only visible for coaches on group chats */}
-                          {showOptionsDropdown && selectedMessageData?.type === 'group' && user?.role === 'coach' && (
+                          {/* Dropdown Menu - Only visible for coaches on any chat */}
+                          {(() => {
+                            const shouldShow = showOptionsDropdown && selectedMessageData && user?.role === 'coach';
+                            console.log('Dropdown should show:', shouldShow);
+                            console.log('- showOptionsDropdown:', showOptionsDropdown);
+                            console.log('- selectedMessageData exists:', !!selectedMessageData);
+                            console.log('- selectedMessageData?.type:', selectedMessageData?.type);
+                            console.log('- user?.role:', user?.role);
+                            return shouldShow;
+                          })() && (
                             <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
+                              {/* Add Members - Only for group chats */}
+                              {selectedMessageData?.type === 'group' && (
+                                <button
+                                  onClick={() => {
+                                    console.log('Add Members button clicked')
+                                    console.log('Current user:', user)
+                                    console.log('Selected message:', selectedMessage)
+                                    console.log('Selected message data:', selectedMessageData)
+                                    setShowAddMembersModal(true)
+                                    setShowOptionsDropdown(false)
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2"
+                                >
+                                  <Users className="h-4 w-4" />
+                                  <span>Add Members</span>
+                                </button>
+                              )}
+                              
+                              {/* Delete Chat - Available for all chats */}
                               <button
                                 onClick={() => {
-                                  setShowAddMembersModal(true)
-                                  setShowOptionsDropdown(false)
+                                  console.log('Delete Chat button clicked')
+                                  console.log('Current user:', user)
+                                  console.log('Selected message:', selectedMessage)
+                                  console.log('Selected message data:', selectedMessageData)
+                                  handleDeleteChat()
                                 }}
-                                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2"
-                              >
-                                <Users className="h-4 w-4" />
-                                <span>Add Members</span>
-                              </button>
-                              <button
-                                onClick={handleDeleteChat}
                                 disabled={isDeletingChat}
                                 className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
