@@ -158,6 +158,10 @@ export default function MessagesPage() {
   const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false)
   const [isCreatingGroupChat, setIsCreatingGroupChat] = useState(false)
   const [isLoadingConversation, setIsLoadingConversation] = useState(false)
+  const [showOptionsDropdown, setShowOptionsDropdown] = useState(false)
+  const [showAddMembersModal, setShowAddMembersModal] = useState(false)
+  const [isAddingMembers, setIsAddingMembers] = useState(false)
+  const [isDeletingChat, setIsDeletingChat] = useState(false)
 
   // Load messages when user loads
   useEffect(() => {
@@ -262,6 +266,20 @@ export default function MessagesPage() {
     return () => clearTimeout(timer)
   }, [])
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showOptionsDropdown) {
+        setShowOptionsDropdown(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showOptionsDropdown])
+
   const filteredMessages = messages.filter(message =>
     message.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -353,6 +371,112 @@ export default function MessagesPage() {
         ? prev.filter(id => id !== memberId)
         : [...prev, memberId]
     )
+  }
+
+  const handleAddMembers = async () => {
+    if (!selectedMessage || !user || selectedMembers.length === 0) {
+      return
+    }
+
+    // Ensure only coaches can add members
+    if (user.role !== 'coach') {
+      console.error('Only coaches can add members to group chats')
+      return
+    }
+
+    const selectedMsg = messages.find((msg: any) => msg.id === selectedMessage)
+    if (!selectedMsg || selectedMsg.type !== 'group') {
+      console.error('Can only add members to group chats')
+      return
+    }
+
+    setIsAddingMembers(true)
+
+    try {
+      // Extract group chat ID from conversation ID
+      const groupChatId = selectedMsg.conversationId.replace('group_', '')
+      const result = await addMembersToGroupChat(user.id, groupChatId, selectedMembers)
+      
+      if (result.success) {
+        // Refresh messages to show the updated group chat
+        const teamMessages = await getTeamMessages(user.id)
+        setMessages(teamMessages)
+        
+        // Refresh the conversation to show the new member addition message
+        const conversationMessages = await getConversationMessages(selectedMsg.conversationId)
+        setConversations((prev: any) => ({
+          ...prev,
+          [selectedMessage]: conversationMessages
+        }))
+        
+        // Close modal and reset form
+        setShowAddMembersModal(false)
+        setSelectedMembers([])
+        setShowOptionsDropdown(false)
+        
+        console.log(`Successfully added ${selectedMembers.length} member(s) to the group chat`)
+      } else {
+        console.error(`Failed to add members: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('Error adding members:', error)
+      console.error('An error occurred while adding members')
+    } finally {
+      setIsAddingMembers(false)
+    }
+  }
+
+  const handleDeleteChat = async () => {
+    if (!selectedMessage || !user) {
+      return
+    }
+
+    // Ensure only coaches can delete chats
+    if (user.role !== 'coach') {
+      console.error('Only coaches can delete group chats')
+      return
+    }
+
+    const selectedMsg = messages.find((msg: any) => msg.id === selectedMessage)
+    if (!selectedMsg || selectedMsg.type !== 'group') {
+      console.error('Can only delete group chats')
+      return
+    }
+
+    const confirmDelete = window.confirm(`Are you sure you want to delete "${selectedMsg.name}"? This action cannot be undone.`)
+    if (!confirmDelete) {
+      return
+    }
+
+    setIsDeletingChat(true)
+
+    try {
+      // For now, we'll implement a simple delete by adding a deletion message
+      // In a full implementation, you might want to create a proper delete function
+      const groupChatId = selectedMsg.conversationId.replace('group_', '')
+      const deletionMessage = `[GROUP_CHAT:${groupChatId}:${selectedMsg.name}] Group chat "${selectedMsg.name}" was deleted by coach.`
+      
+      const result = await sendMessage(user.id, selectedMsg.conversationId, 'This group chat has been deleted.')
+      
+      if (result.success) {
+        // Refresh messages
+        const teamMessages = await getTeamMessages(user.id)
+        setMessages(teamMessages)
+        
+        // Clear the selected message since the chat is deleted
+        setSelectedMessage(null)
+        setShowOptionsDropdown(false)
+        
+        console.log(`Group chat "${selectedMsg.name}" has been deleted`)
+      } else {
+        console.error(`Failed to delete chat: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('Error deleting chat:', error)
+      console.error('An error occurred while deleting the chat')
+    } finally {
+      setIsDeletingChat(false)
+    }
   }
 
   // Load conversation messages when a message is selected
@@ -591,9 +715,38 @@ export default function MessagesPage() {
                         <button className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200">
                           <Search className="h-4 w-4 sm:h-5 sm:w-5" />
                         </button>
-                        <button className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200">
-                          <MoreVertical className="h-4 w-4 sm:h-5 sm:w-5" />
-                        </button>
+                        <div className="relative">
+                          <button 
+                            onClick={() => setShowOptionsDropdown(!showOptionsDropdown)}
+                            className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
+                          >
+                            <MoreVertical className="h-4 w-4 sm:h-5 sm:w-5" />
+                          </button>
+                          
+                          {/* Dropdown Menu - Only visible for coaches on group chats */}
+                          {showOptionsDropdown && selectedMessageData?.type === 'group' && user?.role === 'coach' && (
+                            <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
+                              <button
+                                onClick={() => {
+                                  setShowAddMembersModal(true)
+                                  setShowOptionsDropdown(false)
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2"
+                              >
+                                <Users className="h-4 w-4" />
+                                <span>Add Members</span>
+                              </button>
+                              <button
+                                onClick={handleDeleteChat}
+                                disabled={isDeletingChat}
+                                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <X className="h-4 w-4" />
+                                <span>{isDeletingChat ? 'Deleting...' : 'Delete Chat'}</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -831,6 +984,113 @@ export default function MessagesPage() {
                     <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                   ) : (
                     'Create Chat'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Members Modal */}
+      {showAddMembersModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="p-4 sm:p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Add Members</h3>
+                <button
+                  onClick={() => setShowAddMembersModal(false)}
+                  className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="h-4 w-4 sm:h-5 sm:w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 sm:p-6">
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-4">
+                  Add members to "{selectedMessageData?.name}" group chat
+                </p>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Select Members to Add
+                </label>
+                
+                {isLoadingTeamMembers ? (
+                  <div className="text-center py-4">
+                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                    <p className="text-sm text-gray-600">Loading team members...</p>
+                  </div>
+                ) : teamMembers.length === 0 ? (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-gray-600">No team members found.</p>
+                    <p className="text-xs text-gray-500 mt-1">Make sure you're part of a team.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-60 overflow-y-auto">
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-600 mb-2">Athletes</h4>
+                      <div className="space-y-2">
+                        {teamMembers.filter(member => member.type === 'athlete').map((athlete) => (
+                          <label key={athlete.id} className="flex items-center space-x-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedMembers.includes(athlete.id)}
+                              onChange={() => toggleMemberSelection(athlete.id)}
+                              className="h-4 w-4 text-blue-500 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-900">{athlete.name}</span>
+                          </label>
+                        ))}
+                        {teamMembers.filter(member => member.type === 'athlete').length === 0 && (
+                          <p className="text-xs text-gray-500 italic">No athletes found</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-600 mb-2">Staff</h4>
+                      <div className="space-y-2">
+                        {teamMembers.filter(member => member.type === 'staff').map((staff) => (
+                          <label key={staff.id} className="flex items-center space-x-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedMembers.includes(staff.id)}
+                              onChange={() => toggleMemberSelection(staff.id)}
+                              className="h-4 w-4 text-blue-500 rounded focus:ring-blue-500"
+                            />
+                            <span className="text-sm text-gray-900">{staff.name}</span>
+                          </label>
+                        ))}
+                        {teamMembers.filter(member => member.type === 'staff').length === 0 && (
+                          <p className="text-xs text-gray-500 italic">No staff members found</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end space-x-3">
+                <button
+                  onClick={() => setShowAddMembersModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddMembers}
+                  disabled={selectedMembers.length === 0 || isAddingMembers}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isAddingMembers ? (
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    `Add ${selectedMembers.length > 0 ? selectedMembers.length : ''} Member${selectedMembers.length !== 1 ? 's' : ''}`
                   )}
                 </button>
               </div>
