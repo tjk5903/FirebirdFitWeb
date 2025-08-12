@@ -948,6 +948,106 @@ export async function deleteWorkout(workoutId: string): Promise<{ success: boole
     console.error('Error in deleteWorkout:', error)
     return { success: false, error: 'An unexpected error occurred' }
   }
+}
+
+export async function deleteConversation(conversationId: string, userId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log('Attempting to delete conversation:', conversationId)
+    
+    // Verify user has permission to delete (coaches can delete any conversation, users can delete their direct messages)
+    const { data: userProfile, error: profileError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single()
+
+    if (profileError) {
+      return { success: false, error: 'Unable to verify user permissions' }
+    }
+
+    if (conversationId.startsWith('team_')) {
+      // Team chat - only coaches can delete
+      if (userProfile.role !== 'coach') {
+        return { success: false, error: 'Only coaches can delete team chats' }
+      }
+      
+      const teamId = conversationId.replace('team_', '')
+      console.log('Deleting team chat messages for team:', teamId)
+      const { data, error: deleteError } = await supabase
+        .from('messages')
+        .delete()
+        .eq('team_id', teamId)
+        .not('content', 'like', '[GROUP_CHAT:%')
+
+      console.log('Delete result:', { data, error: deleteError })
+
+      if (deleteError) {
+        console.error('Error deleting team chat messages:', deleteError)
+        return { success: false, error: `Failed to delete team chat: ${deleteError.message}` }
+      }
+    } else if (conversationId.startsWith('group_')) {
+      // Group chat - only coaches can delete
+      if (userProfile.role !== 'coach') {
+        return { success: false, error: 'Only coaches can delete group chats' }
+      }
+      
+      const groupChatId = conversationId.replace('group_', '')
+      console.log('Deleting group chat messages for group:', groupChatId)
+      const { data, error: deleteError } = await supabase
+        .from('messages')
+        .delete()
+        .like('content', `[GROUP_CHAT:${groupChatId}:%`)
+
+      console.log('Delete result:', { data, error: deleteError })
+
+      if (deleteError) {
+        console.error('Error deleting group chat messages:', deleteError)
+        return { success: false, error: `Failed to delete group chat: ${deleteError.message}` }
+      }
+    } else if (conversationId.startsWith('direct_')) {
+      // Direct chat - user can delete their own direct messages
+      const [userId1, userId2] = conversationId.replace('direct_', '').split('_')
+      
+      // User can only delete if they're one of the participants
+      if (userId !== userId1 && userId !== userId2) {
+        return { success: false, error: 'You can only delete your own direct messages' }
+      }
+
+      // Get the team_id for these users
+      const { data: userTeam, error: teamError } = await supabase
+        .from('team_members')
+        .select('team_id')
+        .eq('user_id', userId)
+        .single()
+
+      if (teamError) {
+        return { success: false, error: 'Unable to verify team membership' }
+      }
+
+      // Delete messages between these users
+      console.log('Deleting direct messages between:', userId1, 'and', userId2, 'in team:', userTeam.team_id)
+      const { data, error: deleteError } = await supabase
+        .from('messages')
+        .delete()
+        .eq('team_id', userTeam.team_id)
+        .in('sender_id', [userId1, userId2])
+
+      console.log('Delete result:', { data, error: deleteError })
+
+      if (deleteError) {
+        console.error('Error deleting direct messages:', deleteError)
+        return { success: false, error: `Failed to delete direct messages: ${deleteError.message}` }
+      }
+    } else {
+      return { success: false, error: 'Invalid conversation type' }
+    }
+
+    console.log('Successfully deleted conversation')
+    return { success: true }
+  } catch (error) {
+    console.error('Error in deleteConversation:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
 } 
 
 // Get workouts for a user (either assigned to them or to their team)

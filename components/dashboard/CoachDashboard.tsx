@@ -100,8 +100,7 @@ export default function CoachDashboard() {
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const [workoutName, setWorkoutName] = useState('')
   const [workoutType, setWorkoutType] = useState('strength')
-  const [workoutDuration, setWorkoutDuration] = useState('60')
-  const [workoutDifficulty, setWorkoutDifficulty] = useState('intermediate')
+
   const [workoutDescription, setWorkoutDescription] = useState('')
   const [exercises, setExercises] = useState<any[]>([])
   const [selectedExercise, setSelectedExercise] = useState('')
@@ -186,6 +185,10 @@ export default function CoachDashboard() {
   const handleCreateWorkout = async (e: React.FormEvent) => {
     e.preventDefault()
     console.log('🚀 handleCreateWorkout function called!')
+    console.log('Form event:', e)
+    console.log('Workout name:', workoutName)
+    console.log('User:', user)
+    console.log('Is creating workout:', isCreatingWorkout)
     
     // Prevent multiple submissions
     if (isCreatingWorkout) {
@@ -194,11 +197,13 @@ export default function CoachDashboard() {
     }
     
     if (!workoutName.trim()) {
+      console.log('❌ Workout name is empty')
       alert('Please enter a workout name')
       return
     }
     
     if (!user?.id) {
+      console.log('❌ User not authenticated')
       alert('User not authenticated')
       return
     }
@@ -235,8 +240,6 @@ export default function CoachDashboard() {
         // Reset form and close modal
         setWorkoutName('')
         setWorkoutType('strength')
-        setWorkoutDuration('60')
-        setWorkoutDifficulty('intermediate')
         setWorkoutDescription('')
         setExercises([])
         setShowCreateWorkout(false)
@@ -631,45 +634,13 @@ export default function CoachDashboard() {
                         onChange={(e) => setWorkoutType(e.target.value)}
                         className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-base"
                       >
-                        <option value="strength">Strength Training</option>
+                        <option value="strength">Strength</option>
                         <option value="cardio">Cardio</option>
-                        <option value="core">Core Workout</option>
-                        <option value="flexibility">Flexibility</option>
-                        <option value="mixed">Mixed Training</option>
+                        <option value="mobility">Mobility</option>
                       </select>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Duration (minutes)
-                      </label>
-                      <select
-                        value={workoutDuration}
-                        onChange={(e) => setWorkoutDuration(e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-base"
-                      >
-                        <option value="30">30 minutes</option>
-                        <option value="45">45 minutes</option>
-                        <option value="60">60 minutes</option>
-                        <option value="75">75 minutes</option>
-                        <option value="90">90 minutes</option>
-                      </select>
-                    </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Difficulty Level
-                      </label>
-                      <select
-                        value={workoutDifficulty}
-                        onChange={(e) => setWorkoutDifficulty(e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-base"
-                      >
-                        <option value="beginner">Beginner</option>
-                        <option value="intermediate">Intermediate</option>
-                        <option value="advanced">Advanced</option>
-                      </select>
-                    </div>
                   </div>
 
                   <div>
@@ -791,6 +762,12 @@ export default function CoachDashboard() {
                   <button
                     type="submit"
                     disabled={!workoutName.trim() || isCreatingWorkout}
+                    onClick={(e) => {
+                      console.log('🖱️ Submit button clicked!')
+                      console.log('Button disabled?', !workoutName.trim() || isCreatingWorkout)
+                      console.log('Workout name:', workoutName)
+                      console.log('Is creating workout:', isCreatingWorkout)
+                    }}
                     className="bg-gradient-to-r from-royal-blue to-dark-blue hover:from-dark-blue hover:to-royal-blue text-white px-6 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isCreatingWorkout ? 'Creating...' : 'Create Workout'}

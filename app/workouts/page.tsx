@@ -409,13 +409,12 @@ export default function WorkoutsPage() {
         muscle: exercise?.muscle || 'Full Body',
         sets: parseInt(exerciseSets),
         reps: parseInt(exerciseReps),
-        rest: parseInt(exerciseRest)
+        rest: 60 // Default rest period of 60 seconds
       }
       setExercises([...exercises, newExercise])
       setSelectedExercise('')
       setExerciseSets('3')
       setExerciseReps('10')
-      setExerciseRest('60')
     }
   }
 
@@ -722,7 +721,7 @@ export default function WorkoutsPage() {
                           className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-base"
                         >
                           <option value="strength">Strength</option>
-                          <option value="running">Running</option>
+                          <option value="cardio">Cardio</option>
                           <option value="mobility">Mobility</option>
                         </select>
                      </div>
@@ -746,11 +745,11 @@ export default function WorkoutsPage() {
                   {/* Exercises Section */}
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900 mb-4">Exercises</h4>
-                    <p className="text-gray-600 mb-4">Add exercises to your workout with sets, reps, and rest periods.</p>
+                    <p className="text-gray-600 mb-4">Add exercises to your workout with sets and reps.</p>
                     
                     {/* Add Exercise Form */}
                     <div className="bg-gray-50 rounded-2xl p-4 mb-4">
-                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Exercise</label>
                           <select
@@ -785,17 +784,6 @@ export default function WorkoutsPage() {
                             onChange={(e) => setExerciseReps(e.target.value)}
                             min="1"
                             max="50"
-                            className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Rest (sec)</label>
-                          <input
-                            type="number"
-                            value={exerciseRest}
-                            onChange={(e) => setExerciseRest(e.target.value)}
-                            min="0"
-                            max="300"
                             className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-sm"
                           />
                         </div>

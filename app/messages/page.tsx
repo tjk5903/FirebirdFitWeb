@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { getTeamMessages, getConversationMessages, sendMessage, createGroupChat, addMembersToGroupChat } from '@/lib/utils'
-import { Search, Send, Plus, X, Users, MoreVertical, ArrowLeft, MessageCircle, Hash } from 'lucide-react'
+import { getTeamMessages, getConversationMessages, sendMessage, createGroupChat, addMembersToGroupChat, deleteConversation } from '@/lib/utils'
+import { Search, Send, Plus, X, Users, MoreVertical, ArrowLeft, MessageCircle, Hash, Trash2 } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
 import MainNavigation from '@/components/navigation/MainNavigation'
 
@@ -159,6 +159,12 @@ export default function MessagesPage() {
   const [isCreatingGroupChat, setIsCreatingGroupChat] = useState(false)
   const [isLoadingConversation, setIsLoadingConversation] = useState(false)
   const [showOptionsDropdown, setShowOptionsDropdown] = useState(false)
+  
+  // Delete conversation states
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [conversationToDelete, setConversationToDelete] = useState<any>(null)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
   const [showAddMembersModal, setShowAddMembersModal] = useState(false)
   const [isAddingMembers, setIsAddingMembers] = useState(false)
   const [isDeletingChat, setIsDeletingChat] = useState(false)
@@ -325,6 +331,45 @@ export default function MessagesPage() {
       console.error('An error occurred while sending the message')
     } finally {
       setIsSendingMessage(false)
+    }
+  }
+
+  const handleDeleteClick = (conversation: any) => {
+    setConversationToDelete(conversation)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDeleteConversation = async () => {
+    if (!conversationToDelete || !user) return
+
+    try {
+      console.log('Deleting conversation:', conversationToDelete.conversationId)
+      const result = await deleteConversation(conversationToDelete.conversationId, user.id)
+      
+      if (result.success) {
+        // Remove from local state
+        setMessages(messages.filter((msg: any) => msg.id !== conversationToDelete.id))
+        
+        // Clear selected message if it was the deleted conversation
+        if (selectedMessage === conversationToDelete.id) {
+          setSelectedMessage(null)
+        }
+        
+        console.log('Conversation deleted successfully')
+        setSuccessMessage('Conversation deleted successfully!')
+        setShowSuccessModal(true)
+      } else {
+        console.error('Failed to delete conversation:', result.error)
+        setSuccessMessage(`Failed to delete conversation: ${result.error}`)
+        setShowSuccessModal(true)
+      }
+    } catch (error) {
+      console.error('Error deleting conversation:', error)
+      setSuccessMessage('An error occurred while deleting the conversation')
+      setShowSuccessModal(true)
+    } finally {
+      setShowDeleteModal(false)
+      setConversationToDelete(null)
     }
   }
 
@@ -661,6 +706,15 @@ export default function MessagesPage() {
                               </div>
                             )}
                             <span className="text-xs text-gray-500 font-medium">{message.time}</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteClick(message)
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
                           </div>
                         </div>
                         <p className="text-xs sm:text-sm text-gray-600 truncate mb-1 sm:mb-2">{message.lastMessage}</p>
@@ -1144,6 +1198,92 @@ export default function MessagesPage() {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Delete Confirmation Modal */}
+      {showDeleteModal && conversationToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md animate-scale-in">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="h-10 w-10 bg-red-100 rounded-full flex items-center justify-center">
+                  <Trash2 className="h-5 w-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">Delete Conversation</h3>
+                  <p className="text-sm text-gray-500">This action cannot be undone</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              <p className="text-gray-600 mb-2">
+                Are you sure you want to delete <span className="font-semibold">"{conversationToDelete.name}"</span>?
+              </p>
+              <p className="text-sm text-gray-500">
+                This will permanently remove all messages in this conversation.
+              </p>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-gray-200 flex items-center justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false)
+                  setConversationToDelete(null)
+                }}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteConversation}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-2xl transition-all duration-300 transform hover:scale-105"
+              >
+                Delete Conversation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md animate-scale-in">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">Success!</h3>
+                  <p className="text-sm text-gray-500">Operation completed</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              <p className="text-gray-600">{successMessage}</p>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-gray-200 flex items-center justify-end">
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl transition-all duration-300 transform hover:scale-105"
+              >
+                OK
+              </button>
             </div>
           </div>
         </div>
