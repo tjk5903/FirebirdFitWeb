@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { TeamStats } from '@/lib/utils'
+import { TeamStats, createWorkout } from '@/lib/utils'
 import { useTeamMessages } from '@/lib/hooks/useTeamMessages'
 import { 
   Users, 
@@ -108,6 +108,7 @@ export default function CoachDashboard() {
   const [exerciseSets, setExerciseSets] = useState('3')
   const [exerciseReps, setExerciseReps] = useState('10')
   const [exerciseRest, setExerciseRest] = useState('60')
+  const [isCreatingWorkout, setIsCreatingWorkout] = useState(false)
   
   // Event form state
   const [eventForm, setEventForm] = useState({
@@ -182,26 +183,75 @@ export default function CoachDashboard() {
     }
   }
 
-  const handleCreateWorkout = (e: React.FormEvent) => {
+  const handleCreateWorkout = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (workoutName.trim() && exercises.length > 0) {
-      // Here you would typically save the workout to your backend
-      console.log('Creating workout:', {
-        name: workoutName,
-        type: workoutType,
-        duration: workoutDuration,
-        difficulty: workoutDifficulty,
+    console.log('🚀 handleCreateWorkout function called!')
+    
+    // Prevent multiple submissions
+    if (isCreatingWorkout) {
+      console.log('Already creating workout, ignoring duplicate submission')
+      return
+    }
+    
+    if (!workoutName.trim()) {
+      alert('Please enter a workout name')
+      return
+    }
+    
+    if (!user?.id) {
+      alert('User not authenticated')
+      return
+    }
+    
+    setIsCreatingWorkout(true)
+    
+    try {
+      console.log('Starting workout creation process...')
+      console.log('Workout name:', workoutName)
+      console.log('Exercises:', exercises)
+      
+      // Format exercises for database
+      const formattedExercises = exercises.map(exercise => ({
+        name: exercise.name,
+        sets: exercise.sets,
+        reps: exercise.reps,
+        rest_seconds: exercise.rest,
+        notes: `${exercise.category} - ${exercise.muscle}`
+      }))
+
+      console.log('Formatted exercises:', formattedExercises)
+
+      const result = await createWorkout(user.id, {
+        title: workoutName,
         description: workoutDescription,
-        exercises: exercises
+        exercises: formattedExercises
       })
-      setShowCreateWorkout(false)
-      // Reset form
-      setWorkoutName('')
-      setWorkoutType('strength')
-      setWorkoutDuration('60')
-      setWorkoutDifficulty('intermediate')
-      setWorkoutDescription('')
-      setExercises([])
+      
+      console.log('Create workout result:', result)
+      
+      if (result.success) {
+        console.log('Workout created successfully')
+        
+        // Reset form and close modal
+        setWorkoutName('')
+        setWorkoutType('strength')
+        setWorkoutDuration('60')
+        setWorkoutDifficulty('intermediate')
+        setWorkoutDescription('')
+        setExercises([])
+        setShowCreateWorkout(false)
+        
+        console.log('Workout creation process completed successfully')
+      } else {
+        console.error('Failed to create workout:', result.error)
+        alert(`Failed to create workout: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('Error creating workout:', error)
+      alert('An error occurred while creating the workout')
+    } finally {
+      console.log('Setting isCreatingWorkout to false')
+      setIsCreatingWorkout(false)
     }
   }
 
@@ -532,8 +582,8 @@ export default function CoachDashboard() {
 
         {/* Create Workout Modal */}
         {showCreateWorkout && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div ref={createWorkoutModalRef} className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+          <div className="fixed inset-0 z-50 flex justify-center p-4 pt-24 animate-fade-in">
+            <div ref={createWorkoutModalRef} className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl flex flex-col animate-scale-in" style={{ maxHeight: 'calc(100vh - 10rem)' }}>
               {/* Modal Header */}
               <div className="flex items-center justify-between p-6 border-b border-gray-200">
                 <div className="flex items-center space-x-3">
@@ -739,11 +789,11 @@ export default function CoachDashboard() {
                     Cancel
                   </button>
                   <button
-                    onClick={handleCreateWorkout}
-                    disabled={!workoutName.trim() || exercises.length === 0}
+                    type="submit"
+                    disabled={!workoutName.trim() || isCreatingWorkout}
                     className="bg-gradient-to-r from-royal-blue to-dark-blue hover:from-dark-blue hover:to-royal-blue text-white px-6 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Create Workout
+                    {isCreatingWorkout ? 'Creating...' : 'Create Workout'}
                   </button>
                 </div>
               </div>

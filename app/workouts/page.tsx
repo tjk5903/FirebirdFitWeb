@@ -183,19 +183,29 @@ function WorkoutExercisePreview({ workoutId }: { workoutId: string }) {
 
   return (
     <div className="space-y-1.5 sm:space-y-2">
-      <div className="flex items-center justify-between p-1.5 sm:p-2 bg-gray-50 rounded-lg">
-        <span className="text-xs sm:text-sm font-medium text-gray-700">Exercises</span>
-        <span className="text-xs font-bold text-gray-500 bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ml-1.5 sm:ml-2">
-          {exercises.length} {exercises.length === 1 ? 'exercise' : 'exercises'}
-        </span>
-      </div>
-      {exercises.length > 0 && (
-        <div className="flex items-center justify-between p-1.5 sm:p-2 bg-gray-50 rounded-lg">
-          <span className="text-xs sm:text-sm font-medium text-gray-700">Preview</span>
-          <div className="text-xs text-gray-500 bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ml-1.5 sm:ml-2 max-w-32 sm:max-w-40 truncate">
-            {exercises.slice(0, 2).map(ex => ex.exercise_name).join(', ')}
-            {exercises.length > 2 && '...'}
-          </div>
+      {exercises.length > 0 ? (
+        <div className="space-y-1">
+          {exercises.slice(0, 3).map((exercise, index) => (
+            <div key={index} className="flex items-center justify-between p-1.5 sm:p-2 bg-gray-50 rounded-lg">
+              <span className="text-xs sm:text-sm font-medium text-gray-700 capitalize">
+                {exercise.exercise_name}
+              </span>
+              <div className="flex items-center space-x-1">
+                <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                  {exercise.sets}x{exercise.reps}
+                </span>
+              </div>
+            </div>
+          ))}
+          {exercises.length > 3 && (
+            <div className="p-1.5 sm:p-2 bg-gray-50 rounded-lg text-center">
+              <span className="text-xs text-gray-500">+{exercises.length - 3} more exercises</span>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="p-1.5 sm:p-2 bg-gray-50 rounded-lg text-center">
+          <span className="text-xs sm:text-sm text-gray-500">No exercises added</span>
         </div>
       )}
     </div>
@@ -223,6 +233,12 @@ export default function WorkoutsPage() {
   }>>([])
   const [selectedMembers, setSelectedMembers] = useState<string[]>([])
   const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false)
+  
+  // Custom modal states
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [workoutToDelete, setWorkoutToDelete] = useState<any>(null)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
 
   const isCoach = user?.role === 'coach'
 
@@ -368,15 +384,16 @@ export default function WorkoutsPage() {
         setSelectedMembers([])
         setShowCreateWorkout(false)
         
-        alert('Workout created successfully!')
         console.log('Workout creation process completed successfully')
       } else {
         console.error('Failed to create workout:', result.error)
-        alert(`Failed to create workout: ${result.error}`)
+        setSuccessMessage(`Failed to create workout: ${result.error}`)
+        setShowSuccessModal(true)
       }
     } catch (error) {
       console.error('Error creating workout:', error)
-      alert('An error occurred while creating the workout')
+      setSuccessMessage('An error occurred while creating the workout')
+      setShowSuccessModal(true)
     } finally {
       console.log('Setting isCreatingWorkout to false')
       setIsCreatingWorkout(false)
@@ -414,26 +431,36 @@ export default function WorkoutsPage() {
     )
   }
 
-  const deleteWorkout = async (workoutId: string) => {
-    if (!confirm('Are you sure you want to delete this workout? This action cannot be undone.')) {
-      return
-    }
+  const handleDeleteClick = (workout: any) => {
+    setWorkoutToDelete(workout)
+    setShowDeleteModal(true)
+  }
+
+  const confirmDeleteWorkout = async () => {
+    if (!workoutToDelete) return
 
     try {
-      console.log('Deleting workout:', workoutId)
-      const result = await deleteWorkoutFromDB(workoutId)
+      console.log('Deleting workout:', workoutToDelete.id)
+      const result = await deleteWorkoutFromDB(workoutToDelete.id)
       
       if (result.success) {
         // Remove from local state only if database deletion succeeded
-        setWorkouts(workouts.filter(workout => workout.id !== workoutId))
+        setWorkouts(workouts.filter(workout => workout.id !== workoutToDelete.id))
         console.log('Workout deleted successfully')
+        setSuccessMessage('Workout deleted successfully!')
+        setShowSuccessModal(true)
       } else {
         console.error('Failed to delete workout:', result.error)
-        alert(`Failed to delete workout: ${result.error}`)
+        setSuccessMessage(`Failed to delete workout: ${result.error}`)
+        setShowSuccessModal(true)
       }
     } catch (error) {
       console.error('Error deleting workout:', error)
-      alert('An error occurred while deleting the workout')
+      setSuccessMessage('An error occurred while deleting the workout')
+      setShowSuccessModal(true)
+    } finally {
+      setShowDeleteModal(false)
+      setWorkoutToDelete(null)
     }
   }
 
@@ -606,7 +633,7 @@ export default function WorkoutsPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          deleteWorkout(workout.id)
+                          handleDeleteClick(workout)
                         }}
                         className="p-1 sm:p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
                       >
@@ -645,7 +672,7 @@ export default function WorkoutsPage() {
 
         {/* Create Workout Modal */}
         {showCreateWorkout && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-24 animate-fade-in">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-96 animate-fade-in">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl flex flex-col animate-scale-in" style={{ maxHeight: 'calc(100vh - 10rem)' }}>
               {/* Modal Header */}
               <div className="flex items-center justify-between p-6 border-b border-gray-200">
@@ -714,37 +741,7 @@ export default function WorkoutsPage() {
                     />
                   </div>
 
-                  {/* Team Member Assignment */}
-                  <div>
-                    <h4 className="text-lg font-semibold text-gray-900 mb-4">Assign to Team Members</h4>
-                    <p className="text-gray-600 mb-4">Select which team members should receive this workout (currently only first selected member will be assigned - multiple assignment coming soon)</p>
-                    
-                    {isLoadingTeamMembers ? (
-                      <div className="text-center py-4">
-                        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                        <p className="text-sm text-gray-600">Loading team members...</p>
-                      </div>
-                    ) : teamMembers.length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-40 overflow-y-auto">
-                        {teamMembers.map((member) => (
-                          <label key={member.id} className="flex items-center space-x-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50">
-                            <input
-                              type="checkbox"
-                              checked={selectedMembers.includes(member.id)}
-                              onChange={() => toggleMemberSelection(member.id)}
-                              className="h-4 w-4 text-blue-500 rounded focus:ring-blue-500"
-                            />
-                            <div className="flex-1">
-                              <span className="text-sm font-medium text-gray-900">{member.name}</span>
-                              <span className="text-xs text-gray-500 ml-2">({member.role})</span>
-                            </div>
-                          </label>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-gray-500 text-sm">No team members found</p>
-                    )}
-                  </div>
+
 
                   {/* Exercises Section */}
                   <div>
@@ -887,8 +884,8 @@ export default function WorkoutsPage() {
 
         {/* Workout Details Modal */}
         {showWorkoutDetails && selectedWorkout && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col animate-scale-in">
+          <div className="fixed inset-0 z-50 flex justify-center animate-fade-in">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl flex flex-col animate-scale-in" style={{ marginTop: '8rem', marginBottom: '1rem', maxHeight: 'calc(100vh - 9rem)' }}>
               {/* Modal Header */}
               <div className="flex items-center justify-between p-6 border-b border-gray-200">
                 <div className="flex items-center space-x-3">
@@ -981,6 +978,92 @@ export default function WorkoutsPage() {
                       </div>
                     )}
                   </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Custom Delete Confirmation Modal */}
+        {showDeleteModal && workoutToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md animate-scale-in">
+              {/* Modal Header */}
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center space-x-3">
+                  <div className="h-10 w-10 bg-red-100 rounded-full flex items-center justify-center">
+                    <Trash2 className="h-5 w-5 text-red-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900">Delete Workout</h3>
+                    <p className="text-sm text-gray-500">This action cannot be undone</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6">
+                <p className="text-gray-600 mb-2">
+                  Are you sure you want to delete <span className="font-semibold">"{workoutToDelete.title}"</span>?
+                </p>
+                <p className="text-sm text-gray-500">
+                  This will permanently remove the workout and all its exercises.
+                </p>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-6 border-t border-gray-200 flex items-center justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false)
+                    setWorkoutToDelete(null)
+                  }}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteWorkout}
+                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-2xl transition-all duration-300 transform hover:scale-105"
+                >
+                  Delete Workout
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Custom Success Modal */}
+        {showSuccessModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md animate-scale-in">
+              {/* Modal Header */}
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center space-x-3">
+                  <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
+                    <svg className="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900">Success!</h3>
+                    <p className="text-sm text-gray-500">Operation completed</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6">
+                <p className="text-gray-600">{successMessage}</p>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-6 border-t border-gray-200 flex items-center justify-end">
+                <button
+                  onClick={() => setShowSuccessModal(false)}
+                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl transition-all duration-300 transform hover:scale-105"
+                >
+                  OK
+                </button>
               </div>
             </div>
           </div>
