@@ -341,10 +341,43 @@ export async function getTeamMessages(userId: string): Promise<Array<{
     }
 
     const conversationsList = []
+    const groupChats = new Map()
+    const regularMessages: any[] = []
 
-    // Add team-wide chat (all messages in the team)
-    if (teamMessages && teamMessages.length > 0) {
-      const latestTeamMessage = teamMessages[0]
+    // Process messages to separate group chats from regular team messages
+    teamMessages?.forEach((message: any) => {
+      const content = message.content
+      const groupChatMatch = content.match(/^\[GROUP_CHAT:([^:]+):([^\]]+)\]/)
+      
+      if (groupChatMatch) {
+        // This is a group chat message
+        const [, groupChatId, groupChatName] = groupChatMatch
+        if (!groupChats.has(groupChatId)) {
+          groupChats.set(groupChatId, {
+            id: groupChatId,
+            name: groupChatName,
+            lastMessage: content.replace(/^\[GROUP_CHAT:[^\]]+\]\s*/, ''), // Remove the prefix
+            time: formatTimeAgo(message.created_at),
+            unread: false,
+            avatar: groupChatName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase(),
+            type: 'group' as const,
+            conversationId: `group_${groupChatId}`
+          })
+        }
+      } else {
+        // Regular team message
+        regularMessages.push(message)
+      }
+    })
+
+    // Add individual group chats
+    groupChats.forEach((groupChat) => {
+      conversationsList.push(groupChat)
+    })
+
+    // Add general team chat (only if there are regular non-group-chat messages)
+    if (regularMessages.length > 0) {
+      const latestTeamMessage = regularMessages[0]
       conversationsList.push({
         id: `team_${userTeam.team_id}`,
         name: `${(userTeam.teams as any).name} Team Chat`,
@@ -401,7 +434,7 @@ export async function getConversationMessages(conversationId: string): Promise<A
     let messages
     
     if (conversationId.startsWith('team_')) {
-      // Team chat - get all messages for the team
+      // Team chat - get all messages for the team (excluding group chat messages)
       const teamId = conversationId.replace('team_', '')
       const { data, error } = await supabase
         .from('messages')
@@ -416,6 +449,27 @@ export async function getConversationMessages(conversationId: string): Promise<A
           )
         `)
         .eq('team_id', teamId)
+        .not('content', 'like', '[GROUP_CHAT:%')
+        .order('created_at', { ascending: true })
+
+      if (error) throw error
+      messages = data
+    } else if (conversationId.startsWith('group_')) {
+      // Group chat - get messages for a specific group chat
+      const groupChatId = conversationId.replace('group_', '')
+      const { data, error } = await supabase
+        .from('messages')
+        .select(`
+          id,
+          content,
+          created_at,
+          sender_id,
+          users!messages_sender_id_fkey (
+            full_name,
+            role
+          )
+        `)
+        .like('content', `[GROUP_CHAT:${groupChatId}:%`)
         .order('created_at', { ascending: true })
 
       if (error) throw error
@@ -459,7 +513,7 @@ export async function getConversationMessages(conversationId: string): Promise<A
     return messages?.map((message: any) => ({
       id: message.id,
       sender: message.users.full_name || message.users.email,
-      message: message.content,
+      message: message.content.replace(/^\[GROUP_CHAT:[^\]]+\]\s*/, ''), // Clean up group chat prefix
       time: formatTimeAgo(message.created_at),
       isCoach: message.users.role === 'coach'
     })) || []
@@ -492,13 +546,37 @@ export async function sendMessage(
       return { success: false, error: 'User is not part of any team' }
     }
 
+    let messageContent = content.trim()
+
+    // If this is a group chat, we need to prefix the message with the group chat identifier
+    if (conversationId.startsWith('group_')) {
+      const groupChatId = conversationId.replace('group_', '')
+      // We need to get the group chat name from existing messages
+      const { data: existingMessages, error: fetchError } = await supabase
+        .from('messages')
+        .select('content')
+        .like('content', `[GROUP_CHAT:${groupChatId}:%`)
+        .limit(1)
+        .single()
+
+      if (fetchError) {
+        return { success: false, error: 'Group chat not found' }
+      }
+
+      // Extract group chat name from the existing message
+      const match = existingMessages.content.match(/^\[GROUP_CHAT:[^:]+:([^\]]+)\]/)
+      const groupChatName = match ? match[1] : 'Unknown Group'
+      
+      messageContent = `[GROUP_CHAT:${groupChatId}:${groupChatName}] ${messageContent}`
+    }
+
     // Insert the new message
     const { data: newMessage, error: insertError } = await supabase
       .from('messages')
       .insert({
         sender_id: senderId,
         team_id: userTeam.team_id,
-        content: content.trim(),
+        content: messageContent,
         created_at: new Date().toISOString()
       })
       .select('id')
@@ -563,9 +641,10 @@ export async function createGroupChat(
       }
     }
 
-    // Create a system message for the group chat
+    // Create a system message for the group chat with special format for identification
+    const groupChatId = `group_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     const memberText = memberIds.length > 0 ? ` Members: ${memberIds.join(', ')}` : ' (No members added yet)'
-    const systemMessage = `Group chat "${chatName}" created by coach.${memberText}`
+    const systemMessage = `[GROUP_CHAT:${groupChatId}:${chatName}] Group chat "${chatName}" created by coach.${memberText}`
     
     const { data: newMessage, error: insertError } = await supabase
       .from('messages')
@@ -582,7 +661,7 @@ export async function createGroupChat(
       return { success: false, error: 'Failed to create group chat' }
     }
 
-    return { success: true, chatId: newMessage.id }
+    return { success: true, chatId: groupChatId }
   } catch (error) {
     console.error('Error in createGroupChat:', error)
     return { success: false, error: 'An unexpected error occurred' }

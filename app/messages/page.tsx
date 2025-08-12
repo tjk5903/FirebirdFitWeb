@@ -300,12 +300,11 @@ export default function MessagesPage() {
         setMessages(teamMessages)
       } else {
         // Handle error - you could show a toast notification here
-        console.error('Failed to send message:', result.error)
-        alert(`Failed to send message: ${result.error}`)
+        console.error(`Failed to send message: ${result.error}`)
       }
     } catch (error) {
       console.error('Error sending message:', error)
-      alert('An error occurred while sending the message')
+      console.error('An error occurred while sending the message')
     } finally {
       setIsSendingMessage(false)
     }
@@ -332,17 +331,17 @@ export default function MessagesPage() {
         setNewChatName('')
         setSelectedMembers([])
         
-        // Show success message
+        // Log success message (replace with toast notification later)
         const memberText = selectedMembers.length > 0 
           ? ` with ${selectedMembers.length} member(s)` 
           : ' (no members added yet)'
-        alert(`Group chat "${newChatName}" created successfully!${memberText}`)
+        console.log(`Group chat "${newChatName}" created successfully!${memberText}`)
       } else {
-        alert(`Failed to create group chat: ${result.error}`)
+        console.error(`Failed to create group chat: ${result.error}`)
       }
     } catch (error) {
       console.error('Error creating group chat:', error)
-      alert('An error occurred while creating the group chat')
+      console.error('An error occurred while creating the group chat')
     } finally {
       setIsCreatingGroupChat(false)
     }
@@ -387,7 +386,7 @@ export default function MessagesPage() {
     }
 
     loadConversation()
-  }, [selectedMessage, messages])
+  }, [selectedMessage])
 
   const currentConversation = selectedMessage ? conversations[selectedMessage] || [] : []
   const selectedMessageData = selectedMessage ? messages.find(m => m.id === selectedMessage) : null
