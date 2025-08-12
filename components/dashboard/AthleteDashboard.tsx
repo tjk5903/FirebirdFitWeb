@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { AthleteStats } from '@/lib/utils'
+import { useTeamMessages } from '@/lib/hooks/useTeamMessages'
 import { 
   Activity, 
   Calendar, 
@@ -39,11 +40,7 @@ const mockUpcomingEvents = [
   { id: 2, title: 'Championship Game', date: 'Saturday', time: '2:00 PM', type: 'game', location: 'Stadium' },
 ]
 
-const mockTeamMessages = [
-  { id: 1, from: 'Coach Johnson', message: 'Great work on today\'s training session! Your form has improved significantly.', time: '1 hour ago', unread: true, type: 'coach' },
-  { id: 2, from: 'Team Captain', message: 'Team meeting tomorrow before practice. Important updates to discuss.', time: '3 hours ago', unread: false, type: 'captain' },
-  { id: 3, from: 'Coach Johnson', message: 'New workout plan uploaded. Check your schedule for this week.', time: '1 day ago', unread: false, type: 'coach' },
-]
+// Removed mockTeamMessages - now using actual data from getTeamMessages
 
 const mockQuickActions = [
   { id: 1, title: 'Start Workout', icon: Play, color: 'bg-royal-blue', description: 'Begin training', href: '/workouts' },
@@ -57,11 +54,16 @@ export default function AthleteDashboard() {
   const [activeTab, setActiveTab] = useState('')
   const [isLoaded, setIsLoaded] = useState(false)
 
+  // Use custom hook for team messages
+  const { teamMessages, isLoadingMessages } = useTeamMessages(user?.id)
+
   useEffect(() => {
     // Simulate loading animation
     const timer = setTimeout(() => setIsLoaded(true), 100)
     return () => clearTimeout(timer)
   }, [])
+
+  // Messages are now loaded via the useTeamMessages hook
 
   const handleLogout = async () => {
     try {
@@ -162,34 +164,55 @@ export default function AthleteDashboard() {
             </div>
             
             <div className="space-y-2 sm:space-y-3">
-              {mockTeamMessages.slice(0, 3).map((message, index) => (
-                <div 
-                  key={message.id} 
-                  className={`message-bubble transition-all duration-200 hover:scale-[1.02] ${message.unread ? 'ring-2 ring-royal-blue/20' : ''}`}
-                  style={{ animationDelay: `${index * 100}ms` }}
-                >
-                  <div className="flex items-start space-x-3">
-                    <div className="h-8 w-8 sm:h-10 sm:w-10 bg-gradient-to-br from-royal-blue to-dark-blue rounded-full flex items-center justify-center transition-transform duration-200 hover:scale-110">
-                      <span className="text-white font-semibold text-xs sm:text-sm">
-                        {message.from.split(' ').map(n => n[0]).join('')}
-                      </span>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="font-semibold text-gray-900 mobile-text">{message.from}</p>
-                        <span className="text-xs text-gray-500">{message.time}</span>
+              {isLoadingMessages ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-3"></div>
+                  <span className="text-gray-600">Loading messages...</span>
+                </div>
+              ) : teamMessages.length > 0 ? (
+                teamMessages.slice(0, 3).map((message, index) => (
+                  <div 
+                    key={message.id} 
+                    className={`message-bubble transition-all duration-200 hover:scale-[1.02] ${message.unread ? 'ring-2 ring-royal-blue/20' : ''}`}
+                    style={{ animationDelay: `${index * 100}ms` }}
+                  >
+                    <div className="flex items-start space-x-3">
+                      <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center transition-transform duration-200 hover:scale-110 ${
+                        message.type === 'group' 
+                          ? 'bg-gradient-to-br from-purple-500 to-purple-600' 
+                          : 'bg-gradient-to-br from-royal-blue to-dark-blue'
+                      }`}>
+                        {message.type === 'group' ? (
+                          <Users className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                        ) : (
+                          <span className="text-white font-semibold text-xs sm:text-sm">
+                            {message.avatar}
+                          </span>
+                        )}
                       </div>
-                      <p className="text-gray-700 mobile-text">{message.message}</p>
-                      {message.unread && (
-                        <div className="flex items-center space-x-2 mt-2">
-                          <span className="status-indicator"></span>
-                          <span className="text-xs text-royal-blue font-medium">New message</span>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="font-semibold text-gray-900 mobile-text">{message.name}</p>
+                          <span className="text-xs text-gray-500">{message.time}</span>
                         </div>
-                      )}
+                        <p className="text-gray-700 mobile-text">{message.lastMessage}</p>
+                        {message.unread && (
+                          <div className="flex items-center space-x-2 mt-2">
+                            <span className="status-indicator"></span>
+                            <span className="text-xs text-royal-blue font-medium">New message</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-600 text-sm">No messages yet</p>
+                  <p className="text-gray-500 text-xs mt-1">Team conversations will appear here</p>
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
