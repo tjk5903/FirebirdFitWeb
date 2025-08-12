@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { getUserWorkouts, createWorkout, formatDate } from '@/lib/utils'
+import { getUserWorkouts, createWorkout, formatDate, getTeamMembers, getWorkoutExercises, deleteWorkout as deleteWorkoutFromDB } from '@/lib/utils'
 import { 
   Plus, 
   Search, 
@@ -21,32 +21,13 @@ import {
   Activity,
   Star,
   MoreVertical,
-  ArrowLeft
+  ArrowLeft,
+  X
 } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
 import MainNavigation from '@/components/navigation/MainNavigation'
 
-// Mock workout data
-const mockWorkouts = [
-  {
-    id: 1,
-    name: 'Upper Body Strength',
-    type: 'strength',
-    duration: 60,
-    difficulty: 'intermediate',
-    description: 'Focus on chest, shoulders, and arms with compound movements',
-    exercises: [
-      { name: 'Bench Press', sets: 4, reps: 8, rest: 90 },
-      { name: 'Pull-ups', sets: 3, reps: 10, rest: 60 },
-      { name: 'Shoulder Press', sets: 3, reps: 12, rest: 60 },
-      { name: 'Bicep Curls', sets: 3, reps: 15, rest: 45 }
-    ],
-    assignedAthletes: 12,
-    completionRate: 85,
-    lastUsed: '2024-01-15',
-    createdAt: '2024-01-10'
-  }
-]
+// Mock workout data removed - now using only real data from database
 
 const exerciseLibrary = [
   { name: 'Push-ups', category: 'strength', muscle: 'Chest, Triceps' },
@@ -71,6 +52,156 @@ const exerciseLibrary = [
   { name: 'Butterfly Kicks', category: 'core', muscle: 'Core, Abs' }
 ]
 
+// Component to display workout exercises (full view for modal)
+function WorkoutExercises({ workoutId }: { workoutId: string }) {
+  const [exercises, setExercises] = useState<Array<{
+    id: string
+    exercise_name: string
+    sets: number
+    reps: number
+    rest_seconds: number
+    notes: string | null
+  }>>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const loadExercises = async () => {
+      if (!workoutId) return
+      
+      setIsLoading(true)
+      try {
+        const workoutExercises = await getWorkoutExercises(workoutId)
+        setExercises(workoutExercises)
+      } catch (error) {
+        console.error('Error loading workout exercises:', error)
+        setExercises([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadExercises()
+  }, [workoutId])
+
+  if (isLoading) {
+    return (
+      <div>
+        <h4 className="font-semibold text-gray-900 mb-4">Exercises</h4>
+        <div className="text-center py-4">
+          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+          <p className="text-sm text-gray-600">Loading exercises...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <h4 className="font-semibold text-gray-900 mb-4">Exercises</h4>
+      {exercises.length > 0 ? (
+        <div className="space-y-3">
+          {exercises.map((exercise, index) => (
+            <div key={exercise.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+              <div className="flex items-center space-x-3">
+                <div className="h-8 w-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                  <Dumbbell className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <h5 className="font-semibold text-gray-900">{exercise.exercise_name}</h5>
+                  {exercise.notes && (
+                    <p className="text-sm text-gray-500">{exercise.notes}</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-gray-900">{exercise.sets}</p>
+                  <p className="text-xs text-gray-500">Sets</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-gray-900">{exercise.reps}</p>
+                  <p className="text-xs text-gray-500">Reps</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-gray-900">{exercise.rest_seconds}s</p>
+                  <p className="text-xs text-gray-500">Rest</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="p-4 bg-gray-50 rounded-xl text-center">
+          <p className="text-gray-500">No exercises added to this workout</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Component to display exercise preview for workout cards
+function WorkoutExercisePreview({ workoutId }: { workoutId: string }) {
+  const [exercises, setExercises] = useState<Array<{
+    id: string
+    exercise_name: string
+    sets: number
+    reps: number
+    rest_seconds: number
+    notes: string | null
+  }>>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const loadExercises = async () => {
+      if (!workoutId) return
+      
+      setIsLoading(true)
+      try {
+        const workoutExercises = await getWorkoutExercises(workoutId)
+        setExercises(workoutExercises)
+      } catch (error) {
+        console.error('Error loading workout exercises:', error)
+        setExercises([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadExercises()
+  }, [workoutId])
+
+  if (isLoading) {
+    return (
+      <div className="space-y-1.5 sm:space-y-2">
+        <div className="flex items-center justify-between p-1.5 sm:p-2 bg-gray-50 rounded-lg">
+          <span className="text-xs sm:text-sm font-medium text-gray-700">Exercises</span>
+          <div className="w-4 h-4 border border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-1.5 sm:space-y-2">
+      <div className="flex items-center justify-between p-1.5 sm:p-2 bg-gray-50 rounded-lg">
+        <span className="text-xs sm:text-sm font-medium text-gray-700">Exercises</span>
+        <span className="text-xs font-bold text-gray-500 bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ml-1.5 sm:ml-2">
+          {exercises.length} {exercises.length === 1 ? 'exercise' : 'exercises'}
+        </span>
+      </div>
+      {exercises.length > 0 && (
+        <div className="flex items-center justify-between p-1.5 sm:p-2 bg-gray-50 rounded-lg">
+          <span className="text-xs sm:text-sm font-medium text-gray-700">Preview</span>
+          <div className="text-xs text-gray-500 bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ml-1.5 sm:ml-2 max-w-32 sm:max-w-40 truncate">
+            {exercises.slice(0, 2).map(ex => ex.exercise_name).join(', ')}
+            {exercises.length > 2 && '...'}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function WorkoutsPage() {
   const { user, logout } = useAuth()
   const router = useRouter()
@@ -84,6 +215,14 @@ export default function WorkoutsPage() {
   const [isLoaded, setIsLoaded] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isCreatingWorkout, setIsCreatingWorkout] = useState(false)
+  const [teamMembers, setTeamMembers] = useState<Array<{
+    id: string
+    name: string
+    email: string
+    role: string
+  }>>([])
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([])
+  const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false)
 
   const isCoach = user?.role === 'coach'
 
@@ -109,8 +248,8 @@ export default function WorkoutsPage() {
         setWorkouts(fetchedWorkouts)
       } catch (error) {
         console.error('Error fetching workouts:', error)
-        // Fallback to mock data if there's an error
-        setWorkouts(mockWorkouts)
+        // Keep empty array on error - no more fallback to mock data
+        setWorkouts([])
       } finally {
         setIsLoading(false)
       }
@@ -123,6 +262,26 @@ export default function WorkoutsPage() {
     const timer = setTimeout(() => setIsLoaded(true), 100)
     return () => clearTimeout(timer)
   }, [])
+
+  // Load team members for workout assignment
+  useEffect(() => {
+    const loadTeamMembers = async () => {
+      if (!user?.id || !isCoach) return
+      
+      setIsLoadingTeamMembers(true)
+      try {
+        const members = await getTeamMembers(user.id)
+        setTeamMembers(members)
+      } catch (error) {
+        console.error('Error loading team members:', error)
+        setTeamMembers([])
+      } finally {
+        setIsLoadingTeamMembers(false)
+      }
+    }
+
+    loadTeamMembers()
+  }, [user?.id, isCoach])
 
   useEffect(() => {
     filterWorkouts()
@@ -149,6 +308,13 @@ export default function WorkoutsPage() {
 
   const handleCreateWorkout = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log('🚀 handleCreateWorkout function called!')
+    
+    // Prevent multiple submissions
+    if (isCreatingWorkout) {
+      console.log('Already creating workout, ignoring duplicate submission')
+      return
+    }
     
     if (!workoutName.trim()) {
       alert('Please enter a workout name')
@@ -163,13 +329,33 @@ export default function WorkoutsPage() {
     setIsCreatingWorkout(true)
     
     try {
+      console.log('Starting workout creation process...')
+      console.log('Workout name:', workoutName)
+      console.log('Selected members:', selectedMembers)
+      console.log('Exercises:', exercises)
+      
+      // Format exercises for database
+      const formattedExercises = exercises.map(exercise => ({
+        name: exercise.name,
+        sets: exercise.sets,
+        reps: exercise.reps,
+        rest_seconds: exercise.rest,
+        notes: `${exercise.category} - ${exercise.muscle}`
+      }))
+
+      console.log('Formatted exercises:', formattedExercises)
+
       const result = await createWorkout(user.id, {
         title: workoutName,
         description: workoutDescription,
-        assigned_to: [] // Empty array for now
+        assigned_to: selectedMembers.length > 0 ? selectedMembers : [],
+        exercises: formattedExercises
       })
       
+      console.log('Create workout result:', result)
+      
       if (result.success) {
+        console.log('Workout created successfully, refreshing workout list...')
         // Refresh the workout list
         const fetchedWorkouts = await getUserWorkouts(user.id)
         setWorkouts(fetchedWorkouts)
@@ -179,9 +365,11 @@ export default function WorkoutsPage() {
         setWorkoutType('strength')
         setWorkoutDescription('')
         setExercises([])
+        setSelectedMembers([])
         setShowCreateWorkout(false)
         
         alert('Workout created successfully!')
+        console.log('Workout creation process completed successfully')
       } else {
         console.error('Failed to create workout:', result.error)
         alert(`Failed to create workout: ${result.error}`)
@@ -190,6 +378,7 @@ export default function WorkoutsPage() {
       console.error('Error creating workout:', error)
       alert('An error occurred while creating the workout')
     } finally {
+      console.log('Setting isCreatingWorkout to false')
       setIsCreatingWorkout(false)
     }
   }
@@ -217,8 +406,35 @@ export default function WorkoutsPage() {
     setExercises(exercises.filter((_, i) => i !== index))
   }
 
-  const deleteWorkout = (workoutId: number) => {
-    setWorkouts(workouts.filter(workout => workout.id !== workoutId))
+  const toggleMemberSelection = (memberId: string) => {
+    setSelectedMembers(prev => 
+      prev.includes(memberId) 
+        ? prev.filter(id => id !== memberId)
+        : [...prev, memberId]
+    )
+  }
+
+  const deleteWorkout = async (workoutId: string) => {
+    if (!confirm('Are you sure you want to delete this workout? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      console.log('Deleting workout:', workoutId)
+      const result = await deleteWorkoutFromDB(workoutId)
+      
+      if (result.success) {
+        // Remove from local state only if database deletion succeeded
+        setWorkouts(workouts.filter(workout => workout.id !== workoutId))
+        console.log('Workout deleted successfully')
+      } else {
+        console.error('Failed to delete workout:', result.error)
+        alert(`Failed to delete workout: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('Error deleting workout:', error)
+      alert('An error occurred while deleting the workout')
+    }
   }
 
   const getDifficultyColor = (difficulty: string) => {
@@ -348,31 +564,23 @@ export default function WorkoutsPage() {
                     </div>
                     <div className="flex-1">
                       <h3 className="font-bold text-gray-900 text-base sm:text-lg mb-1">{workout.title}</h3>
-                      <p className="text-xs sm:text-sm text-gray-600" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                        {workout.description || 'No description available'}
-                      </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Workout Info */}
+                {/* Workout Exercise Preview */}
                 <div className="mb-3 sm:mb-4">
-                  <div className="space-y-1.5 sm:space-y-2">
-                    <div className="flex items-center justify-between p-1.5 sm:p-2 bg-gray-50 rounded-lg">
-                      <span className="text-xs sm:text-sm font-medium text-gray-700">Assigned Date</span>
-                      <span className="text-xs font-bold text-gray-500 bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ml-1.5 sm:ml-2">
-                        {formatDate(workout.date_assigned)}
-                      </span>
-                    </div>
-                    {workout.assigned_to && workout.assigned_to.length > 0 && (
+                  <WorkoutExercisePreview workoutId={workout.id} />
+                  {workout.assigned_to && (
+                    <div className="mt-1.5 sm:mt-2">
                       <div className="flex items-center justify-between p-1.5 sm:p-2 bg-gray-50 rounded-lg">
                         <span className="text-xs sm:text-sm font-medium text-gray-700">Assigned To</span>
                         <span className="text-xs font-bold text-gray-500 bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ml-1.5 sm:ml-2">
-                          {workout.assigned_to.length} athlete{workout.assigned_to.length !== 1 ? 's' : ''}
+                          Individual
                         </span>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                  
@@ -506,23 +714,59 @@ export default function WorkoutsPage() {
                     />
                   </div>
 
+                  {/* Team Member Assignment */}
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900 mb-4">Assign to Team Members</h4>
+                    <p className="text-gray-600 mb-4">Select which team members should receive this workout (currently only first selected member will be assigned - multiple assignment coming soon)</p>
+                    
+                    {isLoadingTeamMembers ? (
+                      <div className="text-center py-4">
+                        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                        <p className="text-sm text-gray-600">Loading team members...</p>
+                      </div>
+                    ) : teamMembers.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-40 overflow-y-auto">
+                        {teamMembers.map((member) => (
+                          <label key={member.id} className="flex items-center space-x-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50">
+                            <input
+                              type="checkbox"
+                              checked={selectedMembers.includes(member.id)}
+                              onChange={() => toggleMemberSelection(member.id)}
+                              className="h-4 w-4 text-blue-500 rounded focus:ring-blue-500"
+                            />
+                            <div className="flex-1">
+                              <span className="text-sm font-medium text-gray-900">{member.name}</span>
+                              <span className="text-xs text-gray-500 ml-2">({member.role})</span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 text-sm">No team members found</p>
+                    )}
+                  </div>
+
                   {/* Exercises Section */}
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900 mb-4">Exercises</h4>
-                    <p className="text-gray-600 mb-4">Exercise functionality will be added in a future update. For now, you can create workouts with basic information.</p>
+                    <p className="text-gray-600 mb-4">Add exercises to your workout with sets, reps, and rest periods.</p>
                     
                     {/* Add Exercise Form */}
                     <div className="bg-gray-50 rounded-2xl p-4 mb-4">
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Exercise</label>
                           <select
                             value={selectedExercise}
                             onChange={(e) => setSelectedExercise(e.target.value)}
                             className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-sm"
-                            disabled
                           >
-                            <option value="">Coming soon...</option>
+                            <option value="">Select exercise...</option>
+                            {exerciseLibrary.map((exercise) => (
+                              <option key={exercise.name} value={exercise.name}>
+                                {exercise.name}
+                              </option>
+                            ))}
                           </select>
                         </div>
                         <div>
@@ -534,7 +778,6 @@ export default function WorkoutsPage() {
                             min="1"
                             max="10"
                             className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-sm"
-                            disabled
                           />
                         </div>
                         <div>
@@ -546,17 +789,27 @@ export default function WorkoutsPage() {
                             min="1"
                             max="50"
                             className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-sm"
-                            disabled
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Rest (sec)</label>
+                          <input
+                            type="number"
+                            value={exerciseRest}
+                            onChange={(e) => setExerciseRest(e.target.value)}
+                            min="0"
+                            max="300"
+                            className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-sm"
                           />
                         </div>
                         <div className="flex items-end">
                           <button
                             type="button"
                             onClick={addExercise}
-                            disabled={true}
-                            className="w-full bg-gray-400 text-white px-4 py-2 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={!selectedExercise}
+                            className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            Coming Soon
+                            Add
                           </button>
                         </div>
                       </div>
@@ -564,31 +817,69 @@ export default function WorkoutsPage() {
 
                     {/* Exercise List */}
                     <div className="space-y-3">
-                      <div className="p-4 bg-gray-50 border-2 border-gray-200 rounded-2xl text-center">
-                        <p className="text-gray-500">Exercise management will be available soon</p>
-                      </div>
+                      {exercises.length > 0 ? (
+                        exercises.map((exercise, index) => (
+                          <div key={index} className="flex items-center justify-between p-4 bg-white border-2 border-gray-200 rounded-2xl">
+                            <div className="flex items-center space-x-4">
+                              <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                                <Dumbbell className="h-5 w-5 text-white" />
+                              </div>
+                              <div>
+                                <h5 className="font-semibold text-gray-900">{exercise.name}</h5>
+                                <p className="text-sm text-gray-500">{exercise.muscle}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-4">
+                              <div className="text-center">
+                                <p className="text-sm font-semibold text-gray-900">{exercise.sets}</p>
+                                <p className="text-xs text-gray-500">Sets</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-sm font-semibold text-gray-900">{exercise.reps}</p>
+                                <p className="text-xs text-gray-500">Reps</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-sm font-semibold text-gray-900">{exercise.rest}s</p>
+                                <p className="text-xs text-gray-500">Rest</p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeExercise(index)}
+                                className="p-2 text-red-500 hover:text-red-700 transition-colors"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-4 bg-gray-50 border-2 border-gray-200 rounded-2xl text-center">
+                          <p className="text-gray-500">No exercises added yet. Add exercises using the form above.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Modal Footer - Inside Form */}
+                  <div className="pt-6 border-t border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => setShowCreateWorkout(false)}
+                        className="px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors duration-200"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={!workoutName.trim() || isCreatingWorkout}
+                        className="bg-gradient-to-r from-royal-blue to-dark-blue hover:from-dark-blue hover:to-royal-blue text-white px-6 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isCreatingWorkout ? 'Creating...' : 'Create Workout'}
+                      </button>
                     </div>
                   </div>
                 </form>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="p-6 border-t border-gray-200">
-                <div className="flex items-center justify-between">
-                  <button
-                    onClick={() => setShowCreateWorkout(false)}
-                    className="px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors duration-200"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleCreateWorkout}
-                    disabled={!workoutName.trim() || isCreatingWorkout}
-                    className="bg-gradient-to-r from-royal-blue to-dark-blue hover:from-dark-blue hover:to-royal-blue text-white px-6 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isCreatingWorkout ? 'Creating...' : 'Create Workout'}
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -626,7 +917,8 @@ export default function WorkoutsPage() {
                     <p className="text-gray-600">{selectedWorkout.description || 'No description available'}</p>
                   </div>
 
-                  
+                  {/* Exercises */}
+                  <WorkoutExercises workoutId={selectedWorkout.id} />
 
                   {/* Workout Details */}
                   <div>
@@ -638,11 +930,11 @@ export default function WorkoutsPage() {
                           {formatDate(selectedWorkout.date_assigned)}
                         </span>
                       </div>
-                      {selectedWorkout.assigned_to && selectedWorkout.assigned_to.length > 0 && (
+                      {selectedWorkout.assigned_to && (
                         <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
                           <span className="text-sm font-medium text-gray-700">Assigned To</span>
                           <span className="text-xs font-bold text-gray-500 bg-white px-2 py-1 rounded-full">
-                            {selectedWorkout.assigned_to.length} athlete{selectedWorkout.assigned_to.length !== 1 ? 's' : ''}
+                            Individual athlete
                           </span>
                         </div>
                       )}

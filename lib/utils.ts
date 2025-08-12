@@ -925,6 +925,29 @@ export async function deleteEvent(eventId: string): Promise<{ success: boolean; 
     console.error('Error in deleteEvent:', error)
     return { success: false, error: 'An unexpected error occurred' }
   }
+}
+
+export async function deleteWorkout(workoutId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log('Attempting to delete workout:', workoutId)
+    
+    // Delete the workout (exercises are stored in the same row, so they'll be deleted automatically)
+    const { error: workoutDeleteError } = await supabase
+      .from('workouts')
+      .delete()
+      .eq('id', workoutId)
+
+    if (workoutDeleteError) {
+      console.error('Error deleting workout:', workoutDeleteError)
+      return { success: false, error: `Failed to delete workout: ${workoutDeleteError.message}` }
+    }
+
+    console.log('Successfully deleted workout')
+    return { success: true }
+  } catch (error) {
+    console.error('Error in deleteWorkout:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
 } 
 
 // Get workouts for a user (either assigned to them or to their team)
@@ -933,7 +956,7 @@ export async function getUserWorkouts(userId: string): Promise<Array<{
   team_id: string
   title: string
   description: string | null
-  assigned_to: string[] | null
+  assigned_to: string | null // Single UUID for now
   date_assigned: string
   created_at: string
 }>> {
@@ -961,7 +984,7 @@ export async function getUserWorkouts(userId: string): Promise<Array<{
           date_assigned,
           created_at
         `)
-        .contains('assigned_to', [userId])
+        .eq('assigned_to', userId)
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -988,7 +1011,7 @@ export async function getUserWorkouts(userId: string): Promise<Array<{
         date_assigned,
         created_at
       `)
-      .or(`team_id.in.(${teamIds.map(id => `"${id}"`).join(',')}),assigned_to.cs.{${userId}}`)
+      .or(`team_id.in.(${teamIds.map(id => `"${id}"`).join(',')}),assigned_to.eq.${userId}`)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -1004,13 +1027,20 @@ export async function getUserWorkouts(userId: string): Promise<Array<{
   }
 }
 
-// Create a new workout
+// Create a new workout with exercises
 export async function createWorkout(
   userId: string, 
   workoutData: { 
     title: string; 
     description?: string; 
-    assigned_to?: string[]; 
+    assigned_to?: string[];
+    exercises?: Array<{
+      name: string
+      sets: number
+      reps: number
+      rest_seconds: number
+      notes?: string
+    }>
   }
 ): Promise<{ success: boolean; workoutId?: string; error?: string }> {
   try {
@@ -1027,25 +1057,28 @@ export async function createWorkout(
     const teamId = userTeams[0].id // Use the first team
     console.log('Using team ID:', teamId)
     
-    const { data, error } = await supabase
+    // Create the workout with exercises
+    const { data: workout, error: workoutError } = await supabase
       .from('workouts')
       .insert({
         team_id: teamId,
         title: workoutData.title,
         description: workoutData.description || '',
-        assigned_to: workoutData.assigned_to || [],
-        date_assigned: new Date().toISOString()
+        assigned_to: workoutData.assigned_to && workoutData.assigned_to.length > 0 ? workoutData.assigned_to[0] : null, // For now, only assign to first selected member
+        date_assigned: new Date().toISOString(),
+        exercises: workoutData.exercises || null
       })
       .select()
       .single()
     
-    if (error) {
-      console.error('Error creating workout:', error)
-      return { success: false, error: error.message }
+    if (workoutError) {
+      console.error('Error creating workout:', workoutError)
+      return { success: false, error: workoutError.message }
     }
     
-    console.log('Workout created successfully:', data)
-    return { success: true, workoutId: data.id }
+    console.log('Workout created successfully with exercises:', workout)
+    
+    return { success: true, workoutId: workout.id }
   } catch (error) {
     console.error('Error in createWorkout:', error)
     return { success: false, error: 'An unexpected error occurred' }
@@ -1116,5 +1149,109 @@ export async function updateTeamName(
   } catch (error) {
     console.error('Error in updateTeamName:', error)
     return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+
+
+// Get exercises for a specific workout
+export async function getWorkoutExercises(workoutId: string): Promise<Array<{
+  id: string
+  exercise_name: string
+  sets: number
+  reps: number
+  rest_seconds: number
+  notes: string | null
+}>> {
+  try {
+    const { data: workout, error } = await supabase
+      .from('workouts')
+      .select('exercises')
+      .eq('id', workoutId)
+      .single()
+
+    if (error) {
+      console.error('Error fetching workout:', error)
+      throw error
+    }
+
+    if (!workout || !workout.exercises) {
+      console.log('No exercises found for workout:', workoutId)
+      return []
+    }
+
+    // Convert the exercises from the jsonb format to the expected format
+    const exercises = workout.exercises.map((exercise: any, index: number) => ({
+      id: `${workoutId}-${index}`, // Generate a unique ID for each exercise
+      exercise_name: exercise.name,
+      sets: exercise.sets,
+      reps: exercise.reps,
+      rest_seconds: exercise.rest_seconds,
+      notes: exercise.notes || null
+    }))
+
+    console.log('Workout exercises fetched:', exercises)
+    return exercises
+  } catch (error) {
+    console.error('Error in getWorkoutExercises:', error)
+    throw error
+  }
+}
+
+// Get team members for workout assignment
+export async function getTeamMembers(userId: string): Promise<Array<{
+  id: string
+  name: string
+  email: string
+  role: string
+}>> {
+  try {
+    // First, get the user's team
+    const { data: userTeam, error: teamError } = await supabase
+      .from('team_members')
+      .select('team_id')
+      .eq('user_id', userId)
+      .single()
+
+    if (teamError) {
+      console.error('Error fetching user team:', teamError)
+      throw teamError
+    }
+
+    if (!userTeam) {
+      return []
+    }
+
+    // Get all team members for this team
+    const { data: teamMembers, error: membersError } = await supabase
+      .from('team_members')
+      .select(`
+        user_id,
+        role,
+        users (
+          id,
+          full_name,
+          email
+        )
+      `)
+      .eq('team_id', userTeam.team_id)
+
+    if (membersError) {
+      console.error('Error fetching team members:', membersError)
+      throw membersError
+    }
+
+    // Format team members
+    const formattedMembers = teamMembers?.map((member: any) => ({
+      id: member.user_id,
+      name: member.users.full_name || member.users.email,
+      email: member.users.email,
+      role: member.role
+    })).filter((member: any) => member.id !== userId) || [] // Exclude the current user
+
+    return formattedMembers
+  } catch (error) {
+    console.error('Error in getTeamMembers:', error)
+    throw error
   }
 } 
