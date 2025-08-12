@@ -130,7 +130,7 @@ export default function MessagesPage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedMessage, setSelectedMessage] = useState<number | null>(null)
+  const [selectedMessage, setSelectedMessage] = useState<string | null>(null)
   const [newMessage, setNewMessage] = useState('')
   const [showNewChat, setShowNewChat] = useState(false)
   const [newChatName, setNewChatName] = useState('')
@@ -272,7 +272,7 @@ export default function MessagesPage() {
     }
 
     // Get the conversation ID for the selected message
-    const selectedMsg = messages.find((msg: any) => msg.id === selectedMessage.toString())
+    const selectedMsg = messages.find((msg: any) => msg.id === selectedMessage)
     if (!selectedMsg) {
       console.error('Selected message not found')
       return
@@ -361,7 +361,7 @@ export default function MessagesPage() {
     const loadConversation = async () => {
       if (!selectedMessage) return
       
-      const selectedMsg = messages.find((msg: any) => msg.id === selectedMessage.toString())
+      const selectedMsg = messages.find((msg: any) => msg.id === selectedMessage)
       if (!selectedMsg) return
       
       setIsLoadingConversation(true)
@@ -374,10 +374,11 @@ export default function MessagesPage() {
       } catch (error) {
         console.error('Error loading conversation:', error)
         // Fallback to mock conversations if available
-        if (mockConversations[selectedMessage as keyof typeof mockConversations]) {
+        const mockKey = parseInt(selectedMessage) as keyof typeof mockConversations
+        if (mockConversations[mockKey]) {
           setConversations((prev: any) => ({
             ...prev,
-            [selectedMessage]: mockConversations[selectedMessage as keyof typeof mockConversations]
+            [selectedMessage]: mockConversations[mockKey]
           }))
         }
       } finally {
@@ -389,7 +390,7 @@ export default function MessagesPage() {
   }, [selectedMessage, messages])
 
   const currentConversation = selectedMessage ? conversations[selectedMessage] || [] : []
-  const selectedMessageData = selectedMessage ? messages.find(m => m.id === selectedMessage.toString()) : null
+  const selectedMessageData = selectedMessage ? messages.find(m => m.id === selectedMessage) : null
 
   // Show loading state while auth is loading
   if (isLoading) {
@@ -482,9 +483,9 @@ export default function MessagesPage() {
                   filteredMessages.map((message) => (
                   <div
                     key={message.id}
-                    onClick={() => setSelectedMessage(parseInt(message.id))}
+                    onClick={() => setSelectedMessage(message.id)}
                     className={`group p-3 sm:p-4 border-b border-gray-100 cursor-pointer transition-all duration-300 hover:bg-gradient-to-r hover:from-blue-50/80 hover:to-blue-100/80 ${
-                      selectedMessage === parseInt(message.id) 
+                      selectedMessage === message.id 
                         ? 'bg-gradient-to-r from-blue-100 to-blue-200 border-blue-300 shadow-sm ring-2 ring-blue-300' 
                         : ''
                     }`}
