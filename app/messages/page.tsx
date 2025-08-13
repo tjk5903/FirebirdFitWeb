@@ -638,7 +638,7 @@ export default function MessagesPage() {
         <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
           <div className="flex flex-col lg:flex-row h-[calc(100vh-300px)]">
             {/* Messages List */}
-            <div className="w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col">
+            <div className={`w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col ${selectedMessage ? 'hidden lg:flex' : 'flex'}`}>
               {/* Messages List Header */}
               <div className="p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
                 <div className="flex items-center justify-between mb-3 sm:mb-4">
@@ -749,13 +749,20 @@ export default function MessagesPage() {
             </div>
 
             {/* Chat Area */}
-            <div className="flex-1 flex flex-col bg-gradient-to-b from-gray-50/30 to-white min-h-0">
+            <div className={`flex-1 flex flex-col bg-gradient-to-b from-gray-50/30 to-white min-h-0 ${selectedMessage ? 'flex' : 'hidden lg:flex'}`}>
               {selectedMessage ? (
                 <>
                   {/* Chat Header */}
                   <div className="p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3 sm:space-x-4">
+                        {/* Mobile Back Button */}
+                        <button
+                          onClick={() => setSelectedMessage(null)}
+                          className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
+                        >
+                          <ArrowLeft className="h-5 w-5" />
+                        </button>
                         <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-2xl flex items-center justify-center shadow-lg ${
                           selectedMessageData?.type === 'group' 
                             ? 'bg-gradient-to-br from-purple-500 to-purple-600' 
