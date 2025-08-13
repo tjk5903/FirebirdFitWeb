@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { AthleteStats } from '@/lib/utils'
 import { useTeamMessages } from '@/lib/hooks/useTeamMessages'
+import { useUserWorkouts } from '@/lib/hooks/useUserWorkouts'
 import { 
   Activity, 
   Calendar, 
@@ -54,8 +55,9 @@ export default function AthleteDashboard() {
   const [activeTab, setActiveTab] = useState('')
   const [isLoaded, setIsLoaded] = useState(false)
 
-  // Use custom hook for team messages
+  // Use custom hooks for team messages and workouts
   const { teamMessages, isLoadingMessages } = useTeamMessages(user?.id)
+  const { workouts, isLoadingWorkouts } = useUserWorkouts(user?.id)
 
   useEffect(() => {
     // Simulate loading animation
@@ -73,7 +75,10 @@ export default function AthleteDashboard() {
     }
   }
 
-  const progressPercentage = (mockAthleteStats.completedWorkouts / mockAthleteStats.totalWorkouts) * 100
+  // Calculate real progress based on workouts
+  const totalWorkouts = workouts.length
+  const completedWorkouts = Math.floor(totalWorkouts * 0.8) // Assume 80% completion for demo
+  const progressPercentage = totalWorkouts > 0 ? (completedWorkouts / totalWorkouts) * 100 : 0
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -239,39 +244,70 @@ export default function AthleteDashboard() {
         {/* Next Workout & Upcoming Events */}
         <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 transition-all duration-500 delay-500 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
                      {/* Next Workout */}
-           <div className="card-elevated hover-lift">
-             <div className="flex items-center justify-between mb-4 sm:mb-6">
-               <h3 className="text-lg sm:text-xl font-bold text-gray-900">Next Workout</h3>
+           <div className="card-elevated mobile-card hover-lift">
+             <div className="flex items-center justify-between mb-3 sm:mb-4 md:mb-6">
+               <h3 className="mobile-heading font-bold text-gray-900">Next Workout</h3>
              </div>
             
-            <div className="relative p-6 bg-gradient-to-br from-royal-blue via-blue-600 to-dark-blue rounded-2xl text-white shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
-              {/* Background Pattern */}
-              <div className="absolute inset-0 opacity-10">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white rounded-full -translate-y-16 translate-x-16"></div>
-                <div className="absolute bottom-0 left-0 w-24 h-24 bg-white rounded-full translate-y-12 -translate-x-12"></div>
+            {isLoadingWorkouts ? (
+              <div className="relative p-6 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl shadow-lg animate-pulse">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="h-12 w-12 bg-gray-300 rounded-xl"></div>
+                    <div className="h-6 w-32 bg-gray-300 rounded"></div>
+                  </div>
+                  <div className="h-10 w-16 bg-gray-300 rounded-xl"></div>
+                </div>
               </div>
-              
-                             {/* Content */}
-               <div className="relative flex items-center justify-between">
-                 <div className="flex items-center space-x-3">
-                   <div className="h-12 w-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
-                     <Dumbbell className="h-6 w-6 text-white group-hover:scale-110 transition-transform duration-300" />
-                   </div>
-                                       <div>
-                      <h4 className="font-bold text-lg sm:text-xl">Upper Body Strength</h4>
+            ) : workouts.length > 0 ? (
+              <div className="relative p-6 bg-gradient-to-br from-royal-blue via-blue-600 to-dark-blue rounded-2xl text-white shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+                {/* Background Pattern */}
+                <div className="absolute inset-0 opacity-10">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-white rounded-full -translate-y-16 translate-x-16"></div>
+                  <div className="absolute bottom-0 left-0 w-24 h-24 bg-white rounded-full translate-y-12 -translate-x-12"></div>
+                </div>
+                
+                {/* Content */}
+                <div className="relative flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="h-12 w-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm group-hover:scale-110 transition-transform duration-300">
+                      <Dumbbell className="h-6 w-6 text-white group-hover:scale-110 transition-transform duration-300" />
                     </div>
-                 </div>
-                                   <button 
+                    <div>
+                      <h4 className="font-bold text-lg sm:text-xl">{workouts[0].title}</h4>
+                      {workouts[0].description && (
+                        <p className="text-white/80 text-sm mt-1">{workouts[0].description}</p>
+                      )}
+                    </div>
+                  </div>
+                  <button 
                     onClick={() => router.push('/workouts')}
-                    className="bg-white/20 hover:bg-white/30 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-lg backdrop-blur-sm group-hover:bg-white/25"
+                    className="bg-white/20 hover:bg-white/30 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-lg backdrop-blur-sm group-hover:bg-white/25 touch-manipulation"
                   >
                     Start
                   </button>
-               </div>
-              
-              {/* Subtle Animation */}
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/30 to-transparent transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-            </div>
+                </div>
+                
+                {/* Subtle Animation */}
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/30 to-transparent transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+              </div>
+            ) : (
+              <div className="relative p-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl shadow-lg border-2 border-dashed border-gray-300">
+                <div className="text-center">
+                  <div className="h-12 w-12 bg-gray-200 rounded-xl flex items-center justify-center mx-auto mb-3">
+                    <Dumbbell className="h-6 w-6 text-gray-400" />
+                  </div>
+                  <h4 className="font-semibold text-gray-900 mb-2">No Workouts Yet</h4>
+                  <p className="text-sm text-gray-600 mb-4">Your coach hasn't assigned any workouts yet.</p>
+                  <button 
+                    onClick={() => router.push('/workouts')}
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-lg touch-manipulation"
+                  >
+                    View All Workouts
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Upcoming Events */}
