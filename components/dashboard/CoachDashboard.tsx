@@ -335,9 +335,7 @@ export default function CoachDashboard() {
             <div className="flex items-center space-x-4 sm:space-x-6">
               <div className={`flex items-center space-x-3 sm:space-x-4 transition-all duration-500 ${isLoaded ? 'scale-100 opacity-100' : 'scale-90 opacity-0'}`}>
                 <div className="relative">
-                  <div className="h-12 w-12 sm:h-14 sm:w-14 bg-gradient-to-br from-royal-blue via-blue-600 to-dark-blue rounded-2xl shadow-lg flex items-center justify-center border-2 border-white/20 backdrop-blur-sm">
-                    <FirebirdLogo className="h-6 w-6 sm:h-7 sm:w-7 text-white drop-shadow-sm" />
-                  </div>
+                  <FirebirdLogo className="h-12 w-12 sm:h-14 sm:w-14 drop-shadow-lg" />
                 </div>
                 <div className={`transition-all duration-500 delay-100 ${isLoaded ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'}`}>
                   <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-royal-blue via-blue-600 to-dark-blue bg-clip-text text-transparent font-elegant tracking-tight">Firebird Fit</h1>
