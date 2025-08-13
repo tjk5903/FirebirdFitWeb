@@ -80,22 +80,22 @@ export default function AthleteDashboard() {
       {/* Header */}
       <header className="glass-effect border-b border-white/20 shadow-sm sticky top-0 z-50 backdrop-blur-md">
         <div className="container-responsive">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4 sm:space-x-6">
-              <div className={`flex items-center space-x-3 sm:space-x-4 transition-all duration-500 ${isLoaded ? 'scale-100 opacity-100' : 'scale-90 opacity-0'}`}>
+          <div className="flex justify-between items-center h-16 md:h-20">
+            <div className="flex items-center space-x-2 sm:space-x-4 md:space-x-6">
+              <div className={`flex items-center space-x-2 sm:space-x-3 md:space-x-4 transition-all duration-500 ${isLoaded ? 'scale-100 opacity-100' : 'scale-90 opacity-0'}`}>
                 <div className="relative">
-                  <FirebirdLogo className="h-12 w-12 sm:h-14 sm:w-14 drop-shadow-lg" />
+                  <FirebirdLogo className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 drop-shadow-lg" />
                 </div>
                 <div className={`transition-all duration-500 delay-100 ${isLoaded ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'}`}>
-                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-royal-blue via-blue-600 to-dark-blue bg-clip-text text-transparent font-elegant tracking-tight">Firebird Fit</h1>
+                  <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-royal-blue via-blue-600 to-dark-blue bg-clip-text text-transparent font-elegant tracking-tight">Firebird Fit</h1>
                   <p className="text-xs sm:text-sm text-gray-600 font-medium hidden sm:block tracking-wide">Team Performance & Communication</p>
                 </div>
               </div>
             </div>
             
             {/* Navigation Tabs */}
-            <div className="flex items-center justify-center flex-1">
-              <div className="flex space-x-1 p-2 bg-gray-100 rounded-2xl">
+            <div className="flex items-center justify-center flex-1 px-2 sm:px-4">
+              <div className="flex space-x-0.5 sm:space-x-1 p-1 sm:p-2 bg-gray-100 rounded-xl sm:rounded-2xl overflow-x-auto scrollbar-hide">
                 {[
                   { id: 'workouts', label: 'Workouts', icon: Dumbbell, href: '/workouts' },
                   { id: 'calendar', label: 'Calendar', icon: Calendar, href: '/calendar' },
@@ -110,14 +110,14 @@ export default function AthleteDashboard() {
                       onClick={() => {
                         router.push(tab.href)
                       }}
-                      className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-xl font-medium transition-all duration-200 min-w-[80px] ${
+                      className={`flex items-center justify-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg sm:rounded-xl font-medium transition-all duration-200 min-w-[60px] sm:min-w-[80px] touch-manipulation ${
                         isActive
                           ? 'bg-white text-blue-600 shadow-sm'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-white/50 active:bg-white/70'
                       }`}
                     >
-                      <Icon className="h-4 w-4" />
-                      <span className="hidden sm:block text-sm">{tab.label}</span>
+                      <Icon className="h-4 w-4 sm:h-4 sm:w-4 flex-shrink-0" />
+                      <span className="hidden sm:block text-sm whitespace-nowrap">{tab.label}</span>
                     </button>
                   )
                 })}
@@ -145,20 +145,18 @@ export default function AthleteDashboard() {
         </div>
       </header>
 
-      <div className="container-responsive py-6 sm:py-8">
+      <div className="container-responsive py-4 sm:py-6 md:py-8">
         {/* Welcome Section */}
-        <div className={`mb-6 sm:mb-8 transition-all duration-500 delay-200 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Welcome back, Athlete!</h2>
+        <div className={`mb-4 sm:mb-6 md:mb-8 transition-all duration-500 delay-200 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-2 px-1">Welcome back, Athlete!</h2>
         </div>
 
-
-
         {/* Messages & Quick Actions */}
-        <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 mb-6 sm:mb-8 transition-all duration-500 delay-400 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8 mb-4 sm:mb-6 md:mb-8 transition-all duration-500 delay-400 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
           {/* Messages */}
-          <div className="lg:col-span-2 card-elevated hover-lift cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl" onClick={() => router.push('/messages')}>
-            <div className="flex items-center justify-between mb-4 sm:mb-6">
-              <h3 className="text-lg sm:text-xl font-bold text-gray-900">Messages</h3>
+          <div className="md:col-span-2 lg:col-span-2 card-elevated mobile-card hover-lift cursor-pointer transition-all duration-300 hover:scale-[1.01] md:hover:scale-[1.02] hover:shadow-2xl touch-manipulation active:scale-[0.99]" onClick={() => router.push('/messages')}>
+            <div className="flex items-center justify-between mb-3 sm:mb-4 md:mb-6">
+              <h3 className="mobile-heading font-bold text-gray-900">Messages</h3>
             </div>
             
             <div className="space-y-2 sm:space-y-3">
@@ -215,14 +213,14 @@ export default function AthleteDashboard() {
           </div>
 
           {/* Quick Actions */}
-          <div className="card-elevated hover-lift">
-            <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">Quick Actions</h3>
-            <div className="space-y-3 sm:space-y-4">
+          <div className="card-elevated mobile-card hover-lift">
+            <h3 className="mobile-heading font-bold text-gray-900 mb-3 sm:mb-4 md:mb-6">Quick Actions</h3>
+            <div className="space-y-2 sm:space-y-3">
               {mockQuickActions.map((action, index) => (
                 <button 
                   key={action.id} 
                   onClick={() => router.push(action.href)}
-                  className="w-full flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all duration-200 group focus-ring"
+                  className="w-full flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 rounded-xl bg-gray-50 hover:bg-gray-100 active:bg-gray-200 transition-all duration-200 group focus-ring touch-manipulation"
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
                   <div className={`h-10 w-10 sm:h-12 sm:w-12 ${action.color} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200`}>
