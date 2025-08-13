@@ -925,43 +925,37 @@ export default function MessagesPage() {
 
                   {/* Message Input */}
                   <div className="p-4 sm:p-6 border-t border-gray-200 bg-white">
-                    {user?.role === 'coach' ? (
-                      <div className="flex items-center space-x-3 sm:space-x-4">
-                        <div className="flex-1 relative">
-                          <input
-                            type="text"
-                            placeholder="Type your message..."
-                            value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                            className="w-full px-4 sm:px-6 py-3 sm:py-4 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-gray-50 focus:bg-white text-sm sm:text-base"
-                          />
-                          <div className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2 flex items-center space-x-1 sm:space-x-2">
-                            <button className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
-                              <span className="text-base sm:text-lg">😊</span>
-                            </button>
-                            <button className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
-                              <span className="text-base sm:text-lg">📎</span>
-                            </button>
-                          </div>
+                    <div className="flex items-center space-x-3 sm:space-x-4">
+                      <div className="flex-1 relative">
+                        <input
+                          type="text"
+                          placeholder="Type your message..."
+                          value={newMessage}
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                          className="w-full px-4 sm:px-6 py-3 sm:py-4 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-gray-50 focus:bg-white text-sm sm:text-base"
+                        />
+                        <div className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2 flex items-center space-x-1 sm:space-x-2">
+                          <button className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
+                            <span className="text-base sm:text-lg">😊</span>
+                          </button>
+                          <button className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
+                            <span className="text-base sm:text-lg">📎</span>
+                          </button>
                         </div>
-                        <button
-                          onClick={handleSendMessage}
-                          disabled={!newMessage.trim() || isSendingMessage}
-                          className="p-3 sm:p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl hover:shadow-lg transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                        >
-                          {isSendingMessage ? (
-                            <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          ) : (
-                            <Send className="h-4 w-4 sm:h-5 sm:w-5" />
-                          )}
-                        </button>
                       </div>
-                    ) : (
-                      <div className="text-center py-3 sm:py-4">
-                        <p className="text-xs sm:text-sm text-gray-500">Only coaches can send messages in group chats</p>
-                      </div>
-                    )}
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={!newMessage.trim() || isSendingMessage}
+                        className="p-3 sm:p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl hover:shadow-lg transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 touch-manipulation"
+                      >
+                        {isSendingMessage ? (
+                          <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        ) : (
+                          <Send className="h-4 w-4 sm:h-5 sm:w-5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </>
               ) : (
