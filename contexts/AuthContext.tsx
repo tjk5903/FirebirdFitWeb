@@ -28,9 +28,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Session result:', session ? 'Session found' : 'No session')
         if (session?.user) {
           await handleUserSession(session.user)
+        } else {
+          // No session, user is anonymous - set user to null and stop loading
+          console.log('No session found, user is anonymous')
+          setUser(null)
         }
       } catch (error) {
         console.error('Error getting session:', error)
+        // Even if there's an error, stop loading and treat as anonymous
+        setUser(null)
       } finally {
         console.log('Setting isLoading to false')
         setIsLoading(false)
@@ -65,7 +71,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           if (insertError) {
             console.error('Error creating user profile:', insertError)
-            // Don't return here, continue to set user state
+            // If we can't create profile, create a basic user object from session data
+            setUser({
+              id: supabaseUser.id,
+              name: supabaseUser.email?.split('@')[0] || '',
+              email: supabaseUser.email,
+              role: storedRole,
+            })
           } else {
             // Clear stored role
             localStorage.removeItem('selectedRole')
@@ -87,12 +99,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             email: profile.email,
             role: profile.role as UserRole,
           })
+        } else if (error) {
+          console.error('Error querying user profile:', error)
+          // If database query fails, create basic user from session data
+          const storedRole = localStorage.getItem('selectedRole') as UserRole || 'athlete'
+          setUser({
+            id: supabaseUser.id,
+            name: supabaseUser.email?.split('@')[0] || '',
+            email: supabaseUser.email,
+            role: storedRole,
+          })
         } else {
           // Handle case where profile is null but no error
-          console.log('No user profile found')
+          console.log('No user profile found, creating basic user')
+          const storedRole = localStorage.getItem('selectedRole') as UserRole || 'athlete'
+          setUser({
+            id: supabaseUser.id,
+            name: supabaseUser.email?.split('@')[0] || '',
+            email: supabaseUser.email,
+            role: storedRole,
+          })
         }
       } catch (error) {
         console.error('Error handling user session:', error)
+        // Even if database operations fail, we can still create a basic user from session
+        const storedRole = localStorage.getItem('selectedRole') as UserRole || 'athlete'
+        setUser({
+          id: supabaseUser.id,
+          name: supabaseUser.email?.split('@')[0] || '',
+          email: supabaseUser.email,
+          role: storedRole,
+        })
       }
     }
 
