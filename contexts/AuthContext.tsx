@@ -28,17 +28,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Session result:', session ? 'Session found' : 'No session')
         if (session?.user) {
           await handleUserSession(session.user)
+          // Note: setIsLoading(false) is handled in handleUserSession's finally block
         } else {
           // No session, user is anonymous - set user to null and stop loading
           console.log('No session found, user is anonymous')
           setUser(null)
+          setIsLoading(false)
         }
       } catch (error) {
         console.error('Error getting session:', error)
         // Even if there's an error, stop loading and treat as anonymous
         setUser(null)
-      } finally {
-        console.log('Setting isLoading to false')
         setIsLoading(false)
       }
     }
@@ -120,6 +120,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error('Error signing out:', signOutError)
         }
         setUser(null)
+      } finally {
+        // CRITICAL: Always clear loading state regardless of success/failure
+        console.log('Clearing loading state in handleUserSession')
+        setIsLoading(false)
       }
     }
 
