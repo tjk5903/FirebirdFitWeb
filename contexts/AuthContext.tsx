@@ -71,13 +71,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           if (insertError) {
             console.error('Error creating user profile:', insertError)
-            // If we can't create profile, create a basic user object from session data
-            setUser({
-              id: supabaseUser.id,
-              name: supabaseUser.email?.split('@')[0] || '',
-              email: supabaseUser.email,
-              role: storedRole,
-            })
+            // If we can't create a user profile, this might indicate RLS issues or invalid session
+            // For security, sign out the user rather than creating a partial user object
+            console.log('Cannot create user profile, signing out for security')
+            await supabase.auth.signOut()
+            setUser(null)
           } else {
             // Clear stored role
             localStorage.removeItem('selectedRole')
@@ -101,35 +99,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           })
         } else if (error) {
           console.error('Error querying user profile:', error)
-          // If database query fails, create basic user from session data
-          const storedRole = localStorage.getItem('selectedRole') as UserRole || 'athlete'
-          setUser({
-            id: supabaseUser.id,
-            name: supabaseUser.email?.split('@')[0] || '',
-            email: supabaseUser.email,
-            role: storedRole,
-          })
+          // If database query fails, it likely means the session is invalid or RLS is blocking
+          // Sign out the user gracefully to prevent security issues
+          console.log('Session appears invalid, signing out user')
+          await supabase.auth.signOut()
+          setUser(null)
         } else {
-          // Handle case where profile is null but no error
-          console.log('No user profile found, creating basic user')
-          const storedRole = localStorage.getItem('selectedRole') as UserRole || 'athlete'
-          setUser({
-            id: supabaseUser.id,
-            name: supabaseUser.email?.split('@')[0] || '',
-            email: supabaseUser.email,
-            role: storedRole,
-          })
+          // Handle case where profile is null but no error - this shouldn't happen normally
+          console.log('No user profile found but no error - signing out for security')
+          await supabase.auth.signOut()
+          setUser(null)
         }
       } catch (error) {
         console.error('Error handling user session:', error)
-        // Even if database operations fail, we can still create a basic user from session
-        const storedRole = localStorage.getItem('selectedRole') as UserRole || 'athlete'
-        setUser({
-          id: supabaseUser.id,
-          name: supabaseUser.email?.split('@')[0] || '',
-          email: supabaseUser.email,
-          role: storedRole,
-        })
+        // If we can't validate the session properly, sign out for security
+        console.log('Cannot validate session, signing out user')
+        try {
+          await supabase.auth.signOut()
+        } catch (signOutError) {
+          console.error('Error signing out:', signOutError)
+        }
+        setUser(null)
       }
     }
 
