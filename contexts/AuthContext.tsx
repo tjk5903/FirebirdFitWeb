@@ -21,14 +21,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Check session on mount and handle auth state changes
   useEffect(() => {
+    // ULTIMATE FAILSAFE: Clear loading after maximum time regardless of what happens
+    const maxLoadingTimeout = setTimeout(() => {
+      console.warn('ULTIMATE FAILSAFE: Clearing loading state after 15 seconds')
+      setIsLoading(false)
+    }, 15000)
+
+    // Clear the timeout when component unmounts or loading completes
+    const clearFailsafe = () => clearTimeout(maxLoadingTimeout)
     const getSession = async () => {
       try {
         console.log('Getting session...')
         const { data: { session } } = await supabase.auth.getSession()
         console.log('Session result:', session ? 'Session found' : 'No session')
         if (session?.user) {
-          await handleUserSession(session.user)
-          // Note: setIsLoading(false) is handled in handleUserSession's finally block
+          // Add timeout protection for handleUserSession
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Session handling timeout')), 10000)
+          )
+          
+          try {
+            await Promise.race([handleUserSession(session.user), timeoutPromise])
+            // Note: setIsLoading(false) is handled in handleUserSession's finally block
+          } catch (timeoutError) {
+            console.error('Session handling timed out or failed:', timeoutError)
+            // Timeout or error in handleUserSession - sign out for safety
+            await supabase.auth.signOut()
+            setUser(null)
+            setIsLoading(false)
+          }
         } else {
           // No session, user is anonymous - set user to null and stop loading
           console.log('No session found, user is anonymous')
@@ -39,6 +60,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Error getting session:', error)
         // Even if there's an error, stop loading and treat as anonymous
         setUser(null)
+        setIsLoading(false)
+      } finally {
+        // BULLETPROOF: Always ensure loading is cleared, even if handleUserSession fails
+        console.log('FAILSAFE: Ensuring isLoading is false in getSession finally')
         setIsLoading(false)
       }
     }
@@ -132,22 +157,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event, session?.user?.email)
       
-      if (event === 'SIGNED_IN' && session?.user) {
-        await handleUserSession(session.user)
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null)
-        localStorage.removeItem('selectedRole')
-        // Redirect to login page
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login'
+      try {
+        if (event === 'SIGNED_IN' && session?.user) {
+          console.log('Processing SIGNED_IN event')
+          setIsLoading(true) // Set loading for sign in process
+          await handleUserSession(session.user)
+        } else if (event === 'SIGNED_OUT') {
+          console.log('Processing SIGNED_OUT event')
+          setUser(null)
+          setIsLoading(false) // Clear loading immediately
+          localStorage.removeItem('selectedRole')
+          // Redirect to login page
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login'
+          }
+        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          console.log('Processing TOKEN_REFRESHED event')
+          setIsLoading(true) // Set loading for token refresh
+          await handleUserSession(session.user)
+        } else {
+          // Handle any other auth events by clearing loading
+          console.log('Processing other auth event:', event)
+          setIsLoading(false)
         }
-      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        await handleUserSession(session.user)
+      } catch (error) {
+        console.error('Error in auth state change handler:', error)
+        // Always clear loading if auth event handling fails
+        setIsLoading(false)
+        setUser(null)
       }
     })
 
     return () => {
       subscription.unsubscribe()
+      clearFailsafe() // Clear the ultimate failsafe timeout
     }
   }, [])
 
