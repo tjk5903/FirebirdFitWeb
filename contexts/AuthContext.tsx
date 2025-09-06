@@ -24,6 +24,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const clearError = () => setError(null)
 
+  // Helper function to get the correct base URL based on environment
+  const getBaseUrl = (): string => {
+    if (typeof window === 'undefined') return ''
+    
+    // For local development
+    if (window.location.hostname === 'localhost') {
+      return window.location.origin
+    }
+    
+    // For production - use custom domain
+    if (window.location.hostname === 'firebird-fit-web.vercel.app' || 
+        window.location.hostname === 'www.firebirdfit.app' ||
+        window.location.hostname === 'firebirdfit.app') {
+      return 'https://www.firebirdfit.app'
+    }
+    
+    // For Vercel preview deployments - use current origin
+    if (window.location.hostname.includes('vercel.app')) {
+      return window.location.origin
+    }
+    
+    // Fallback to current origin
+    return window.location.origin
+  }
+
   // Helper function for role-based dashboard routing
   const getDashboardRoute = (role: UserRole): string => {
     // Use the existing /dashboard page which handles role-based rendering
@@ -152,9 +177,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Redirect to appropriate dashboard if requested (for session restoration)
         if (shouldRedirect && typeof window !== 'undefined') {
+          const baseUrl = getBaseUrl()
           const dashboardRoute = getDashboardRoute(finalRole)
-          console.log('Redirecting to:', dashboardRoute)
-          window.location.href = dashboardRoute
+          const fullUrl = `${baseUrl}${dashboardRoute}`
+          console.log('Redirecting to:', fullUrl)
+          window.location.href = fullUrl
         }
       } catch (error: any) {
         console.error('Error handling user session:', error)
@@ -191,9 +218,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Processing SIGNED_OUT event')
         setUser(null)
         setIsLoading(false)
-        // Redirect to login page
+        // Redirect to login page using correct domain
         if (typeof window !== 'undefined') {
-          window.location.href = '/login'
+          const baseUrl = getBaseUrl()
+          window.location.href = `${baseUrl}/login`
         }
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
         console.log('Processing TOKEN_REFRESHED event')
@@ -211,11 +239,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Sign in with magic link (unified auth method)
   const signInWithMagicLink = async (email: string, role: UserRole) => {
+    const baseUrl = getBaseUrl()
     const dashboardRoute = getDashboardRoute(role)
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}${dashboardRoute}`,
+        emailRedirectTo: `${baseUrl}${dashboardRoute}`,
         data: {
           role: role,
           full_name: '',
@@ -269,15 +298,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Error signing out:', error)
       }
       
-      // Redirect to login page
+      // Redirect to login page using correct domain
       if (typeof window !== 'undefined') {
-        window.location.href = '/login'
+        const baseUrl = getBaseUrl()
+        window.location.href = `${baseUrl}/login`
       }
     } catch (error) {
       console.error('Error during logout:', error)
       // Still redirect even if there's an error
       if (typeof window !== 'undefined') {
-        window.location.href = '/login'
+        const baseUrl = getBaseUrl()
+        window.location.href = `${baseUrl}/login`
       }
     }
   }
