@@ -6,11 +6,13 @@ import { User, UserRole, upsertUser } from '@/lib/utils'
 
 interface AuthContextType {
   user: User | null
-  login: (email: string, password: string, role: UserRole) => Promise<void>
   signInWithMagicLink: (email: string, role: UserRole) => Promise<void>
-  signup: (email: string, password: string, role: UserRole) => Promise<void>
+  updateUserRole: (newRole: UserRole) => Promise<void>
   logout: () => Promise<void>
   isLoading: boolean
+  error: string | null
+  clearError: () => void
+  getDashboardRoute: (role: UserRole) => string
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -18,36 +20,40 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const clearError = () => setError(null)
+
+  // Helper function for role-based dashboard routing
+  const getDashboardRoute = (role: UserRole): string => {
+    // Use the existing /dashboard page which handles role-based rendering
+    return '/dashboard'
+  }
 
   // Check session on mount and handle auth state changes
   useEffect(() => {
-    // ULTIMATE FAILSAFE: Clear loading after maximum time regardless of what happens
-    const maxLoadingTimeout = setTimeout(() => {
-      console.warn('ULTIMATE FAILSAFE: Clearing loading state after 15 seconds')
-      setIsLoading(false)
-    }, 15000)
-
-    // Clear the timeout when component unmounts or loading completes
-    const clearFailsafe = () => clearTimeout(maxLoadingTimeout)
     const getSession = async () => {
       try {
         console.log('Getting session...')
         const { data: { session } } = await supabase.auth.getSession()
         console.log('Session result:', session ? 'Session found' : 'No session')
         if (session?.user) {
-          // Add timeout protection for handleUserSession
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Session handling timeout')), 10000)
-          )
-          
           try {
-            await Promise.race([handleUserSession(session.user), timeoutPromise])
-            // Note: setIsLoading(false) is handled in handleUserSession's finally block
-          } catch (timeoutError) {
-            console.error('Session handling timed out or failed:', timeoutError)
-            // Timeout or error in handleUserSession - sign out for safety
-            await supabase.auth.signOut()
-            setUser(null)
+            // For initial session restoration, redirect to appropriate dashboard
+            const shouldRedirect = window.location.pathname === '/' || window.location.pathname === '/login'
+            await handleUserSession(session.user, shouldRedirect)
+          } catch (sessionError: any) {
+            console.error('Session handling failed:', sessionError)
+            // Only sign out if it's an actual auth error, otherwise keep trying
+            if (sessionError?.message?.includes('JWT') || sessionError?.code === 'PGRST301') {
+              console.log('Auth error detected, signing out')
+              await supabase.auth.signOut()
+              setUser(null)
+            } else {
+              console.log('Non-auth error, keeping session but stopping loading')
+              setError('Having trouble loading your profile. You can continue using the app.')
+              // Don't sign out, just stop loading and let user continue
+            }
             setIsLoading(false)
           }
         } else {
@@ -61,93 +67,112 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Even if there's an error, stop loading and treat as anonymous
         setUser(null)
         setIsLoading(false)
-      } finally {
-        // BULLETPROOF: Always ensure loading is cleared, even if handleUserSession fails
-        console.log('FAILSAFE: Ensuring isLoading is false in getSession finally')
-        setIsLoading(false)
       }
     }
 
-    const handleUserSession = async (supabaseUser: any) => {
+    const handleUserSession = async (supabaseUser: any, shouldRedirect: boolean = false) => {
       try {
         console.log('Handling user session for:', supabaseUser.email)
-        // Check if user exists in our users table
-        const { data: profile, error } = await supabase
+        
+        // Database-first approach: Check database for the true role
+        const { data: profile, error: profileError } = await supabase
           .from('users')
           .select('*')
           .eq('id', supabaseUser.id)
           .single()
 
-        if (error && error.code === 'PGRST116') {
-          console.log('User not found in database, creating new user')
-          // User doesn't exist in our table, create them
-          const storedRole = localStorage.getItem('selectedRole') as UserRole || 'athlete'
+        let finalRole: UserRole
+        let userName = ''
+
+        if (profileError && profileError.code === 'PGRST116') {
+          // User doesn't exist in database - first time sign-in
+          console.log('First-time user, creating database record')
           
-          const { data: newProfile, error: insertError } = await supabase
+          // Use role from auth metadata (from magic link signup)
+          finalRole = (supabaseUser.user_metadata?.role as UserRole) || 'athlete'
+          userName = supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || ''
+          
+          // Create user in database
+          const { error: insertError } = await supabase
             .from('users')
             .insert({
               id: supabaseUser.id,
               email: supabaseUser.email,
-              full_name: '',
-              role: storedRole,
+              full_name: userName,
+              role: finalRole,
             })
-            .select()
-            .single()
 
-          if (insertError) {
-            console.error('Error creating user profile:', insertError)
-            // If we can't create a user profile, this might indicate RLS issues or invalid session
-            // For security, sign out the user rather than creating a partial user object
-            console.log('Cannot create user profile, signing out for security')
-            await supabase.auth.signOut()
-            setUser(null)
-          } else {
-            // Clear stored role
-            localStorage.removeItem('selectedRole')
-
-            setUser({
-              id: newProfile.id,
-              name: newProfile.full_name || '',
-              email: newProfile.email,
-              role: newProfile.role as UserRole,
-            })
-            console.log('New user created and set')
+          if (insertError && insertError.code !== 'PGRST301') {
+            // Non-auth error creating profile - continue with basic info
+            console.log('Profile creation failed (non-critical):', insertError.code)
+            setError('Could not save your profile, but you can continue using the app.')
           }
+
         } else if (profile) {
-          console.log('User found in database')
-          // User exists, set their profile
-          setUser({
-            id: profile.id,
-            name: profile.full_name || '',
-            email: profile.email,
-            role: profile.role as UserRole,
-          })
-        } else if (error) {
-          console.error('Error querying user profile:', error)
-          // If database query fails, it likely means the session is invalid or RLS is blocking
-          // Sign out the user gracefully to prevent security issues
-          console.log('Session appears invalid, signing out user')
-          await supabase.auth.signOut()
+          // User exists in database - use database role as source of truth
+          console.log('Existing user found, using database role')
+          finalRole = profile.role as UserRole
+          userName = profile.full_name || ''
+
+          // Check if auth metadata needs updating
+          const authRole = supabaseUser.user_metadata?.role
+          if (authRole !== finalRole) {
+            console.log(`Role mismatch: auth=${authRole}, db=${finalRole}. Updating auth metadata.`)
+            
+            // Update auth metadata to match database (background, non-blocking)
+            supabase.auth.updateUser({
+              data: { role: finalRole }
+            }).then(({ error }) => {
+              if (error) {
+                console.log('Auth metadata update failed (non-critical):', error.message)
+              } else {
+                console.log('Auth metadata synced with database role')
+              }
+            })
+          }
+
+        } else {
+          // Database error that's not "user not found"
+          console.log('Database query error, using auth metadata as fallback')
+          finalRole = (supabaseUser.user_metadata?.role as UserRole) || 'athlete'
+          userName = supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || ''
+          setError('Could not load your full profile. Using basic information.')
+        }
+
+        // Create user object with correct role from database
+        setError(null) // Clear any previous errors (unless set above)
+        setUser({
+          id: supabaseUser.id,
+          name: userName,
+          email: supabaseUser.email,
+          role: finalRole,
+        })
+        
+        console.log(`User session created with role: ${finalRole}`)
+        
+        // Redirect to appropriate dashboard if requested (for session restoration)
+        if (shouldRedirect && typeof window !== 'undefined') {
+          const dashboardRoute = getDashboardRoute(finalRole)
+          console.log('Redirecting to:', dashboardRoute)
+          window.location.href = dashboardRoute
+        }
+      } catch (error: any) {
+        console.error('Error handling user session:', error)
+        // Only sign out for actual security issues
+        if (error?.message?.includes('JWT') || error?.code === 'PGRST301') {
+          console.log('Security issue detected, signing out user')
+          try {
+            await supabase.auth.signOut()
+          } catch (signOutError) {
+            console.error('Error signing out:', signOutError)
+          }
           setUser(null)
         } else {
-          // Handle case where profile is null but no error - this shouldn't happen normally
-          console.log('No user profile found but no error - signing out for security')
-          await supabase.auth.signOut()
-          setUser(null)
+          console.log('Non-security error, keeping user logged in')
+          // For non-security errors, just log and continue
         }
-      } catch (error) {
-        console.error('Error handling user session:', error)
-        // If we can't validate the session properly, sign out for security
-        console.log('Cannot validate session, signing out user')
-        try {
-          await supabase.auth.signOut()
-        } catch (signOutError) {
-          console.error('Error signing out:', signOutError)
-        }
-        setUser(null)
       } finally {
-        // CRITICAL: Always clear loading state regardless of success/failure
-        console.log('Clearing loading state in handleUserSession')
+        // Always clear loading state when session handling is complete
         setIsLoading(false)
       }
     }
@@ -157,80 +182,79 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event, session?.user?.email)
       
-      try {
-        if (event === 'SIGNED_IN' && session?.user) {
-          console.log('Processing SIGNED_IN event')
-          setIsLoading(true) // Set loading for sign in process
-          await handleUserSession(session.user)
-        } else if (event === 'SIGNED_OUT') {
-          console.log('Processing SIGNED_OUT event')
-          setUser(null)
-          setIsLoading(false) // Clear loading immediately
-          localStorage.removeItem('selectedRole')
-          // Redirect to login page
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login'
-          }
-        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          console.log('Processing TOKEN_REFRESHED event')
-          setIsLoading(true) // Set loading for token refresh
-          await handleUserSession(session.user)
-        } else {
-          // Handle any other auth events by clearing loading
-          console.log('Processing other auth event:', event)
-          setIsLoading(false)
-        }
-      } catch (error) {
-        console.error('Error in auth state change handler:', error)
-        // Always clear loading if auth event handling fails
-        setIsLoading(false)
+      if (event === 'SIGNED_IN' && session?.user) {
+        console.log('Processing SIGNED_IN event')
+        setIsLoading(true)
+        // Don't redirect on SIGNED_IN - magic link already handles redirect
+        await handleUserSession(session.user, false)
+      } else if (event === 'SIGNED_OUT') {
+        console.log('Processing SIGNED_OUT event')
         setUser(null)
+        setIsLoading(false)
+        // Redirect to login page
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login'
+        }
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        console.log('Processing TOKEN_REFRESHED event')
+        setIsLoading(true)
+        // Don't redirect on token refresh - user is already on correct page
+        await handleUserSession(session.user, false)
       }
+      // Note: handleUserSession manages its own loading state in finally block
     })
 
     return () => {
       subscription.unsubscribe()
-      clearFailsafe() // Clear the ultimate failsafe timeout
     }
   }, [])
 
-  // Login existing user (password-based)
-  const login = async (email: string, password: string, _role: UserRole) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-    if (error) throw error
-  }
-
-  // Sign in with magic link
+  // Sign in with magic link (unified auth method)
   const signInWithMagicLink = async (email: string, role: UserRole) => {
+    const dashboardRoute = getDashboardRoute(role)
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/dashboard`,
+        emailRedirectTo: `${window.location.origin}${dashboardRoute}`,
+        data: {
+          role: role,
+          full_name: '',
+        }
       },
     })
     if (error) throw error
   }
 
-  // Signup new user
-  const signup = async (email: string, password: string, role: UserRole) => {
-    // Sign up with Supabase
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
+  // Update user role (for profile/settings page)
+  const updateUserRole = async (newRole: UserRole) => {
+    if (!user) throw new Error('No user logged in')
+    
+    // Update user metadata in Supabase auth
+    const { error } = await supabase.auth.updateUser({
+      data: { role: newRole }
     })
     if (error) throw error
 
-    // Insert profile into users table
-    const { error: insertError } = await supabase.from('users').insert({
-      id: data.user?.id,
-      email,
-      full_name: '',
-      role,
-    })
-    if (insertError) throw insertError
+    // Update local user state immediately
+    setUser({ ...user, role: newRole })
+    
+    // Update database in background (non-blocking)
+    supabase
+      .from('users')
+      .upsert({
+        id: user.id,
+        email: user.email,
+        full_name: user.name,
+        role: newRole,
+        updated_at: new Date().toISOString(),
+      })
+      .then(({ error }) => {
+        if (error) {
+          console.log('Background role sync failed (non-critical):', error.code)
+        } else {
+          console.log('Background role sync successful')
+        }
+      })
   }
 
   // Logout
@@ -238,7 +262,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // Clear user state immediately
       setUser(null)
-      localStorage.removeItem('selectedRole')
       
       // Sign out from Supabase
       const { error } = await supabase.auth.signOut()
@@ -260,7 +283,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, signInWithMagicLink, signup, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, signInWithMagicLink, updateUserRole, logout, isLoading, error, clearError, getDashboardRoute }}>
       {children}
     </AuthContext.Provider>
   )
