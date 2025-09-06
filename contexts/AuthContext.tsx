@@ -51,7 +51,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Helper function for role-based dashboard routing
   const getDashboardRoute = (role: UserRole): string => {
-    // Use the existing /dashboard page which handles role-based rendering
+    // Always return /dashboard - role-based rendering happens inside the dashboard page
+    // This function is kept for potential future use if separate role-based routes are needed
     return '/dashboard'
   }
 
@@ -178,10 +179,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Redirect to appropriate dashboard if requested (for session restoration)
         if (shouldRedirect && typeof window !== 'undefined') {
           const baseUrl = getBaseUrl()
-          const dashboardRoute = getDashboardRoute(finalRole)
-          const fullUrl = `${baseUrl}${dashboardRoute}`
-          console.log('Redirecting to:', fullUrl)
-          window.location.href = fullUrl
+          // Always redirect to /dashboard - role-based rendering happens inside the dashboard page
+          const dashboardUrl = `${baseUrl}/dashboard`
+          console.log('Session restoration redirecting to:', dashboardUrl)
+          window.location.href = dashboardUrl
         }
       } catch (error: any) {
         console.error('Error handling user session:', error)
@@ -240,11 +241,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sign in with magic link (unified auth method)
   const signInWithMagicLink = async (email: string, role: UserRole) => {
     const baseUrl = getBaseUrl()
-    const dashboardRoute = getDashboardRoute(role)
+    // Always redirect to /dashboard - role-based rendering happens inside the dashboard page
+    const redirectUrl = `${baseUrl}/dashboard`
+    
+    console.log('Magic link will redirect to:', redirectUrl)
+    
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${baseUrl}${dashboardRoute}`,
+        emailRedirectTo: redirectUrl,
         data: {
           role: role,
           full_name: '',
