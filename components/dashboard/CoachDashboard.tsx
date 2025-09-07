@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { TeamStats, createWorkout, createGroupChat, getTeamMembers } from '@/lib/utils'
+import { TeamStats, createWorkout, createEvent, createGroupChat, getTeamMembers } from '@/lib/utils'
 import { useTeamMessages } from '@/lib/hooks/useTeamMessages'
 import { 
   Users, 
@@ -93,6 +93,7 @@ export default function CoachDashboard() {
   const [showCreateEvent, setShowCreateEvent] = useState(false)
   const [showCreateChat, setShowCreateChat] = useState(false)
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
+  const [isSuccessMessageFading, setIsSuccessMessageFading] = useState(false)
   const [workoutName, setWorkoutName] = useState('')
   const [workoutType, setWorkoutType] = useState('strength')
 
@@ -103,6 +104,7 @@ export default function CoachDashboard() {
   const [exerciseReps, setExerciseReps] = useState('10')
   const [exerciseRest, setExerciseRest] = useState('60')
   const [isCreatingWorkout, setIsCreatingWorkout] = useState(false)
+  const [isCreatingEvent, setIsCreatingEvent] = useState(false)
   
   // Event form state
   const [eventForm, setEventForm] = useState({
@@ -173,6 +175,22 @@ export default function CoachDashboard() {
     }
   }
 
+  const showSuccessWithFadeOut = () => {
+    setShowSuccessMessage(true)
+    setIsSuccessMessageFading(false)
+    
+    // Start fade out after 2.5 seconds
+    setTimeout(() => {
+      setIsSuccessMessageFading(true)
+    }, 2500)
+    
+    // Hide completely after fade out animation (3 seconds total)
+    setTimeout(() => {
+      setShowSuccessMessage(false)
+      setIsSuccessMessageFading(false)
+    }, 3000)
+  }
+
   const handleCreateWorkout = async (e: React.FormEvent) => {
     e.preventDefault()
     console.log('🚀 handleCreateWorkout function called!')
@@ -180,6 +198,7 @@ export default function CoachDashboard() {
     console.log('Workout name:', workoutName)
     console.log('User:', user)
     console.log('Is creating workout:', isCreatingWorkout)
+    console.log('Exercises:', exercises)
     
     // Prevent multiple submissions
     if (isCreatingWorkout) {
@@ -235,6 +254,9 @@ export default function CoachDashboard() {
         setExercises([])
         setShowCreateWorkout(false)
         
+        // Show success message with fade out
+        showSuccessWithFadeOut()
+        
         console.log('Workout creation process completed successfully')
       } else {
         console.error('Failed to create workout:', result.error)
@@ -272,26 +294,52 @@ export default function CoachDashboard() {
     setExercises(exercises.filter((_, i) => i !== index))
   }
 
-  const handleCreateEvent = (e: React.FormEvent) => {
+  const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (eventForm.title && eventForm.date && eventForm.time) {
-      // Here you would typically save the event to your backend
-      console.log('Creating event:', eventForm)
-      setShowCreateEvent(false)
-      setShowSuccessMessage(true)
-      setEventForm({
-        title: '',
-        date: '',
-        time: '',
-        duration: '60',
-        location: '',
-        type: 'practice',
-        description: '',
-        attendees: ''
+    if (!user || !eventForm.title || !eventForm.date || !eventForm.time) return
+
+    setIsCreatingEvent(true)
+    
+    try {
+      // Create start and end times
+      const startDateTime = `${eventForm.date}T${eventForm.time}:00`
+      const startTime = new Date(startDateTime)
+      const endTime = new Date(startTime.getTime() + parseInt(eventForm.duration) * 60 * 1000)
+
+      const result = await createEvent(user.id, {
+        title: eventForm.title,
+        description: eventForm.description || '',
+        event_type: eventForm.type,
+        start_time: startTime.toISOString(),
+        end_time: endTime.toISOString(),
+        location: eventForm.location || ''
       })
       
-      // Hide success message after 3 seconds
-      setTimeout(() => setShowSuccessMessage(false), 3000)
+      if (result.success) {
+        console.log('Event created successfully')
+        
+        // Reset form and close modal
+        setEventForm({
+          title: '',
+          date: '',
+          time: '',
+          duration: '60',
+          location: '',
+          type: 'practice',
+          description: '',
+          attendees: ''
+        })
+        setShowCreateEvent(false)
+        showSuccessWithFadeOut()
+      } else {
+        console.error('Failed to create event:', result.error)
+        alert(`Failed to create event: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('Error creating event:', error)
+      alert('An error occurred while creating the event')
+    } finally {
+      setIsCreatingEvent(false)
     }
   }
 
@@ -333,10 +381,7 @@ export default function CoachDashboard() {
         setShowCreateChat(false)
         setNewChatName('')
         setSelectedMembers([])
-        setShowSuccessMessage(true)
-        
-        // Hide success message after 3 seconds
-        setTimeout(() => setShowSuccessMessage(false), 3000)
+        showSuccessWithFadeOut()
         
         console.log('Group chat created successfully')
       } else {
@@ -406,7 +451,6 @@ export default function CoachDashboard() {
                 <div className="h-6 w-6 sm:h-8 sm:w-8 bg-gradient-to-br from-royal-blue to-dark-blue rounded-full flex items-center justify-center border-2 border-royal-blue">
                   <Users className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
                 </div>
-                <span className="text-xs sm:text-sm font-semibold text-gray-700 hidden sm:block">{user?.name}</span>
               </button>
               <button
                 onClick={handleLogout}
@@ -421,7 +465,11 @@ export default function CoachDashboard() {
 
       {/* Success Message */}
       {showSuccessMessage && (
-        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-2xl shadow-lg transform transition-all duration-300 animate-in slide-in-from-right">
+        <div className={`fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-2xl shadow-lg transform transition-all duration-500 ${
+          isSuccessMessageFading 
+            ? 'opacity-0 translate-x-4 scale-95' 
+            : 'opacity-100 translate-x-0 scale-100 animate-in slide-in-from-right'
+        }`}>
           <div className="flex items-center space-x-2">
             <CheckCircle className="h-5 w-5" />
             <span className="font-semibold">Action completed successfully!</span>
@@ -760,13 +808,12 @@ export default function CoachDashboard() {
                     Cancel
                   </button>
                   <button
-                    type="submit"
+                    type="button"
                     disabled={!workoutName.trim() || isCreatingWorkout}
-                    onClick={(e) => {
-                      console.log('🖱️ Submit button clicked!')
-                      console.log('Button disabled?', !workoutName.trim() || isCreatingWorkout)
-                      console.log('Workout name:', workoutName)
-                      console.log('Is creating workout:', isCreatingWorkout)
+                    onClick={() => {
+                      console.log('🖱️ Direct onClick handler called!')
+                      const fakeEvent = { preventDefault: () => {} } as React.FormEvent
+                      handleCreateWorkout(fakeEvent)
                     }}
                     className="bg-gradient-to-r from-royal-blue to-dark-blue hover:from-dark-blue hover:to-royal-blue text-white px-6 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -925,9 +972,10 @@ export default function CoachDashboard() {
                   </button>
                   <button
                     onClick={handleCreateEvent}
-                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
+                    disabled={isCreatingEvent}
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Create Event
+                    {isCreatingEvent ? 'Creating...' : 'Create Event'}
                   </button>
                 </div>
               </div>

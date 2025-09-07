@@ -137,7 +137,6 @@ export default function AthleteDashboard() {
                 <div className="h-6 w-6 sm:h-8 sm:w-8 bg-gradient-to-br from-royal-blue to-dark-blue rounded-full flex items-center justify-center border-2 border-royal-blue">
                   <Users className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
                 </div>
-                <span className="text-xs sm:text-sm font-semibold text-gray-700 hidden sm:block">{user?.name}</span>
               </button>
               <button
                 onClick={handleLogout}
