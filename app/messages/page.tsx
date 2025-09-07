@@ -154,12 +154,22 @@ export default function MessagesPage() {
   )
 
   const handleSendMessage = async () => {
+    console.log('🚀 handleSendMessage called!')
+    console.log('newMessage:', newMessage)
+    console.log('selectedMessage:', selectedMessage)
+    console.log('user:', user)
+    
     if (!newMessage.trim() || !selectedMessage || !user) {
+      console.log('❌ Early return - missing required data')
+      console.log('newMessage.trim():', newMessage.trim())
+      console.log('selectedMessage:', selectedMessage)
+      console.log('user:', user)
       return
     }
 
     // Get the conversation ID for the selected message
     const selectedMsg = messages.find((msg: any) => msg.id === selectedMessage)
+    console.log('selectedMsg:', selectedMsg)
     if (!selectedMsg) {
       console.error('Selected message not found')
       return

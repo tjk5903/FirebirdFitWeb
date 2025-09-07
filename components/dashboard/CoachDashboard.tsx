@@ -44,7 +44,7 @@ const mockTeamStats: TeamStats = {
 
 const quickActions = [
   { id: 1, title: 'Create Workout', icon: Plus, color: 'bg-royal-blue', description: 'Design new training' },
-  { id: 2, title: 'Add Event', icon: Calendar, color: 'bg-green-500', description: 'Create calendar event' },
+  { id: 2, title: 'Create Event', icon: Calendar, color: 'bg-green-500', description: 'Create calendar event' },
   { id: 3, title: 'Create Chat', icon: MessageSquare, color: 'bg-purple-500', description: 'Start team conversation' },
 ]
 
@@ -556,7 +556,7 @@ export default function CoachDashboard() {
                   onClick={() => {
                     if (action.title === 'Create Workout') {
                       setShowCreateWorkout(true)
-                    } else if (action.title === 'Add Event') {
+                    } else if (action.title === 'Create Event') {
                       setShowCreateEvent(true)
                     } else if (action.title === 'Create Chat') {
                       setShowCreateChat(true)
@@ -584,9 +584,6 @@ export default function CoachDashboard() {
           <div className="card-elevated hover-lift">
             <div className="flex items-center justify-between mb-4 sm:mb-6">
               <h3 className="text-lg sm:text-xl font-bold text-gray-900">Recent Activity</h3>
-              <button className="text-royal-blue hover:text-dark-blue text-sm font-semibold transition-colors duration-200 focus-ring">
-                View All
-              </button>
             </div>
             
             {/* Show no activity message since there's no real data yet */}
