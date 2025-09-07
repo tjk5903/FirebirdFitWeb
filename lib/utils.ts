@@ -361,7 +361,7 @@ export async function getTeamMessages(userId: string): Promise<Array<{
             unread: false,
             avatar: groupChatName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase(),
             type: 'group' as const,
-            conversationId: `group_${groupChatId}`
+            conversationId: groupChatId.startsWith('group_') ? groupChatId : `group_${groupChatId}`
           })
         }
       } else {
@@ -950,6 +950,36 @@ export async function deleteWorkout(workoutId: string): Promise<{ success: boole
   }
 }
 
+// Update user profile information
+export async function updateUserProfile(
+  userId: string, 
+  profileData: {
+    full_name?: string;
+    email?: string;
+    role?: UserRole;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    console.log('Updating user profile:', userId, profileData)
+    
+    const { error: updateError } = await supabase
+      .from('users')
+      .update(profileData)
+      .eq('id', userId)
+
+    if (updateError) {
+      console.error('Error updating user profile:', updateError)
+      return { success: false, error: `Failed to update profile: ${updateError.message}` }
+    }
+
+    console.log('Successfully updated user profile')
+    return { success: true }
+  } catch (error) {
+    console.error('Error in updateUserProfile:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
 export async function deleteConversation(conversationId: string, userId: string): Promise<{ success: boolean; error?: string }> {
   try {
     console.log('Attempting to delete conversation:', conversationId)
@@ -991,8 +1021,23 @@ export async function deleteConversation(conversationId: string, userId: string)
         return { success: false, error: 'Only coaches can delete group chats' }
       }
       
-      const groupChatId = conversationId.replace('group_', '')
+      // Handle both 'group_' and 'group_group_' prefixes
+      let groupChatId = conversationId.replace(/^group_/, '')
+      if (groupChatId.startsWith('group_')) {
+        groupChatId = groupChatId.replace(/^group_/, '')
+      }
       console.log('Deleting group chat messages for group:', groupChatId)
+      console.log('Looking for messages with pattern:', `[GROUP_CHAT:${groupChatId}:%`)
+      
+      // First, let's see what messages we're about to delete
+      const { data: messagesToDelete, error: fetchError } = await supabase
+        .from('messages')
+        .select('id, content, created_at')
+        .like('content', `[GROUP_CHAT:${groupChatId}:%`)
+      
+      console.log('Messages found to delete:', messagesToDelete)
+      console.log('Fetch error:', fetchError)
+      
       const { data, error: deleteError } = await supabase
         .from('messages')
         .delete()

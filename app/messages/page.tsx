@@ -8,124 +8,6 @@ import { Search, Send, Plus, X, Users, MoreVertical, ArrowLeft, MessageCircle, H
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
 import MainNavigation from '@/components/navigation/MainNavigation'
 
-// Mock data for messages (keeping for fallback)
-const mockMessages = [
-  {
-    id: 1,
-    name: 'Jake Rodriguez',
-    lastMessage: 'Great session today! Feeling stronger already.',
-    time: '1 hour ago',
-    unread: true,
-    avatar: 'JR',
-    type: 'athlete'
-  },
-  {
-    id: 2,
-    name: 'Marcus Johnson',
-    lastMessage: 'Can we discuss the new training schedule?',
-    time: '2 hours ago',
-    unread: false,
-    avatar: 'MJ',
-    type: 'athlete'
-  },
-  {
-    id: 3,
-    name: 'Tyler Williams',
-    lastMessage: 'Team meeting tomorrow at 3 PM confirmed.',
-    time: '3 hours ago',
-    unread: false,
-    avatar: 'TW',
-    type: 'athlete'
-  },
-  {
-    id: 4,
-    name: 'Brandon Davis',
-    lastMessage: 'New workout plan looks challenging!',
-    time: '1 day ago',
-    unread: false,
-    avatar: 'BD',
-    type: 'athlete'
-  },
-  {
-    id: 5,
-    name: 'Team Chat',
-    lastMessage: 'Coach Johnson: Great work everyone!',
-    time: '2 days ago',
-    unread: false,
-    avatar: 'TC',
-    type: 'group'
-  },
-  {
-    id: 6,
-    name: 'Senior Squad',
-    lastMessage: 'Coach: Practice moved to 4 PM today',
-    time: '4 hours ago',
-    unread: true,
-    avatar: 'SS',
-    type: 'group'
-  },
-  {
-    id: 7,
-    name: 'Ryan Mitchell',
-    lastMessage: 'Injured my ankle during practice',
-    time: '5 hours ago',
-    unread: false,
-    avatar: 'RM',
-    type: 'athlete'
-  },
-  {
-    id: 8,
-    name: 'Freshman Group',
-    lastMessage: 'Welcome to the team!',
-    time: '1 day ago',
-    unread: false,
-    avatar: 'FG',
-    type: 'group'
-  }
-]
-
-// Mock conversations (keeping for fallback)
-const mockConversations = {
-  1: [
-    { id: 1, sender: 'Jake Rodriguez', message: 'Hi Coach!', time: '2 hours ago', isCoach: false },
-    { id: 2, sender: 'Coach', message: 'Hello Jake! How are you feeling today?', time: '2 hours ago', isCoach: true },
-    { id: 3, sender: 'Jake Rodriguez', message: 'Great session today! Feeling stronger already.', time: '1 hour ago', isCoach: false },
-    { id: 4, sender: 'Coach', message: 'That\'s fantastic! Your form has improved significantly. Keep up the great work!', time: '1 hour ago', isCoach: true },
-    { id: 5, sender: 'Jake Rodriguez', message: 'Thank you! When should I expect the next workout plan?', time: '30 minutes ago', isCoach: false }
-  ],
-  2: [
-    { id: 1, sender: 'Marcus Johnson', message: 'Coach, I have a question about the training schedule', time: '3 hours ago', isCoach: false },
-    { id: 2, sender: 'Coach', message: 'Of course! What would you like to know?', time: '3 hours ago', isCoach: true },
-    { id: 3, sender: 'Marcus Johnson', message: 'Can we discuss the new training schedule?', time: '2 hours ago', isCoach: false }
-  ],
-  3: [
-    { id: 1, sender: 'Tyler Williams', message: 'Coach, I need to reschedule our meeting', time: '4 hours ago', isCoach: false },
-    { id: 2, sender: 'Coach', message: 'No problem, what time works better for you?', time: '4 hours ago', isCoach: true },
-    { id: 3, sender: 'Tyler Williams', message: 'Team meeting tomorrow at 3 PM confirmed.', time: '3 hours ago', isCoach: false }
-  ],
-  4: [
-    { id: 1, sender: 'Brandon Davis', message: 'Coach, the new workout plan looks challenging!', time: '1 day ago', isCoach: false },
-    { id: 2, sender: 'Coach', message: 'That\'s the goal! It\'s designed to push you to the next level.', time: '1 day ago', isCoach: true }
-  ],
-  5: [
-    { id: 1, sender: 'Coach Johnson', message: 'Great work everyone! Keep pushing yourselves!', time: '2 days ago', isCoach: true },
-    { id: 2, sender: 'Jake Rodriguez', message: 'Thanks Coach! Feeling stronger every day!', time: '2 days ago', isCoach: false },
-    { id: 3, sender: 'Marcus Johnson', message: 'Agreed! The new routine is working wonders.', time: '2 days ago', isCoach: false }
-  ],
-  6: [
-    { id: 1, sender: 'Coach', message: 'Practice moved to 4 PM today due to field maintenance.', time: '4 hours ago', isCoach: true },
-    { id: 2, sender: 'Tyler Williams', message: 'Got it, thanks for the update!', time: '4 hours ago', isCoach: false }
-  ],
-  7: [
-    { id: 1, sender: 'Ryan Mitchell', message: 'Coach, I injured my ankle during practice today.', time: '5 hours ago', isCoach: false },
-    { id: 2, sender: 'Coach', message: 'I\'m sorry to hear that. Let\'s get you checked out and adjust your training plan.', time: '5 hours ago', isCoach: true }
-  ],
-  8: [
-    { id: 1, sender: 'Coach', message: 'Welcome to the team, freshmen! We\'re excited to have you.', time: '1 day ago', isCoach: true },
-    { id: 2, sender: 'Freshman 1', message: 'Thank you! We\'re excited to be here!', time: '1 day ago', isCoach: false }
-  ]
-}
-
 export default function MessagesPage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
@@ -180,13 +62,8 @@ export default function MessagesPage() {
         setMessages(teamMessages)
       } catch (error) {
         console.error('Error loading messages:', error)
-        // Fallback to mock data if there's an error
-        setMessages(mockMessages.map(msg => ({
-          ...msg,
-          id: msg.id.toString(),
-          type: msg.type as 'athlete' | 'group',
-          conversationId: msg.type === 'group' ? `team_${msg.id}` : `direct_${msg.id}_${user.id}`
-        })))
+        // Set empty array if there's an error - no mock data fallback
+        setMessages([])
       } finally {
         setIsLoadingMessages(false)
       }
@@ -241,22 +118,8 @@ export default function MessagesPage() {
         setTeamMembers(formattedMembers)
       } catch (error) {
         console.error('Error loading team members:', error)
-        // Fallback to mock data
-        setTeamMembers([
-          { id: '1', name: 'Jake Rodriguez', role: 'athlete', type: 'athlete' as const },
-          { id: '2', name: 'Marcus Johnson', role: 'athlete', type: 'athlete' as const },
-          { id: '3', name: 'Tyler Williams', role: 'athlete', type: 'athlete' as const },
-          { id: '4', name: 'Brandon Davis', role: 'athlete', type: 'athlete' as const },
-          { id: '5', name: 'Ryan Mitchell', role: 'athlete', type: 'athlete' as const },
-          { id: '6', name: 'Chris Thompson', role: 'athlete', type: 'athlete' as const },
-          { id: '7', name: 'Kevin Martinez', role: 'athlete', type: 'athlete' as const },
-          { id: '8', name: 'David Wilson', role: 'athlete', type: 'athlete' as const },
-          { id: '9', name: 'Anthony Garcia', role: 'athlete', type: 'athlete' as const },
-          { id: '10', name: 'Michael Brown', role: 'athlete', type: 'athlete' as const },
-          { id: '101', name: 'Dr. Smith', role: 'staff', type: 'staff' as const },
-          { id: '102', name: 'Coach Martinez', role: 'coach', type: 'staff' as const },
-          { id: '103', name: 'Nutritionist Brown', role: 'staff', type: 'staff' as const }
-        ])
+        // Set empty array if there's an error - no mock data fallback
+        setTeamMembers([])
       } finally {
         setIsLoadingTeamMembers(false)
       }
@@ -344,15 +207,23 @@ export default function MessagesPage() {
 
     try {
       console.log('Deleting conversation:', conversationToDelete.conversationId)
+      console.log('Full conversation object:', conversationToDelete)
       const result = await deleteConversation(conversationToDelete.conversationId, user.id)
       
       if (result.success) {
-        // Remove from local state
-        setMessages(messages.filter((msg: any) => msg.id !== conversationToDelete.id))
-        
         // Clear selected message if it was the deleted conversation
         if (selectedMessage === conversationToDelete.id) {
           setSelectedMessage(null)
+        }
+        
+        // Refresh messages from server to ensure deletion persists
+        try {
+          const teamMessages = await getTeamMessages(user.id)
+          setMessages(teamMessages)
+        } catch (refreshError) {
+          console.error('Error refreshing messages after deletion:', refreshError)
+          // Fallback to local state update if server refresh fails
+          setMessages(messages.filter((msg: any) => msg.id !== conversationToDelete.id))
         }
         
         console.log('Conversation deleted successfully')
@@ -514,32 +385,29 @@ export default function MessagesPage() {
     setIsDeletingChat(true)
 
     try {
-      if (selectedMsg.type === 'group') {
-        // For group chats, add a deletion message
-        const result = await sendMessage(user.id, selectedMsg.conversationId, 'This group chat has been deleted by the coach.')
+      // Actually delete the conversation from the database
+      console.log('Deleting conversation:', selectedMsg.conversationId)
+      const result = await deleteConversation(selectedMsg.conversationId, user.id)
+      
+      if (result.success) {
+        console.log(`Conversation "${selectedMsg.name}" deleted successfully`)
         
-        if (result.success) {
-          console.log(`Group chat "${selectedMsg.name}" has been deleted`)
-        } else {
-          console.error(`Failed to delete group chat: ${result.error}`)
-        }
+        // Clear selected message
+        setSelectedMessage(null)
+        
+        // Refresh messages from server to ensure deletion persists
+        const teamMessages = await getTeamMessages(user.id)
+        setMessages(teamMessages)
+        setShowOptionsDropdown(false)
+        
       } else {
-        // For individual chats, we'll just clear the conversation locally
-        // In a real implementation, you might want to add a "deleted" flag to the database
-        console.log(`Individual chat with "${selectedMsg.name}" has been cleared`)
+        console.error('Failed to delete conversation:', result.error)
+        alert(`Failed to delete conversation: ${result.error}`)
       }
-      
-      // Refresh messages to reflect changes
-      const teamMessages = await getTeamMessages(user.id)
-      setMessages(teamMessages)
-      
-      // Clear the selected message since the chat is deleted/cleared
-      setSelectedMessage(null)
-      setShowOptionsDropdown(false)
       
     } catch (error) {
       console.error('Error deleting chat:', error)
-      console.error('An error occurred while deleting the chat')
+      alert('An error occurred while deleting the chat')
     } finally {
       setIsDeletingChat(false)
     }
@@ -562,14 +430,11 @@ export default function MessagesPage() {
         }))
       } catch (error) {
         console.error('Error loading conversation:', error)
-        // Fallback to mock conversations if available
-        const mockKey = parseInt(selectedMessage) as keyof typeof mockConversations
-        if (mockConversations[mockKey]) {
-          setConversations((prev: any) => ({
-            ...prev,
-            [selectedMessage]: mockConversations[mockKey]
-          }))
-        }
+        // Set empty conversation if there's an error - no mock data fallback
+        setConversations((prev: any) => ({
+          ...prev,
+          [selectedMessage]: []
+        }))
       } finally {
         setIsLoadingConversation(false)
       }

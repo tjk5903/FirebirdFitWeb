@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { TeamStats, createWorkout } from '@/lib/utils'
+import { TeamStats, createWorkout, createGroupChat, getTeamMembers } from '@/lib/utils'
 import { useTeamMessages } from '@/lib/hooks/useTeamMessages'
 import { 
   Users, 
@@ -38,19 +38,14 @@ const mockTeamStats: TeamStats = {
   upcomingEvents: 3
 }
 
-const mockRecentActivity = [
-  { id: 1, athlete: 'Jake Rodriguez', action: 'completed workout', time: '2 hours ago', type: 'workout' },
-  { id: 2, athlete: 'Marcus Johnson', action: 'sent team message', time: '3 hours ago', type: 'message' },
-  { id: 3, athlete: 'Tyler Williams', action: 'completed workout', time: '4 hours ago', type: 'workout' },
-  { id: 4, athlete: 'Brandon Davis', action: 'joined team call', time: '5 hours ago', type: 'call' },
-]
+// Real recent activity will come from actual data - no mock data
 
 // Removed mockTeamMessages - now using actual data from getTeamMessages
 
-const mockQuickActions = [
+const quickActions = [
   { id: 1, title: 'Create Workout', icon: Plus, color: 'bg-royal-blue', description: 'Design new training' },
   { id: 2, title: 'Add Event', icon: Calendar, color: 'bg-green-500', description: 'Create calendar event' },
-  { id: 3, title: 'Send Announcement', icon: Send, color: 'bg-purple-500', description: 'Team message' },
+  { id: 3, title: 'Create Chat', icon: MessageSquare, color: 'bg-purple-500', description: 'Start team conversation' },
 ]
 
 const eventTypes = [
@@ -90,13 +85,13 @@ export default function CoachDashboard() {
   // Refs for modal click-outside detection
   const createWorkoutModalRef = useRef<HTMLDivElement>(null)
   const createEventModalRef = useRef<HTMLDivElement>(null)
-  const sendAnnouncementModalRef = useRef<HTMLDivElement>(null)
+  const createChatModalRef = useRef<HTMLDivElement>(null)
   
   const [activeTab, setActiveTab] = useState('')
   const [isLoaded, setIsLoaded] = useState(false)
   const [showCreateWorkout, setShowCreateWorkout] = useState(false)
   const [showCreateEvent, setShowCreateEvent] = useState(false)
-  const [showSendAnnouncement, setShowSendAnnouncement] = useState(false)
+  const [showCreateChat, setShowCreateChat] = useState(false)
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
   const [workoutName, setWorkoutName] = useState('')
   const [workoutType, setWorkoutType] = useState('strength')
@@ -121,16 +116,12 @@ export default function CoachDashboard() {
     attendees: ''
   })
 
-  // Announcement form state
-  const [announcementForm, setAnnouncementForm] = useState({
-    title: '',
-    message: '',
-    priority: 'normal',
-    recipients: 'all',
-    scheduled: false,
-    scheduledDate: '',
-    scheduledTime: ''
-  })
+  // Create Chat modal state
+  const [newChatName, setNewChatName] = useState('')
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([])
+  const [teamMembers, setTeamMembers] = useState<any[]>([])
+  const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false)
+  const [isCreatingGroupChat, setIsCreatingGroupChat] = useState(false)
 
   // Use custom hook for team messages
   const { teamMessages, isLoadingMessages } = useTeamMessages(user?.id)
@@ -158,21 +149,21 @@ export default function CoachDashboard() {
         setShowCreateEvent(false)
       }
       
-      // Close Send Announcement modal
-      if (showSendAnnouncement && sendAnnouncementModalRef.current && !sendAnnouncementModalRef.current.contains(target)) {
-        setShowSendAnnouncement(false)
+      // Close Create Chat modal
+      if (showCreateChat && createChatModalRef.current && !createChatModalRef.current.contains(target)) {
+        setShowCreateChat(false)
       }
     }
 
     // Add event listener if any modal is open
-    if (showCreateWorkout || showCreateEvent || showSendAnnouncement) {
+    if (showCreateWorkout || showCreateEvent || showCreateChat) {
       document.addEventListener('mousedown', handleClickOutside)
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showCreateWorkout, showCreateEvent, showSendAnnouncement])
+  }, [showCreateWorkout, showCreateEvent, showCreateChat])
 
   const handleLogout = async () => {
     try {
@@ -304,25 +295,57 @@ export default function CoachDashboard() {
     }
   }
 
-  const handleSendAnnouncement = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (announcementForm.title && announcementForm.message) {
-      // Here you would typically send the announcement to your backend
-      console.log('Sending announcement:', announcementForm)
-      setShowSendAnnouncement(false)
-      setShowSuccessMessage(true)
-      setAnnouncementForm({
-        title: '',
-        message: '',
-        priority: 'normal',
-        recipients: 'all',
-        scheduled: false,
-        scheduledDate: '',
-        scheduledTime: ''
-      })
+  // Load team members for chat modal
+  const loadTeamMembers = async () => {
+    if (!user?.id) return
+    
+    setIsLoadingTeamMembers(true)
+    try {
+      const members = await getTeamMembers(user.id)
+      setTeamMembers(members)
+    } catch (error) {
+      console.error('Error loading team members:', error)
+      setTeamMembers([])
+    } finally {
+      setIsLoadingTeamMembers(false)
+    }
+  }
+
+  // Toggle member selection for chat
+  const toggleMemberSelection = (memberId: string) => {
+    setSelectedMembers(prev => 
+      prev.includes(memberId) 
+        ? prev.filter(id => id !== memberId)
+        : [...prev, memberId]
+    )
+  }
+
+  // Handle create group chat
+  const handleCreateGroupChat = async () => {
+    if (!newChatName.trim() || !user?.id) return
+
+    setIsCreatingGroupChat(true)
+    try {
+      const result = await createGroupChat(user.id, newChatName.trim(), selectedMembers)
       
-      // Hide success message after 3 seconds
-      setTimeout(() => setShowSuccessMessage(false), 3000)
+      if (result.success) {
+        // Close modal and reset form
+        setShowCreateChat(false)
+        setNewChatName('')
+        setSelectedMembers([])
+        setShowSuccessMessage(true)
+        
+        // Hide success message after 3 seconds
+        setTimeout(() => setShowSuccessMessage(false), 3000)
+        
+        console.log('Group chat created successfully')
+      } else {
+        console.error('Failed to create group chat:', result.error)
+      }
+    } catch (error) {
+      console.error('Error creating group chat:', error)
+    } finally {
+      setIsCreatingGroupChat(false)
     }
   }
 
@@ -477,7 +500,7 @@ export default function CoachDashboard() {
           <div className="card-elevated mobile-card hover-lift">
             <h3 className="mobile-heading font-bold text-gray-900 mb-3 sm:mb-4 md:mb-6">Quick Actions</h3>
             <div className="space-y-2 sm:space-y-3">
-              {mockQuickActions.map((action, index) => (
+              {quickActions.map((action, index) => (
                 <button 
                   key={action.id} 
                   className="w-full flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 rounded-xl bg-gray-50 hover:bg-gray-100 active:bg-gray-200 transition-all duration-200 group focus-ring touch-manipulation"
@@ -487,8 +510,10 @@ export default function CoachDashboard() {
                       setShowCreateWorkout(true)
                     } else if (action.title === 'Add Event') {
                       setShowCreateEvent(true)
-                    } else if (action.title === 'Send Announcement') {
-                      setShowSendAnnouncement(true)
+                    } else if (action.title === 'Create Chat') {
+                      setShowCreateChat(true)
+                      // Load team members when opening chat modal
+                      loadTeamMembers()
                     }
                   }}
                 >
@@ -516,32 +541,11 @@ export default function CoachDashboard() {
               </button>
             </div>
             
-            <div className="space-y-2 sm:space-y-3">
-              {mockRecentActivity.slice(0, 3).map((activity, index) => (
-                <div 
-                  key={activity.id} 
-                  className="flex items-center space-x-3 p-2 sm:p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all duration-200 hover:scale-[1.02] focus-ring"
-                  style={{ animationDelay: `${index * 100}ms` }}
-                >
-                  <div className={`h-6 w-6 sm:h-8 sm:w-8 rounded-lg flex items-center justify-center transition-transform duration-200 hover:scale-110 ${
-                    activity.type === 'workout' ? 'bg-green-100' :
-                    activity.type === 'message' ? 'bg-blue-100' : 'bg-purple-100'
-                  }`}>
-                    {activity.type === 'workout' ? <Activity className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" /> :
-                     activity.type === 'message' ? <MessageSquare className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" /> :
-                     <Phone className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600" />}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-xs sm:text-sm font-semibold text-gray-900">
-                      <span className="text-royal-blue">{activity.athlete}</span> {activity.action}
-                    </p>
-                    <p className="text-xs text-gray-500 flex items-center">
-                      <Clock className="h-3 w-3 mr-1" />
-                      {activity.time}
-                    </p>
-                  </div>
-                </div>
-              ))}
+            {/* Show no activity message since there's no real data yet */}
+            <div className="text-center py-8">
+              <Activity className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-600 text-sm font-semibold">No recent activity</p>
+              <p className="text-gray-500 text-xs mt-1">Team activity will appear here when athletes complete workouts, or send messages</p>
             </div>
           </div>
 
@@ -931,158 +935,119 @@ export default function CoachDashboard() {
           </div>
         )}
 
-        {/* Send Announcement Modal */}
-        {showSendAnnouncement && (
+        {/* Create Chat Modal */}
+        {showCreateChat && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div ref={sendAnnouncementModalRef} className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-              {/* Modal Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <div className="flex items-center space-x-3">
-                  <div className="h-10 w-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center">
-                    <Send className="h-5 w-5 text-white" />
+            <div ref={createChatModalRef} className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+              <div className="p-4 sm:p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="h-10 w-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center">
+                      <MessageSquare className="h-5 w-5 text-white" />
+                    </div>
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900">Create Group Chat</h3>
                   </div>
-                  <div>
-                    <h3 className="font-bold text-gray-900">Send Team Announcement</h3>
-                    <p className="text-sm text-gray-500">Communicate important updates to your team</p>
-                  </div>
+                  <button
+                    onClick={() => setShowCreateChat(false)}
+                    className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <X className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => setShowSendAnnouncement(false)}
-                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="h-6 w-6" />
-                </button>
               </div>
 
-              {/* Modal Content */}
-              <div className="flex-1 overflow-y-auto p-6">
-                <form onSubmit={handleSendAnnouncement} className="space-y-6">
-                  {/* Announcement Title */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Announcement Title
-                    </label>
-                    <input
-                      type="text"
-                      value={announcementForm.title}
-                      onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
-                      placeholder="Enter announcement title..."
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all duration-300 text-base"
-                      required
-                    />
-                  </div>
+              <div className="p-4 sm:p-6">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Group Name
+                  </label>
+                  <input
+                    type="text"
+                    value={newChatName}
+                    onChange={(e) => setNewChatName(e.target.value)}
+                    placeholder="Enter group name..."
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all duration-300"
+                  />
+                </div>
 
-                  {/* Priority Level */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Priority Level
-                    </label>
-                    <select
-                      value={announcementForm.priority}
-                      onChange={(e) => setAnnouncementForm({ ...announcementForm, priority: e.target.value })}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all duration-300 text-base"
-                    >
-                      <option value="low">Low Priority</option>
-                      <option value="normal">Normal Priority</option>
-                      <option value="high">High Priority</option>
-                      <option value="urgent">Urgent</option>
-                    </select>
-                  </div>
-
-                  {/* Recipients */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Recipients
-                    </label>
-                    <select
-                      value={announcementForm.recipients}
-                      onChange={(e) => setAnnouncementForm({ ...announcementForm, recipients: e.target.value })}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all duration-300 text-base"
-                    >
-                      <option value="all">All Team Members</option>
-                      <option value="starters">Starting Lineup Only</option>
-                      <option value="bench">Bench Players Only</option>
-                      <option value="captains">Team Captains Only</option>
-                      <option value="coaches">Coaching Staff Only</option>
-                    </select>
-                  </div>
-
-                  {/* Message Content */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Message Content
-                    </label>
-                    <textarea
-                      value={announcementForm.message}
-                      onChange={(e) => setAnnouncementForm({ ...announcementForm, message: e.target.value })}
-                      placeholder="Enter your announcement message..."
-                      rows={6}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all duration-300 text-base resize-none"
-                      required
-                    />
-                  </div>
-
-                  {/* Schedule Option */}
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="checkbox"
-                      id="schedule-announcement"
-                      checked={announcementForm.scheduled}
-                      onChange={(e) => setAnnouncementForm({ ...announcementForm, scheduled: e.target.checked })}
-                      className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="schedule-announcement" className="text-sm font-medium text-gray-700">
-                      Schedule for later
-                    </label>
-                  </div>
-
-                  {/* Schedule Date/Time */}
-                  {announcementForm.scheduled && (
-                    <div className="grid grid-cols-2 gap-4">
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Select Members (Optional)
+                  </label>
+                  <p className="text-xs text-gray-500 mb-3">You can add members now or later. Group chats can be created without initial members.</p>
+                  
+                  {isLoadingTeamMembers ? (
+                    <div className="text-center py-4">
+                      <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                      <p className="text-sm text-gray-600">Loading team members...</p>
+                    </div>
+                  ) : teamMembers.length === 0 ? (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-gray-600">No team members found.</p>
+                      <p className="text-xs text-gray-500 mt-1">Make sure you're part of a team.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-60 overflow-y-auto">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Date
-                        </label>
-                        <input
-                          type="date"
-                          value={announcementForm.scheduledDate}
-                          onChange={(e) => setAnnouncementForm({ ...announcementForm, scheduledDate: e.target.value })}
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all duration-300"
-                          required={announcementForm.scheduled}
-                        />
+                        <h4 className="text-sm font-medium text-gray-600 mb-2">Athletes</h4>
+                        <div className="space-y-2">
+                          {teamMembers.filter(member => member.type === 'athlete').map((athlete) => (
+                            <label key={athlete.id} className="flex items-center space-x-3 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={selectedMembers.includes(athlete.id)}
+                                onChange={() => toggleMemberSelection(athlete.id)}
+                                className="h-4 w-4 text-purple-500 rounded focus:ring-purple-500"
+                              />
+                              <span className="text-sm text-gray-900">{athlete.name}</span>
+                            </label>
+                          ))}
+                          {teamMembers.filter(member => member.type === 'athlete').length === 0 && (
+                            <p className="text-xs text-gray-500 italic">No athletes found</p>
+                          )}
+                        </div>
                       </div>
+
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Time
-                        </label>
-                        <input
-                          type="time"
-                          value={announcementForm.scheduledTime}
-                          onChange={(e) => setAnnouncementForm({ ...announcementForm, scheduledTime: e.target.value })}
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-500 transition-all duration-300"
-                          required={announcementForm.scheduled}
-                        />
+                        <h4 className="text-sm font-medium text-gray-600 mb-2">Staff</h4>
+                        <div className="space-y-2">
+                          {teamMembers.filter(member => member.type === 'staff').map((staff) => (
+                            <label key={staff.id} className="flex items-center space-x-3 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={selectedMembers.includes(staff.id)}
+                                onChange={() => toggleMemberSelection(staff.id)}
+                                className="h-4 w-4 text-purple-500 rounded focus:ring-purple-500"
+                              />
+                              <span className="text-sm text-gray-900">{staff.name}</span>
+                            </label>
+                          ))}
+                          {teamMembers.filter(member => member.type === 'staff').length === 0 && (
+                            <p className="text-xs text-gray-500 italic">No staff members found</p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
-                </form>
-              </div>
+                </div>
 
-              {/* Modal Footer */}
-              <div className="p-6 border-t border-gray-200">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-end space-x-3">
                   <button
-                    onClick={() => setShowSendAnnouncement(false)}
-                    className="px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors duration-200"
+                    onClick={() => setShowCreateChat(false)}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={handleSendAnnouncement}
-                    disabled={!announcementForm.title.trim() || !announcementForm.message.trim()}
-                    className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-6 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={handleCreateGroupChat}
+                    disabled={!newChatName.trim() || isCreatingGroupChat}
+                    className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-6 py-2 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {announcementForm.scheduled ? 'Schedule Announcement' : 'Send Announcement'}
+                    {isCreatingGroupChat ? (
+                      <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    ) : (
+                      'Create Chat'
+                    )}
                   </button>
                 </div>
               </div>
