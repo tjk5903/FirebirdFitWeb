@@ -36,10 +36,7 @@ const mockAthleteStats: AthleteStats = {
   teamMessages: 3
 }
 
-const mockUpcomingEvents = [
-  { id: 1, title: 'Team Practice', date: 'Tomorrow', time: '3:00 PM', type: 'practice', location: 'Main Gym' },
-  { id: 2, title: 'Championship Game', date: 'Saturday', time: '2:00 PM', type: 'game', location: 'Stadium' },
-]
+// Real upcoming events will come from actual data - no mock data
 
 // Removed mockTeamMessages - now using actual data from getTeamMessages
 
@@ -318,37 +315,10 @@ export default function AthleteDashboard() {
               </button>
             </div>
             
-            <div className="space-y-3 sm:space-y-4">
-              {mockUpcomingEvents.map((event, index) => (
-                <div 
-                  key={event.id} 
-                  className="p-3 sm:p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all duration-200 hover:scale-[1.02] focus-ring"
-                  style={{ animationDelay: `${index * 100}ms` }}
-                >
-                  <div className="flex items-start space-x-3">
-                    <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center transition-transform duration-200 hover:scale-110 ${
-                      event.type === 'game' ? 'bg-gradient-to-br from-red-100 to-red-200' : 'bg-gradient-to-br from-blue-100 to-blue-200'
-                    }`}>
-                      <Calendar className={`h-4 w-4 sm:h-5 sm:w-5 ${
-                        event.type === 'game' ? 'text-red-600' : 'text-blue-600'
-                      }`} />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="font-semibold text-gray-900 mobile-text">{event.title}</p>
-                        {event.type === 'game' && (
-                          <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full">Game</span>
-                        )}
-                        {event.type === 'practice' && (
-                          <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full">Practice</span>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-600 mb-1">{event.date} • {event.time}</p>
-                      <p className="text-xs text-gray-500">{event.location}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="text-center py-8">
+              <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-600 text-sm font-semibold">No upcoming events</p>
+              <p className="text-gray-500 text-xs mt-1">Team events will appear here when scheduled</p>
             </div>
           </div>
         </div>
