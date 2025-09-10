@@ -1,9 +1,25 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { getTeamMessages, getConversationMessages, sendMessage, createGroupChat, addMembersToGroupChat, deleteConversation } from '@/lib/utils'
+import { 
+  getUserChats, 
+  getChatMessages, 
+  sendChatMessage, 
+  subscribeToMessages, 
+  addMessageToList, 
+  unsubscribeFromMessages,
+  updateChatListWithNewMessage,
+  getChatMembers,
+  addMembersToChat,
+  canManageChatMembers,
+  getAvailableUsersForChat,
+  createGroupChat,
+  ChatData,
+  MessageData,
+  ChatMemberDisplay
+} from '@/lib/utils'
 import { Search, Send, Plus, X, Users, MoreVertical, ArrowLeft, MessageCircle, Hash, Trash2 } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
 import MainNavigation from '@/components/navigation/MainNavigation'
@@ -12,57 +28,104 @@ export default function MessagesPage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedMessage, setSelectedMessage] = useState<string | null>(null)
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
   const [newMessage, setNewMessage] = useState('')
   const [showNewChat, setShowNewChat] = useState(false)
   const [newChatName, setNewChatName] = useState('')
   const [selectedMembers, setSelectedMembers] = useState<string[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
-  const [messages, setMessages] = useState<Array<{
-    id: string
-    name: string
-    lastMessage: string
-    time: string
-    unread: boolean
-    avatar: string
-    type: 'athlete' | 'group'
-    conversationId: string
-  }>>([])
-  const [conversations, setConversations] = useState<any>({})
+  
+  // Chat data
+  const [chats, setChats] = useState<ChatData[]>([])
+  const [messages, setMessages] = useState<MessageData[]>([])
+  const [chatMembers, setChatMembers] = useState<ChatMemberDisplay[]>([])
+  
+  // Loading states
+  const [isLoadingChats, setIsLoadingChats] = useState(false)
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const [isSendingMessage, setIsSendingMessage] = useState(false)
-  const [teamMembers, setTeamMembers] = useState<Array<{
-    id: string
-    name: string
-    role: string
-    type: 'athlete' | 'staff'
-  }>>([])
   const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false)
   const [isCreatingGroupChat, setIsCreatingGroupChat] = useState(false)
-  const [isLoadingConversation, setIsLoadingConversation] = useState(false)
-  const [showOptionsDropdown, setShowOptionsDropdown] = useState(false)
+  const [isAddingMembers, setIsAddingMembers] = useState(false)
   
-  // Delete conversation states
+  // UI states
+  const [showOptionsDropdown, setShowOptionsDropdown] = useState(false)
+  const [showAddMembersModal, setShowAddMembersModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [conversationToDelete, setConversationToDelete] = useState<any>(null)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
-  const [showAddMembersModal, setShowAddMembersModal] = useState(false)
-  const [isAddingMembers, setIsAddingMembers] = useState(false)
-  const [isDeletingChat, setIsDeletingChat] = useState(false)
+  
+  // Available users for adding to chat
+  const [availableUsers, setAvailableUsers] = useState<ChatMemberDisplay[]>([])
+  
+  // Permission states
+  const [canManageMembers, setCanManageMembers] = useState(false)
+  
+  // Real-time subscription
+  const subscriptionRef = useRef<any>(null)
 
-  // Load messages when user loads
+  // Load user's chats on component mount
+  useEffect(() => {
+    const loadChats = async () => {
+      if (!user?.id) return
+      
+      setIsLoadingChats(true)
+      try {
+        const userChats = await getUserChats(user.id)
+        setChats(userChats)
+      } catch (error) {
+        console.error('Failed to load chats:', error)
+        setChats([])
+      } finally {
+        setIsLoadingChats(false)
+      }
+    }
+
+    loadChats()
+  }, [user?.id])
+
+  // Set up real-time subscription when chats are loaded
+  useEffect(() => {
+    if (chats.length === 0 || !user?.id) return
+
+    // Clean up previous subscription
+    if (subscriptionRef.current) {
+      unsubscribeFromMessages(subscriptionRef.current)
+    }
+
+    // Set up new subscription
+    subscriptionRef.current = subscribeToMessages(
+      chats,
+      (newMessage: MessageData) => {
+        console.log('Real-time message received:', newMessage)
+        
+        // Update messages list if the message is for the current chat
+        setMessages(prev => addMessageToList(prev, newMessage, selectedChatId || ''))
+
+        // Update chat list with new last message
+        setChats(prev => updateChatListWithNewMessage(prev, newMessage.chat_id, newMessage))
+      }
+    )
+
+    // Cleanup on dependency change
+    return () => {
+      if (subscriptionRef.current) {
+        unsubscribeFromMessages(subscriptionRef.current)
+      }
+    }
+  }, [chats, selectedChatId, user?.id])
+
+  // Load messages when a chat is selected
   useEffect(() => {
     const loadMessages = async () => {
-      if (!user) return
+      if (!selectedChatId) return
       
       setIsLoadingMessages(true)
       try {
-        const teamMessages = await getTeamMessages(user.id)
-        setMessages(teamMessages)
+        const chatMessages = await getChatMessages(selectedChatId)
+        setMessages(chatMessages)
       } catch (error) {
-        console.error('Error loading messages:', error)
-        // Set empty array if there's an error - no mock data fallback
+        console.error('Failed to load messages:', error)
         setMessages([])
       } finally {
         setIsLoadingMessages(false)
@@ -70,65 +133,44 @@ export default function MessagesPage() {
     }
 
     loadMessages()
-  }, [user])
+  }, [selectedChatId])
 
-  // Load team members for group chat creation
+  // Load chat members when a chat is selected
   useEffect(() => {
-    const loadTeamMembers = async () => {
-      if (!user) return
+    const loadChatMembers = async () => {
+      if (!selectedChatId) return
       
-      setIsLoadingTeamMembers(true)
       try {
-        // Import supabase client
-        const { supabase } = await import('@/lib/supabaseClient')
-        
-        // Get user's team
-        const { data: userTeam, error: teamError } = await supabase
-          .from('team_members')
-          .select('team_id')
-          .eq('user_id', user.id)
-          .single()
-
-        if (teamError) throw teamError
-
-        // Get all team members
-        const { data: members, error: membersError } = await supabase
-          .from('team_members')
-          .select(`
-            user_id,
-            role,
-            users (
-              id,
-              full_name,
-              email
-            )
-          `)
-          .eq('team_id', userTeam.team_id)
-
-        if (membersError) throw membersError
-
-        // Format team members
-        const formattedMembers = members?.map((member: any) => ({
-          id: member.user_id,
-          name: member.users.full_name || member.users.email,
-          role: member.role,
-          type: (member.role === 'coach' ? 'staff' : 'athlete') as 'athlete' | 'staff'
-        })).filter((member: any) => member.id !== user.id) || []
-
-        setTeamMembers(formattedMembers)
+        const members = await getChatMembers(selectedChatId)
+        setChatMembers(members)
       } catch (error) {
-        console.error('Error loading team members:', error)
-        // Set empty array if there's an error - no mock data fallback
-        setTeamMembers([])
-      } finally {
-        setIsLoadingTeamMembers(false)
+        console.error('Failed to load chat members:', error)
+        setChatMembers([])
       }
     }
 
-    if (user?.role === 'coach') {
-      loadTeamMembers()
+    loadChatMembers()
+  }, [selectedChatId])
+
+  // Check permissions for member management
+  useEffect(() => {
+    const checkPermissions = async () => {
+      if (!selectedChatId || !user?.id) {
+        setCanManageMembers(false)
+        return
+      }
+      
+      try {
+        const canManage = await canManageChatMembers(selectedChatId, user.id)
+        setCanManageMembers(canManage)
+      } catch (error) {
+        console.error('Failed to check permissions:', error)
+        setCanManageMembers(false)
+      }
     }
-  }, [user])
+
+    checkPermissions()
+  }, [selectedChatId, user?.id])
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoaded(true), 100)
@@ -149,145 +191,135 @@ export default function MessagesPage() {
     }
   }, [showOptionsDropdown])
 
-  const filteredMessages = messages.filter(message =>
-    message.name.toLowerCase().includes(searchTerm.toLowerCase())
+  // Cleanup subscription when component unmounts
+  useEffect(() => {
+    return () => {
+      if (subscriptionRef.current) {
+        unsubscribeFromMessages(subscriptionRef.current)
+      }
+    }
+  }, [])
+
+  const filteredChats = chats.filter(chat =>
+    chat.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const handleSendMessage = async () => {
-    console.log('🚀 handleSendMessage called!')
-    console.log('newMessage:', newMessage)
-    console.log('selectedMessage:', selectedMessage)
-    console.log('user:', user)
-    
-    if (!newMessage.trim() || !selectedMessage || !user) {
-      console.log('❌ Early return - missing required data')
-      console.log('newMessage.trim():', newMessage.trim())
-      console.log('selectedMessage:', selectedMessage)
-      console.log('user:', user)
-      return
-    }
+  const selectedChat = selectedChatId ? chats.find(c => c.id === selectedChatId) : null
 
-    // Get the conversation ID for the selected message
-    const selectedMsg = messages.find((msg: any) => msg.id === selectedMessage)
-    console.log('selectedMsg:', selectedMsg)
-    if (!selectedMsg) {
-      console.error('Selected message not found')
+  // Send message handler
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedChatId || !user?.id || isSendingMessage) {
       return
     }
 
     setIsSendingMessage(true)
 
     try {
-      // Send the message to Supabase
-      const result = await sendMessage(user.id, selectedMsg.conversationId, newMessage.trim())
-      
-      if (result.success) {
-        // Clear the input field
-        setNewMessage('')
-        
-        // Refresh the conversation to show the new message
-        const conversationMessages = await getConversationMessages(selectedMsg.conversationId)
-        setConversations((prev: any) => ({
-          ...prev,
-          [selectedMessage]: conversationMessages
-        }))
-        
-        // Refresh the messages list to update the last message
-        const teamMessages = await getTeamMessages(user.id)
-        setMessages(teamMessages)
-      } else {
-        // Handle error - you could show a toast notification here
-        console.error(`Failed to send message: ${result.error}`)
-      }
+      // Send message to database
+      const sentMessage = await sendChatMessage(selectedChatId, user.id, newMessage)
+
+      // Update messages list immediately (optimistic update)
+      setMessages(prev => addMessageToList(prev, sentMessage, selectedChatId))
+
+      // Update chat list with new last message
+      setChats(prev => updateChatListWithNewMessage(prev, selectedChatId, sentMessage))
+
+      // Clear input field
+      setNewMessage('')
+
     } catch (error) {
-      console.error('Error sending message:', error)
-      console.error('An error occurred while sending the message')
+      console.error('Failed to send message:', error)
+      setSuccessMessage('Failed to send message. Please try again.')
+      setShowSuccessModal(true)
     } finally {
       setIsSendingMessage(false)
     }
   }
 
-  const handleDeleteClick = (conversation: any) => {
-    setConversationToDelete(conversation)
-    setShowDeleteModal(true)
-  }
-
-  const confirmDeleteConversation = async () => {
-    if (!conversationToDelete || !user) return
-
-    try {
-      console.log('Deleting conversation:', conversationToDelete.conversationId)
-      console.log('Full conversation object:', conversationToDelete)
-      const result = await deleteConversation(conversationToDelete.conversationId, user.id)
-      
-      if (result.success) {
-        // Clear selected message if it was the deleted conversation
-        if (selectedMessage === conversationToDelete.id) {
-          setSelectedMessage(null)
-        }
-        
-        // Refresh messages from server to ensure deletion persists
-        try {
-          const teamMessages = await getTeamMessages(user.id)
-          setMessages(teamMessages)
-        } catch (refreshError) {
-          console.error('Error refreshing messages after deletion:', refreshError)
-          // Fallback to local state update if server refresh fails
-          setMessages(messages.filter((msg: any) => msg.id !== conversationToDelete.id))
-        }
-        
-        console.log('Conversation deleted successfully')
-        setSuccessMessage('Conversation deleted successfully!')
-        setShowSuccessModal(true)
-      } else {
-        console.error('Failed to delete conversation:', result.error)
-        setSuccessMessage(`Failed to delete conversation: ${result.error}`)
-        setShowSuccessModal(true)
-      }
-    } catch (error) {
-      console.error('Error deleting conversation:', error)
-      setSuccessMessage('An error occurred while deleting the conversation')
-      setShowSuccessModal(true)
-    } finally {
-      setShowDeleteModal(false)
-      setConversationToDelete(null)
-    }
-  }
-
+  // Create new group chat
   const handleCreateGroupChat = async () => {
-    if (!newChatName.trim() || !user) {
+    if (!newChatName.trim() || !user?.id) {
       return
     }
 
     setIsCreatingGroupChat(true)
 
     try {
-      // Create group chat with or without members
       const result = await createGroupChat(user.id, newChatName.trim(), selectedMembers)
       
       if (result.success) {
-        // Refresh messages to show the new group chat
-        const teamMessages = await getTeamMessages(user.id)
-        setMessages(teamMessages)
+        // Refresh chats after creation
+        const userChats = await getUserChats(user.id)
+        setChats(userChats)
         
         // Close modal and reset form
         setShowNewChat(false)
         setNewChatName('')
         setSelectedMembers([])
         
-        // Log success message (replace with toast notification later)
-        const memberText = selectedMembers.length > 0 
-          ? ` with ${selectedMembers.length} member(s)` 
-          : ' (no members added yet)'
-        console.log(`Group chat "${newChatName}" created successfully!${memberText}`)
+        setSuccessMessage(`Group chat "${newChatName}" created successfully!`)
+        setShowSuccessModal(true)
       } else {
-        console.error(`Failed to create group chat: ${result.error}`)
+        setSuccessMessage(result.error || 'Failed to create group chat. Please try again.')
+        setShowSuccessModal(true)
       }
     } catch (error) {
       console.error('Error creating group chat:', error)
-      console.error('An error occurred while creating the group chat')
+      setSuccessMessage('Failed to create group chat. Please try again.')
+      setShowSuccessModal(true)
     } finally {
       setIsCreatingGroupChat(false)
+    }
+  }
+
+  // Add members to chat
+  const handleAddMembers = async () => {
+    if (!selectedChatId || !user?.id || selectedMembers.length === 0) {
+      return
+    }
+
+    setIsAddingMembers(true)
+
+    try {
+      await addMembersToChat(selectedChatId, selectedMembers, user.id)
+      
+      // Refresh chat members
+      const members = await getChatMembers(selectedChatId)
+      setChatMembers(members)
+      
+      // Close modal and reset form
+      setShowAddMembersModal(false)
+      setSelectedMembers([])
+      setShowOptionsDropdown(false)
+      
+      setSuccessMessage(`Successfully added ${selectedMembers.length} member(s) to the chat!`)
+      setShowSuccessModal(true)
+    } catch (error) {
+      console.error('Failed to add members:', error)
+      setSuccessMessage('Failed to add members. Please try again.')
+      setShowSuccessModal(true)
+    } finally {
+      setIsAddingMembers(false)
+    }
+  }
+
+  // Open add members modal
+  const handleOpenAddMembersModal = async () => {
+    if (!selectedChatId) return
+
+    setIsLoadingTeamMembers(true)
+    try {
+      // Get user's team ID (this would need to be implemented)
+      const users = await getAvailableUsersForChat(selectedChatId)
+      setAvailableUsers(users)
+      setShowAddMembersModal(true)
+      setShowOptionsDropdown(false)
+    } catch (error) {
+      console.error('Failed to load available users:', error)
+      setSuccessMessage('Failed to load available users.')
+      setShowSuccessModal(true)
+    } finally {
+      setIsLoadingTeamMembers(false)
     }
   }
 
@@ -298,163 +330,6 @@ export default function MessagesPage() {
         : [...prev, memberId]
     )
   }
-
-  const handleAddMembers = async () => {
-    console.log('handleAddMembers called')
-    console.log('selectedMessage:', selectedMessage)
-    console.log('user:', user)
-    console.log('selectedMembers:', selectedMembers)
-    
-    if (!selectedMessage || !user || selectedMembers.length === 0) {
-      console.log('Early return: missing data or no members selected')
-      return
-    }
-
-    // Ensure only coaches can add members
-    if (user.role !== 'coach') {
-      console.error('Only coaches can add members to group chats')
-      return
-    }
-
-    const selectedMsg = messages.find((msg: any) => msg.id === selectedMessage)
-    if (!selectedMsg) {
-      console.error('Selected chat not found')
-      return
-    }
-    
-    if (selectedMsg.type !== 'group') {
-      console.error('Can only add members to group chats')
-      return
-    }
-
-    setIsAddingMembers(true)
-
-    try {
-      // Extract group chat ID from conversation ID
-      const groupChatId = selectedMsg.conversationId.replace('group_', '')
-      const result = await addMembersToGroupChat(user.id, groupChatId, selectedMembers)
-      
-      if (result.success) {
-        // Refresh messages to show the updated group chat
-        const teamMessages = await getTeamMessages(user.id)
-        setMessages(teamMessages)
-        
-        // Refresh the conversation to show the new member addition message
-        const conversationMessages = await getConversationMessages(selectedMsg.conversationId)
-        setConversations((prev: any) => ({
-          ...prev,
-          [selectedMessage]: conversationMessages
-        }))
-        
-        // Close modal and reset form
-        setShowAddMembersModal(false)
-        setSelectedMembers([])
-        setShowOptionsDropdown(false)
-        
-        console.log(`Successfully added ${selectedMembers.length} member(s) to the group chat`)
-      } else {
-        console.error(`Failed to add members: ${result.error}`)
-      }
-    } catch (error) {
-      console.error('Error adding members:', error)
-      console.error('An error occurred while adding members')
-    } finally {
-      setIsAddingMembers(false)
-    }
-  }
-
-  const handleDeleteChat = async () => {
-    console.log('handleDeleteChat called')
-    console.log('selectedMessage:', selectedMessage)
-    console.log('user:', user)
-    
-    if (!selectedMessage || !user) {
-      console.log('Early return: missing selectedMessage or user')
-      return
-    }
-
-    // Ensure only coaches can delete chats
-    if (user.role !== 'coach') {
-      console.error('Only coaches can delete group chats')
-      return
-    }
-
-    const selectedMsg = messages.find((msg: any) => msg.id === selectedMessage)
-    console.log('selectedMsg found:', selectedMsg)
-    
-    if (!selectedMsg) {
-      console.error('Selected chat not found')
-      return
-    }
-
-    const confirmDelete = window.confirm(`Are you sure you want to delete "${selectedMsg.name}"? This action cannot be undone.`)
-    if (!confirmDelete) {
-      return
-    }
-
-    setIsDeletingChat(true)
-
-    try {
-      // Actually delete the conversation from the database
-      console.log('Deleting conversation:', selectedMsg.conversationId)
-      const result = await deleteConversation(selectedMsg.conversationId, user.id)
-      
-      if (result.success) {
-        console.log(`Conversation "${selectedMsg.name}" deleted successfully`)
-        
-        // Clear selected message
-        setSelectedMessage(null)
-        
-        // Refresh messages from server to ensure deletion persists
-        const teamMessages = await getTeamMessages(user.id)
-        setMessages(teamMessages)
-        setShowOptionsDropdown(false)
-        
-      } else {
-        console.error('Failed to delete conversation:', result.error)
-        alert(`Failed to delete conversation: ${result.error}`)
-      }
-      
-    } catch (error) {
-      console.error('Error deleting chat:', error)
-      alert('An error occurred while deleting the chat')
-    } finally {
-      setIsDeletingChat(false)
-    }
-  }
-
-  // Load conversation messages when a message is selected
-  useEffect(() => {
-    const loadConversation = async () => {
-      if (!selectedMessage) return
-      
-      const selectedMsg = messages.find((msg: any) => msg.id === selectedMessage)
-      if (!selectedMsg) return
-      
-      setIsLoadingConversation(true)
-      try {
-        const conversationMessages = await getConversationMessages(selectedMsg.conversationId)
-        setConversations((prev: any) => ({
-          ...prev,
-          [selectedMessage]: conversationMessages
-        }))
-      } catch (error) {
-        console.error('Error loading conversation:', error)
-        // Set empty conversation if there's an error - no mock data fallback
-        setConversations((prev: any) => ({
-          ...prev,
-          [selectedMessage]: []
-        }))
-      } finally {
-        setIsLoadingConversation(false)
-      }
-    }
-
-    loadConversation()
-  }, [selectedMessage])
-
-  const currentConversation = selectedMessage ? conversations[selectedMessage] || [] : []
-  const selectedMessageData = selectedMessage ? messages.find(m => m.id === selectedMessage) : null
 
   // Show loading state while auth is loading
   if (isLoading) {
@@ -512,9 +387,9 @@ export default function MessagesPage() {
         {/* Messages Container */}
         <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
           <div className="flex flex-col lg:flex-row h-[calc(100vh-300px)]">
-            {/* Messages List */}
-            <div className={`w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col ${selectedMessage ? 'hidden lg:flex' : 'flex'}`}>
-              {/* Messages List Header */}
+            {/* Chat List */}
+            <div className={`w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col ${selectedChatId ? 'hidden lg:flex' : 'flex'}`}>
+              {/* Chat List Header */}
               <div className="p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
                 <div className="flex items-center justify-between mb-3 sm:mb-4">
                   <div>
@@ -536,70 +411,67 @@ export default function MessagesPage() {
                 </div>
               </div>
 
-              {/* Messages List */}
+              {/* Chat List */}
               <div className="flex-1 overflow-y-auto bg-gradient-to-b from-gray-50/50 to-white">
-                {isLoadingMessages ? (
+                {isLoadingChats ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-3"></div>
-                    <span className="text-gray-600">Loading messages...</span>
+                    <span className="text-gray-600">Loading chats...</span>
                   </div>
-                ) : filteredMessages.length > 0 ? (
-                  filteredMessages.map((message) => (
+                ) : filteredChats.length > 0 ? (
+                  filteredChats.map((chat) => (
                   <div
-                    key={message.id}
-                    onClick={() => setSelectedMessage(message.id)}
+                    key={chat.id}
+                    onClick={() => setSelectedChatId(chat.id)}
                     className={`group p-3 sm:p-4 border-b border-gray-100 cursor-pointer transition-all duration-300 hover:bg-gradient-to-r hover:from-blue-50/80 hover:to-blue-100/80 ${
-                      selectedMessage === message.id 
+                      selectedChatId === chat.id 
                         ? 'bg-gradient-to-r from-blue-100 to-blue-200 border-blue-300 shadow-sm ring-2 ring-blue-300' 
                         : ''
                     }`}
                   >
                     <div className="flex items-center space-x-3 sm:space-x-4">
                       <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-2xl flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-110 ${
-                        message.type === 'group' 
+                        chat.type === 'group' 
                           ? 'bg-gradient-to-br from-purple-500 to-purple-600' 
                           : 'bg-gradient-to-br from-blue-500 to-blue-600'
-                      } ${message.unread ? 'ring-2 ring-blue-300' : ''}`}>
-                        {message.type === 'group' ? (
+                      } ${chat.unread ? 'ring-2 ring-blue-300' : ''}`}>
+                        {chat.type === 'group' ? (
                           <Users className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                         ) : (
-                          <span className="text-white font-bold text-sm sm:text-base">{message.avatar}</span>
+                          <span className="text-white font-bold text-sm sm:text-base">
+                            {chat.name.charAt(0).toUpperCase()}
+                          </span>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center space-x-2">
-                            <h3 className="font-bold text-gray-900 truncate text-sm sm:text-base">{message.name}</h3>
-                            {message.type === 'group' && (
+                            <h3 className="font-bold text-gray-900 truncate text-sm sm:text-base">{chat.name}</h3>
+                            {chat.type === 'group' && (
                               <Hash className="h-3 w-3 text-purple-500" />
                             )}
                           </div>
                           <div className="flex items-center space-x-2">
-                            {message.unread && (
+                            {chat.unread && (
                               <div className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[20px] text-center">
                                 New
                               </div>
                             )}
-                            <span className="text-xs text-gray-500 font-medium">{message.time}</span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleDeleteClick(message)
-                              }}
-                              className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
+                            <span className="text-xs text-gray-500 font-medium">
+                              {chat.lastMessageTime ? new Date(chat.lastMessageTime).toLocaleDateString() : 'No messages'}
+                            </span>
                           </div>
                         </div>
-                        <p className="text-xs sm:text-sm text-gray-600 truncate mb-1 sm:mb-2">{message.lastMessage}</p>
-                        {message.unread && (
+                        <p className="text-xs sm:text-sm text-gray-600 truncate mb-1 sm:mb-2">
+                          {chat.lastMessage || 'No messages yet'}
+                        </p>
+                        {chat.unread && (
                           <div className="flex items-center space-x-2">
                             <span className="h-2 w-2 bg-blue-500 rounded-full animate-pulse"></span>
                             <span className="text-xs text-blue-600 font-bold">New message</span>
                           </div>
                         )}
-                        {message.type === 'group' && (
+                        {chat.type === 'group' && (
                           <div className="flex items-center space-x-1 mt-1">
                             <Users className="h-3 w-3 text-purple-400" />
                             <span className="text-xs text-purple-500 font-medium">Group chat</span>
@@ -614,7 +486,7 @@ export default function MessagesPage() {
                     <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Search className="h-8 w-8 text-gray-400" />
                     </div>
-                    <h4 className="text-lg font-semibold text-gray-900 mb-2">No messages found</h4>
+                    <h4 className="text-lg font-semibold text-gray-900 mb-2">No chats found</h4>
                     <p className="text-gray-600">
                       {searchTerm ? 'No conversations match your search.' : 'Start a conversation with your team members.'}
                     </p>
@@ -624,8 +496,8 @@ export default function MessagesPage() {
             </div>
 
             {/* Chat Area */}
-            <div className={`flex-1 flex flex-col bg-gradient-to-b from-gray-50/30 to-white min-h-0 ${selectedMessage ? 'flex' : 'hidden lg:flex'}`}>
-              {selectedMessage ? (
+            <div className={`flex-1 flex flex-col bg-gradient-to-b from-gray-50/30 to-white min-h-0 ${selectedChatId ? 'flex' : 'hidden lg:flex'}`}>
+              {selectedChatId ? (
                 <>
                   {/* Chat Header */}
                   <div className="p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
@@ -633,160 +505,136 @@ export default function MessagesPage() {
                       <div className="flex items-center space-x-3 sm:space-x-4">
                         {/* Mobile Back Button */}
                         <button
-                          onClick={() => setSelectedMessage(null)}
+                          onClick={() => setSelectedChatId(null)}
                           className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
                         >
                           <ArrowLeft className="h-5 w-5" />
                         </button>
                         <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-2xl flex items-center justify-center shadow-lg ${
-                          selectedMessageData?.type === 'group' 
+                          selectedChat?.type === 'group' 
                             ? 'bg-gradient-to-br from-purple-500 to-purple-600' 
                             : 'bg-gradient-to-br from-blue-500 to-blue-600'
                         }`}>
-                          {selectedMessageData?.type === 'group' ? (
+                          {selectedChat?.type === 'group' ? (
                             <Users className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                           ) : (
                             <span className="text-white font-bold text-sm sm:text-base">
-                              {selectedMessageData?.avatar}
+                              {selectedChat?.name.charAt(0).toUpperCase()}
                             </span>
                           )}
                         </div>
                         <div>
                           <div className="flex items-center space-x-2">
                             <h2 className="font-bold text-gray-900 text-base sm:text-lg">
-                              {selectedMessageData?.name}
+                              {selectedChat?.name}
                             </h2>
-                            {selectedMessageData?.type === 'group' && (
+                            {selectedChat?.type === 'group' && (
                               <Hash className="h-4 w-4 text-purple-500" />
                             )}
                           </div>
                           <div className="flex items-center space-x-2">
                             <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></span>
                             <p className="text-xs sm:text-sm text-gray-600 font-medium">
-                              {selectedMessageData?.type === 'group' ? 'Group active' : 'Active now'}
+                              {selectedChat?.type === 'group' ? `${chatMembers.length} members` : 'Direct chat'}
                             </p>
                           </div>
                         </div>
                       </div>
+                      
+                      {/* Chat Actions */}
                       <div className="flex items-center space-x-1 sm:space-x-2">
-                        <button className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200">
-                          <Search className="h-4 w-4 sm:h-5 sm:w-5" />
-                        </button>
                         <div className="relative">
                           <button 
-                            onClick={() => {
-                              console.log('Three dots button clicked')
-                              console.log('Current showOptionsDropdown:', showOptionsDropdown)
-                              console.log('Selected message data:', selectedMessageData)
-                              console.log('User role:', user?.role)
-                              setShowOptionsDropdown(!showOptionsDropdown)
-                            }}
+                            onClick={() => setShowOptionsDropdown(!showOptionsDropdown)}
                             className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
                           >
                             <MoreVertical className="h-4 w-4 sm:h-5 sm:w-5" />
                           </button>
                           
-                          {/* Dropdown Menu - Only visible for coaches on any chat */}
-                          {(() => {
-                            const shouldShow = showOptionsDropdown && selectedMessageData && user?.role === 'coach';
-                            console.log('Dropdown should show:', shouldShow);
-                            console.log('- showOptionsDropdown:', showOptionsDropdown);
-                            console.log('- selectedMessageData exists:', !!selectedMessageData);
-                            console.log('- selectedMessageData?.type:', selectedMessageData?.type);
-                            console.log('- user?.role:', user?.role);
-                            return shouldShow;
-                          })() && (
+                          {/* Dropdown Menu */}
+                          {showOptionsDropdown && canManageMembers && selectedChat?.type === 'group' && (
                             <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
-                              {/* Add Members - Only for group chats */}
-                              {selectedMessageData?.type === 'group' && (
-                                <button
-                                  onClick={() => {
-                                    console.log('Add Members button clicked')
-                                    console.log('Current user:', user)
-                                    console.log('Selected message:', selectedMessage)
-                                    console.log('Selected message data:', selectedMessageData)
-                                    setShowAddMembersModal(true)
-                                    setShowOptionsDropdown(false)
-                                  }}
-                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2"
-                                >
-                                  <Users className="h-4 w-4" />
-                                  <span>Add Members</span>
-                                </button>
-                              )}
-                              
-                              {/* Delete Chat - Available for all chats */}
                               <button
-                                onClick={() => {
-                                  console.log('Delete Chat button clicked')
-                                  console.log('Current user:', user)
-                                  console.log('Selected message:', selectedMessage)
-                                  console.log('Selected message data:', selectedMessageData)
-                                  handleDeleteChat()
-                                }}
-                                disabled={isDeletingChat}
-                                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                onClick={handleOpenAddMembersModal}
+                                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2"
                               >
-                                <X className="h-4 w-4" />
-                                <span>{isDeletingChat ? 'Deleting...' : 'Delete Chat'}</span>
+                                <Users className="h-4 w-4" />
+                                <span>Add Members</span>
                               </button>
                             </div>
                           )}
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Chat Members (for group chats) */}
+                    {selectedChat?.type === 'group' && chatMembers.length > 0 && (
+                      <div className="mt-4 flex items-center space-x-2">
+                        <div className="flex -space-x-2">
+                          {chatMembers.slice(0, 5).map(member => (
+                            <div key={member.id} className="h-6 w-6 rounded-full bg-gray-300 border-2 border-white flex items-center justify-center text-xs font-bold">
+                              {member.avatar ? (
+                                <img src={member.avatar} alt={member.name} className="h-full w-full rounded-full" />
+                              ) : (
+                                member.name.charAt(0).toUpperCase()
+                              )}
+                            </div>
+                          ))}
+                          {chatMembers.length > 5 && (
+                            <div className="h-6 w-6 rounded-full bg-gray-400 border-2 border-white flex items-center justify-center text-xs font-bold text-white">
+                              +{chatMembers.length - 5}
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          {chatMembers.map(m => m.name).join(', ')}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Messages */}
                   <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gradient-to-b from-gray-50/50 to-white">
-                    {isLoadingConversation ? (
+                    {isLoadingMessages ? (
                       <div className="flex items-center justify-center h-full">
                         <div className="text-center">
                           <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                          <p className="text-gray-600">Loading conversation...</p>
+                          <p className="text-gray-600">Loading messages...</p>
                         </div>
                       </div>
-                    ) : currentConversation.length > 0 ? (
-                      <>
-                        {/* Conversation Status */}
-                        <div className="text-center mb-6">
-                          <div className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-50 border border-blue-200 rounded-full">
-                            <div className="h-2 w-2 bg-blue-500 rounded-full animate-pulse"></div>
-                            <span className="text-sm text-blue-700 font-medium">
-                              {selectedMessageData?.type === 'group' 
-                                ? `Group chat with ${currentConversation.length} messages` 
-                                : `Direct conversation with ${currentConversation.length} messages`
-                              }
-                            </span>
-                          </div>
-                        </div>
-                        
-                        {/* Messages */}
-                        {currentConversation.map((msg: any) => (
+                    ) : messages.length > 0 ? (
+                      messages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`flex ${msg.sender.id === user.id ? 'justify-end' : 'justify-start'}`}
+                      >
                         <div
-                          key={msg.id}
-                          className={`flex ${msg.isCoach ? 'justify-end' : 'justify-start'}`}
+                          className={`max-w-xs lg:max-w-md px-6 py-4 rounded-3xl shadow-lg transition-all duration-300 hover:shadow-xl ${
+                            msg.sender.id === user.id
+                              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
+                              : 'bg-white text-gray-900 border-2 border-gray-100 shadow-md'
+                          }`}
                         >
-                          <div
-                            className={`max-w-xs lg:max-w-md px-6 py-4 rounded-3xl shadow-lg transition-all duration-300 hover:shadow-xl ${
-                              msg.isCoach
-                                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
-                                : 'bg-white text-gray-900 border-2 border-gray-100 shadow-md'
-                            }`}
-                          >
-                            <p className="text-sm leading-relaxed">{msg.message}</p>
-                            <div className={`flex items-center justify-between mt-2 ${
-                              msg.isCoach ? 'text-blue-100' : 'text-gray-500'
-                            }`}>
-                              <span className="text-xs font-medium">{msg.time}</span>
-                              {msg.isCoach && (
-                                <span className="text-xs">✓✓</span>
-                              )}
+                          {msg.sender.id !== user.id && (
+                            <div className="text-xs font-medium text-gray-500 mb-1">
+                              {msg.sender.name}
+                              {msg.isCoach && <span className="ml-1 text-purple-500">(Coach)</span>}
                             </div>
+                          )}
+                          <p className="text-sm leading-relaxed">{msg.message}</p>
+                          <div className={`flex items-center justify-between mt-2 ${
+                            msg.sender.id === user.id ? 'text-blue-100' : 'text-gray-500'
+                          }`}>
+                            <span className="text-xs font-medium">
+                              {new Date(msg.created_at).toLocaleTimeString()}
+                            </span>
+                            {msg.sender.id === user.id && (
+                              <span className="text-xs">✓✓</span>
+                            )}
                           </div>
                         </div>
-                      ))}
-                      </>
+                      </div>
+                    ))
                     ) : (
                       <div className="flex items-center justify-center h-full">
                         <div className="text-center">
@@ -840,7 +688,7 @@ export default function MessagesPage() {
                       <MessageCircle className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
                     </div>
                     <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2 sm:mb-3">Select a conversation</h3>
-                    <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">Choose a message from the list to start chatting with your team</p>
+                    <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">Choose a chat from the list to start messaging with your team</p>
                     {user?.role === 'coach' && (
                       <button
                         onClick={() => setShowNewChat(true)}
@@ -887,67 +735,6 @@ export default function MessagesPage() {
                 />
               </div>
 
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Select Members (Optional)
-                </label>
-                <p className="text-xs text-gray-500 mb-3">You can add members now or later. Group chats can be created without initial members.</p>
-                
-                {isLoadingTeamMembers ? (
-                  <div className="text-center py-4">
-                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                    <p className="text-sm text-gray-600">Loading team members...</p>
-                  </div>
-                ) : teamMembers.length === 0 ? (
-                  <div className="text-center py-4">
-                    <p className="text-sm text-gray-600">No team members found.</p>
-                    <p className="text-xs text-gray-500 mt-1">Make sure you're part of a team.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-60 overflow-y-auto">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-600 mb-2">Athletes</h4>
-                      <div className="space-y-2">
-                        {teamMembers.filter(member => member.type === 'athlete').map((athlete) => (
-                          <label key={athlete.id} className="flex items-center space-x-3 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedMembers.includes(athlete.id)}
-                              onChange={() => toggleMemberSelection(athlete.id)}
-                              className="h-4 w-4 text-blue-500 rounded focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-900">{athlete.name}</span>
-                          </label>
-                        ))}
-                        {teamMembers.filter(member => member.type === 'athlete').length === 0 && (
-                          <p className="text-xs text-gray-500 italic">No athletes found</p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-600 mb-2">Staff</h4>
-                      <div className="space-y-2">
-                        {teamMembers.filter(member => member.type === 'staff').map((staff) => (
-                          <label key={staff.id} className="flex items-center space-x-3 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedMembers.includes(staff.id)}
-                              onChange={() => toggleMemberSelection(staff.id)}
-                              className="h-4 w-4 text-blue-500 rounded focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-900">{staff.name}</span>
-                          </label>
-                        ))}
-                        {teamMembers.filter(member => member.type === 'staff').length === 0 && (
-                          <p className="text-xs text-gray-500 italic">No staff members found</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
               <div className="flex items-center justify-end space-x-3">
                 <button
                   onClick={() => setShowNewChat(false)}
@@ -991,7 +778,7 @@ export default function MessagesPage() {
             <div className="p-4 sm:p-6">
               <div className="mb-4">
                 <p className="text-sm text-gray-600 mb-4">
-                  Add members to "{selectedMessageData?.name}" group chat
+                  Add members to "{selectedChat?.name}" group chat
                 </p>
               </div>
 
@@ -1003,54 +790,38 @@ export default function MessagesPage() {
                 {isLoadingTeamMembers ? (
                   <div className="text-center py-4">
                     <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                    <p className="text-sm text-gray-600">Loading team members...</p>
+                    <p className="text-sm text-gray-600">Loading available users...</p>
                   </div>
-                ) : teamMembers.length === 0 ? (
+                ) : availableUsers.length === 0 ? (
                   <div className="text-center py-4">
-                    <p className="text-sm text-gray-600">No team members found.</p>
-                    <p className="text-xs text-gray-500 mt-1">Make sure you're part of a team.</p>
+                    <p className="text-sm text-gray-600">No users available to add.</p>
+                    <p className="text-xs text-gray-500 mt-1">All team members are already in this chat.</p>
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-60 overflow-y-auto">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-600 mb-2">Athletes</h4>
-                      <div className="space-y-2">
-                        {teamMembers.filter(member => member.type === 'athlete').map((athlete) => (
-                          <label key={athlete.id} className="flex items-center space-x-3 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedMembers.includes(athlete.id)}
-                              onChange={() => toggleMemberSelection(athlete.id)}
-                              className="h-4 w-4 text-blue-500 rounded focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-900">{athlete.name}</span>
-                          </label>
-                        ))}
-                        {teamMembers.filter(member => member.type === 'athlete').length === 0 && (
-                          <p className="text-xs text-gray-500 italic">No athletes found</p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-600 mb-2">Staff</h4>
-                      <div className="space-y-2">
-                        {teamMembers.filter(member => member.type === 'staff').map((staff) => (
-                          <label key={staff.id} className="flex items-center space-x-3 cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={selectedMembers.includes(staff.id)}
-                              onChange={() => toggleMemberSelection(staff.id)}
-                              className="h-4 w-4 text-blue-500 rounded focus:ring-blue-500"
-                            />
-                            <span className="text-sm text-gray-900">{staff.name}</span>
-                          </label>
-                        ))}
-                        {teamMembers.filter(member => member.type === 'staff').length === 0 && (
-                          <p className="text-xs text-gray-500 italic">No staff members found</p>
-                        )}
-                      </div>
-                    </div>
+                    {availableUsers.map((user) => (
+                      <label key={user.id} className="flex items-center space-x-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedMembers.includes(user.id)}
+                          onChange={() => toggleMemberSelection(user.id)}
+                          className="h-4 w-4 text-blue-500 rounded focus:ring-blue-500"
+                        />
+                        <div className="flex items-center space-x-2">
+                          <div className="h-6 w-6 rounded-full bg-gray-300 flex items-center justify-center text-xs font-bold">
+                            {user.avatar ? (
+                              <img src={user.avatar} alt={user.name} className="h-full w-full rounded-full" />
+                            ) : (
+                              user.name.charAt(0).toUpperCase()
+                            )}
+                          </div>
+                          <div>
+                            <span className="text-sm text-gray-900">{user.name}</span>
+                            <span className="text-xs text-gray-500 ml-1">({user.role})</span>
+                          </div>
+                        </div>
+                      </label>
+                    ))}
                   </div>
                 )}
               </div>
@@ -1079,56 +850,7 @@ export default function MessagesPage() {
         </div>
       )}
 
-      {/* Custom Delete Confirmation Modal */}
-      {showDeleteModal && conversationToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md animate-scale-in">
-            {/* Modal Header */}
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center space-x-3">
-                <div className="h-10 w-10 bg-red-100 rounded-full flex items-center justify-center">
-                  <Trash2 className="h-5 w-5 text-red-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900">Delete Conversation</h3>
-                  <p className="text-sm text-gray-500">This action cannot be undone</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6">
-              <p className="text-gray-600 mb-2">
-                Are you sure you want to delete <span className="font-semibold">"{conversationToDelete.name}"</span>?
-              </p>
-              <p className="text-sm text-gray-500">
-                This will permanently remove all messages in this conversation.
-              </p>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="p-6 border-t border-gray-200 flex items-center justify-end space-x-3">
-              <button
-                onClick={() => {
-                  setShowDeleteModal(false)
-                  setConversationToDelete(null)
-                }}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors duration-200"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDeleteConversation}
-                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-2xl transition-all duration-300 transform hover:scale-105"
-              >
-                Delete Conversation
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Custom Success Modal */}
+      {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md animate-scale-in">

@@ -112,6 +112,716 @@ export async function generateUniqueJoinCode(): Promise<string> {
   return joinCode
 }
 
+// Interface for chat data structure
+export interface ChatData {
+  id: string
+  name: string
+  type: 'direct' | 'group'
+  lastMessage: string | null
+  lastMessageTime: string | null
+  unread: boolean
+}
+
+// Type definitions for Supabase query results
+type UserChatResult = {
+  chat_id: string
+  chats: {
+    id: string
+    name: string
+    type: 'direct' | 'group'
+    created_at: string
+  }
+}
+
+type LastMessageResult = {
+  chat_id: string
+  message: string
+  created_at: string
+}
+
+// Fetch chats for the logged-in user
+export async function getUserChats(userId: string): Promise<ChatData[]> {
+  try {
+    // First, get all chats where the user is a member
+    const { data: userChats, error: chatsError } = await supabase
+      .from('chat_members')
+      .select(`
+        chat_id,
+        chats!inner (
+          id,
+          name,
+          type,
+          created_at
+        )
+      `)
+      .eq('user_id', userId) as { data: UserChatResult[] | null, error: any }
+
+    if (chatsError) {
+      console.error('Error fetching user chats:', chatsError)
+      throw chatsError
+    }
+
+    if (!userChats || userChats.length === 0) {
+      return []
+    }
+
+    // Extract chat IDs
+    const chatIds = userChats.map(uc => uc.chat_id)
+
+    // Get the last message for each chat
+    const { data: lastMessages, error: messagesError } = await supabase
+      .from('messages')
+      .select('chat_id, message, created_at')
+      .in('chat_id', chatIds)
+      .order('created_at', { ascending: false }) as { data: LastMessageResult[] | null, error: any }
+
+    if (messagesError) {
+      console.error('Error fetching last messages:', messagesError)
+      throw messagesError
+    }
+
+    // Create a map of chat_id to last message
+    const lastMessageMap = new Map<string, { message: string; created_at: string }>()
+    if (lastMessages) {
+      lastMessages.forEach(msg => {
+        if (!lastMessageMap.has(msg.chat_id)) {
+          lastMessageMap.set(msg.chat_id, {
+            message: msg.message,
+            created_at: msg.created_at
+          })
+        }
+      })
+    }
+
+    // Combine chat data with last messages
+    const chatsWithMessages: ChatData[] = userChats.map(userChat => {
+      const chat = userChat.chats
+      const lastMsg = lastMessageMap.get(chat.id)
+      
+      return {
+        id: chat.id,
+        name: chat.name,
+        type: chat.type,
+        lastMessage: lastMsg ? lastMsg.message : null,
+        lastMessageTime: lastMsg ? lastMsg.created_at : chat.created_at,
+        unread: false // For now, we'll set this to false. Unread logic can be implemented later
+      }
+    })
+
+    // Sort by last message time (most recent first)
+    chatsWithMessages.sort((a, b) => {
+      const timeA = new Date(a.lastMessageTime || 0).getTime()
+      const timeB = new Date(b.lastMessageTime || 0).getTime()
+      return timeB - timeA
+    })
+
+    return chatsWithMessages
+
+  } catch (error) {
+    console.error('Error in getUserChats:', error)
+    throw error
+  }
+}
+
+// Interface for message data structure
+export interface MessageData {
+  id: string
+  message: string
+  created_at: string
+  chat_id: string
+  sender: {
+    id: string
+    name: string
+    avatar?: string
+    role: 'coach' | 'athlete'
+  }
+  isCoach: boolean
+}
+
+// Type definition for message query results
+type MessageResult = {
+  id: string
+  message: string
+  created_at: string
+  sender_id: string
+  users: {
+    id: string
+    full_name: string
+    avatar?: string
+    role: 'coach' | 'athlete'
+  } | null
+}
+
+// Fetch messages for a selected chat
+export async function getChatMessages(chatId: string): Promise<MessageData[]> {
+  try {
+    // Fetch messages with sender information using a JOIN
+    const { data: messages, error: messagesError } = await supabase
+      .from('messages')
+      .select(`
+        id,
+        message,
+        created_at,
+        sender_id,
+        users!messages_sender_id_fkey (
+          id,
+          full_name,
+          avatar,
+          role
+        )
+      `)
+      .eq('chat_id', chatId)
+      .order('created_at', { ascending: true }) as { data: MessageResult[] | null, error: any }
+
+    if (messagesError) {
+      console.error('Error fetching chat messages:', messagesError)
+      throw messagesError
+    }
+
+    if (!messages || messages.length === 0) {
+      return []
+    }
+
+    // Transform the data to match our MessageData interface
+    const transformedMessages: MessageData[] = messages.map(msg => {
+      const sender = msg.users
+      
+      return {
+        id: msg.id,
+        message: msg.message,
+        created_at: msg.created_at,
+        chat_id: chatId,
+        sender: {
+          id: sender?.id || msg.sender_id,
+          name: sender?.full_name || 'Unknown User',
+          avatar: sender?.avatar || undefined,
+          role: sender?.role || 'athlete'
+        },
+        isCoach: sender?.role === 'coach'
+      }
+    })
+
+    return transformedMessages
+
+  } catch (error) {
+    console.error('Error in getChatMessages:', error)
+    throw error
+  }
+}
+
+// Send a new message to a chat
+export async function sendChatMessage(
+  chatId: string, 
+  senderId: string, 
+  message: string
+): Promise<MessageData> {
+  try {
+    // Validate input
+    if (!message.trim()) {
+      throw new Error('Message cannot be empty')
+    }
+
+    // Insert the message into the database
+    const { data: newMessage, error: insertError } = await supabase
+      .from('messages')
+      .insert({
+        chat_id: chatId,
+        sender_id: senderId,
+        message: message.trim(),
+        created_at: new Date().toISOString()
+      })
+      .select(`
+        id,
+        message,
+        created_at,
+        sender_id,
+        users!messages_sender_id_fkey (
+          id,
+          full_name,
+          avatar,
+          role
+        )
+      `)
+      .single() as { data: MessageResult | null, error: any }
+
+    if (insertError) {
+      console.error('Error sending message:', insertError)
+      throw insertError
+    }
+
+    if (!newMessage) {
+      throw new Error('Failed to create message')
+    }
+
+    // Transform the data to match our MessageData interface
+    const sender = newMessage.users
+    const transformedMessage: MessageData = {
+      id: newMessage.id,
+      message: newMessage.message,
+      created_at: newMessage.created_at,
+      chat_id: chatId,
+      sender: {
+        id: sender?.id || newMessage.sender_id,
+        name: sender?.full_name || 'Unknown User',
+        avatar: sender?.avatar || undefined,
+        role: sender?.role || 'athlete'
+      },
+      isCoach: sender?.role === 'coach'
+    }
+
+    return transformedMessage
+
+  } catch (error) {
+    console.error('Error in sendChatMessage:', error)
+    throw error
+  }
+}
+
+// Helper function to update chat list with new last message
+export function updateChatListWithNewMessage(
+  chats: ChatData[], 
+  chatId: string, 
+  newMessage: MessageData
+): ChatData[] {
+  return chats.map(chat => {
+    if (chat.id === chatId) {
+      return {
+        ...chat,
+        lastMessage: newMessage.message,
+        lastMessageTime: newMessage.created_at
+      }
+    }
+    return chat
+  }).sort((a, b) => {
+    // Re-sort by last message time after update
+    const timeA = new Date(a.lastMessageTime || 0).getTime()
+    const timeB = new Date(b.lastMessageTime || 0).getTime()
+    return timeB - timeA
+  })
+}
+
+
+// Type definition for real-time message result
+type RealtimeMessageResult = {
+  id: string
+  message: string
+  created_at: string
+  sender_id: string
+  chat_id: string
+  users: {
+    id: string
+    full_name: string
+    avatar?: string
+    role: 'coach' | 'athlete'
+  } | null
+}
+
+// Real-time subscription for messages
+export function subscribeToMessages(
+  userChats: ChatData[],
+  onMessageReceived: (message: MessageData) => void
+) {
+  // Get all chat IDs that the user is part of
+  const chatIds = userChats.map(chat => chat.id)
+  
+  if (chatIds.length === 0) {
+    console.log('No chats to subscribe to')
+    return null
+  }
+
+  console.log('Setting up real-time subscription for chats:', chatIds)
+
+  // Subscribe to new messages in any of the user's chats
+  const subscription = supabase
+    .channel('messages-channel')
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `chat_id=in.(${chatIds.join(',')})`
+      },
+      async (payload) => {
+        console.log('Real-time message received:', payload)
+        
+        try {
+          // Fetch the complete message with sender information
+          const { data: messageWithSender, error } = await supabase
+            .from('messages')
+            .select(`
+              id,
+              message,
+              created_at,
+              sender_id,
+              chat_id,
+              users!messages_sender_id_fkey (
+                id,
+                full_name,
+                avatar,
+                role
+              )
+            `)
+            .eq('id', payload.new.id)
+            .single() as { data: RealtimeMessageResult | null, error: any }
+
+          if (error) {
+            console.error('Error fetching message details:', error)
+            return
+          }
+
+          if (!messageWithSender) {
+            console.error('Message not found')
+            return
+          }
+
+          // Transform the data to match our MessageData interface
+          const sender = messageWithSender.users
+          const transformedMessage: MessageData = {
+            id: messageWithSender.id,
+            message: messageWithSender.message,
+            created_at: messageWithSender.created_at,
+            chat_id: messageWithSender.chat_id,
+            sender: {
+              id: sender?.id || messageWithSender.sender_id,
+              name: sender?.full_name || 'Unknown User',
+              avatar: sender?.avatar || undefined,
+              role: sender?.role || 'athlete'
+            },
+            isCoach: sender?.role === 'coach'
+          }
+
+          // Call the callback with the transformed message
+          onMessageReceived(transformedMessage)
+
+        } catch (error) {
+          console.error('Error processing real-time message:', error)
+        }
+      }
+    )
+    .subscribe((status, err) => {
+      console.log('Subscription status:', status)
+      if (err) {
+        console.error('Subscription error:', err)
+      }
+    })
+
+  return subscription
+}
+
+// Helper function to add a new message to the messages array while maintaining order
+export function addMessageToList(
+  messages: MessageData[],
+  newMessage: MessageData,
+  currentChatId: string
+): MessageData[] {
+  // Only add the message if it belongs to the currently selected chat
+  if (currentChatId !== newMessage.chat_id) {
+    return messages
+  }
+
+  // Check if message already exists (to prevent duplicates)
+  const messageExists = messages.some(msg => msg.id === newMessage.id)
+  if (messageExists) {
+    return messages
+  }
+
+  // Add the new message and sort by created_at (ascending)
+  const updatedMessages = [...messages, newMessage].sort((a, b) => {
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  })
+
+  return updatedMessages
+}
+
+// Cleanup subscription function
+export function unsubscribeFromMessages(subscription: any) {
+  if (subscription) {
+    console.log('Cleaning up message subscription')
+    supabase.removeChannel(subscription)
+  }
+}
+
+// Interface for chat member data
+export interface ChatMember {
+  id: string
+  chat_id: string
+  user_id: string
+  role: 'admin' | 'member'
+  joined_at: string
+  user: {
+    id: string
+    full_name: string
+    email: string
+    role: 'coach' | 'athlete'
+    avatar?: string
+  }
+}
+
+// Interface for simplified member display
+export interface ChatMemberDisplay {
+  id: string
+  name: string
+  email: string
+  role: 'coach' | 'athlete'
+  avatar?: string
+  isAdmin: boolean
+}
+
+// Type definition for chat member query result
+type ChatMemberResult = {
+  id: string
+  chat_id: string
+  user_id: string
+  role: 'admin' | 'member'
+  joined_at: string
+  users: {
+    id: string
+    full_name: string
+    email: string
+    role: 'coach' | 'athlete'
+    avatar?: string
+  } | null
+}
+
+// Fetch all members of a chat
+export async function getChatMembers(chatId: string): Promise<ChatMemberDisplay[]> {
+  try {
+    const { data: members, error } = await supabase
+      .from('chat_members')
+      .select(`
+        id,
+        chat_id,
+        user_id,
+        role,
+        joined_at,
+        users!chat_members_user_id_fkey (
+          id,
+          full_name,
+          email,
+          role,
+          avatar
+        )
+      `)
+      .eq('chat_id', chatId)
+      .order('joined_at', { ascending: true }) as { data: ChatMemberResult[] | null, error: any }
+
+    if (error) {
+      console.error('Error fetching chat members:', error)
+      throw error
+    }
+
+    if (!members) {
+      return []
+    }
+
+    // Transform to display format
+    const memberDisplay: ChatMemberDisplay[] = members.map(member => ({
+      id: member.user_id,
+      name: member.users?.full_name || 'Unknown User',
+      email: member.users?.email || '',
+      role: member.users?.role || 'athlete',
+      avatar: member.users?.avatar || undefined,
+      isAdmin: member.role === 'admin'
+    }))
+
+    return memberDisplay
+
+  } catch (error) {
+    console.error('Error in getChatMembers:', error)
+    throw error
+  }
+}
+
+// Type definition for permission check result
+type PermissionCheckResult = {
+  role: 'admin' | 'member'
+  users: {
+    role: 'coach' | 'athlete'
+  } | null
+}
+
+// Add members to a group chat (coach only)
+export async function addMembersToChat(
+  chatId: string, 
+  userIds: string[], 
+  requestingUserId: string
+): Promise<ChatMemberDisplay[]> {
+  try {
+    // First, verify the requesting user is a coach and admin of this chat
+    const { data: requestingMember, error: permissionError } = await supabase
+      .from('chat_members')
+      .select(`
+        role,
+        users!chat_members_user_id_fkey (
+          role
+        )
+      `)
+      .eq('chat_id', chatId)
+      .eq('user_id', requestingUserId)
+      .single() as { data: PermissionCheckResult | null, error: any }
+
+    if (permissionError || !requestingMember) {
+      throw new Error('You are not a member of this chat')
+    }
+
+    if (requestingMember.users?.role !== 'coach' || requestingMember.role !== 'admin') {
+      throw new Error('Only coach admins can add members to group chats')
+    }
+
+    // Check which users are not already members
+    const { data: existingMembers, error: existingError } = await supabase
+      .from('chat_members')
+      .select('user_id')
+      .eq('chat_id', chatId)
+      .in('user_id', userIds)
+
+    if (existingError) {
+      console.error('Error checking existing members:', existingError)
+      throw existingError
+    }
+
+    const existingUserIds = existingMembers?.map(m => m.user_id) || []
+    const newUserIds = userIds.filter(id => !existingUserIds.includes(id))
+
+    if (newUserIds.length === 0) {
+      throw new Error('All selected users are already members of this chat')
+    }
+
+    // Add new members
+    const newMembers = newUserIds.map(userId => ({
+      chat_id: chatId,
+      user_id: userId,
+      role: 'member' as const,
+      joined_at: new Date().toISOString()
+    }))
+
+    const { error: insertError } = await supabase
+      .from('chat_members')
+      .insert(newMembers)
+
+    if (insertError) {
+      console.error('Error adding members:', insertError)
+      throw insertError
+    }
+
+    // Return updated member list
+    return await getChatMembers(chatId)
+
+  } catch (error) {
+    console.error('Error in addMembersToChat:', error)
+    throw error
+  }
+}
+
+// Check if user can manage chat members (coach and admin)
+export async function canManageChatMembers(chatId: string, userId: string): Promise<boolean> {
+  try {
+    const { data: member, error } = await supabase
+      .from('chat_members')
+      .select(`
+        role,
+        users!chat_members_user_id_fkey (
+          role
+        )
+      `)
+      .eq('chat_id', chatId)
+      .eq('user_id', userId)
+      .single() as { data: PermissionCheckResult | null, error: any }
+
+    if (error || !member) {
+      return false
+    }
+
+    return member.users?.role === 'coach' && member.role === 'admin'
+
+  } catch (error) {
+    console.error('Error checking member management permissions:', error)
+    return false
+  }
+}
+
+// Type definition for available users query result
+type AvailableUserResult = {
+  id: string
+  full_name: string
+  email: string
+  role: 'coach' | 'athlete'
+  avatar?: string
+}
+
+// Get available users to add to chat (team members not already in chat)
+export async function getAvailableUsersForChat(chatId: string, teamId?: string): Promise<ChatMemberDisplay[]> {
+  try {
+    // Get current chat members
+    const { data: currentMembers, error: membersError } = await supabase
+      .from('chat_members')
+      .select('user_id')
+      .eq('chat_id', chatId)
+
+    if (membersError) {
+      console.error('Error fetching current members:', membersError)
+      throw membersError
+    }
+
+    const currentMemberIds = currentMembers?.map(m => m.user_id) || []
+
+    let query = supabase
+      .from('users')
+      .select('id, full_name, email, role, avatar')
+
+    // If teamId is provided, filter by team members
+    if (teamId) {
+      const { data: teamMembers, error: teamError } = await supabase
+        .from('team_members')
+        .select('user_id')
+        .eq('team_id', teamId)
+
+      if (teamError) {
+        console.error('Error fetching team members:', teamError)
+        throw teamError
+      }
+
+      const teamMemberIds = teamMembers?.map(tm => tm.user_id) || []
+      if (teamMemberIds.length > 0) {
+        query = query.in('id', teamMemberIds)
+      } else {
+        // No team members found, return empty array
+        return []
+      }
+    }
+
+    // Exclude current chat members
+    if (currentMemberIds.length > 0) {
+      query = query.not('id', 'in', `(${currentMemberIds.join(',')})`)
+    }
+
+    const { data: availableUsers, error: usersError } = await query as { data: AvailableUserResult[] | null, error: any }
+
+    if (usersError) {
+      console.error('Error fetching available users:', usersError)
+      throw usersError
+    }
+
+    if (!availableUsers) {
+      return []
+    }
+
+    return availableUsers.map(user => ({
+      id: user.id,
+      name: user.full_name || 'Unknown User',
+      email: user.email,
+      role: user.role,
+      avatar: user.avatar || undefined,
+      isAdmin: false
+    }))
+
+  } catch (error) {
+    console.error('Error in getAvailableUsersForChat:', error)
+    throw error
+  }
+}
+
 // Create a new team and add the coach as a member
 export async function createTeam(coachId: string, coachName: string): Promise<{ teamId: string, joinCode: string }> {
   try {
