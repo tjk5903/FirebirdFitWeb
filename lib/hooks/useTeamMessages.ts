@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getTeamMessages } from '@/lib/utils'
+import { getUserChats, ChatData, formatTimeAgo, generateAvatar } from '@/lib/utils'
 
 export function useTeamMessages(userId: string | undefined) {
   const [teamMessages, setTeamMessages] = useState<any[]>([])
@@ -15,8 +15,21 @@ export function useTeamMessages(userId: string | undefined) {
 
       try {
         setIsLoadingMessages(true)
-        const messages = await getTeamMessages(userId)
-        setTeamMessages(messages || [])
+        const chats = await getUserChats(userId)
+        
+        // Transform ChatData to match the expected format for the dashboard
+        const transformedMessages = chats.map((chat: ChatData) => ({
+          id: chat.id,
+          name: chat.name,
+          lastMessage: chat.lastMessage || 'No messages yet',
+          time: chat.lastMessageTime ? formatTimeAgo(chat.lastMessageTime) : 'Just now',
+          unread: chat.unread,
+          avatar: generateAvatar(chat.name),
+          type: chat.type,
+          conversationId: chat.id
+        }))
+        
+        setTeamMessages(transformedMessages || [])
       } catch (error) {
         console.error('Error fetching team messages:', error)
         setTeamMessages([])

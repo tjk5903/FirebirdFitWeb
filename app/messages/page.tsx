@@ -16,6 +16,8 @@ import {
   canManageChatMembers,
   getAvailableUsersForChat,
   createGroupChat,
+  generateAvatar,
+  formatTimeAgo,
   ChatData,
   MessageData,
   ChatMemberDisplay
@@ -439,7 +441,7 @@ export default function MessagesPage() {
                           <Users className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                         ) : (
                           <span className="text-white font-bold text-sm sm:text-base">
-                            {chat.name.charAt(0).toUpperCase()}
+                            {generateAvatar(chat.name)}
                           </span>
                         )}
                       </div>
@@ -458,7 +460,7 @@ export default function MessagesPage() {
                               </div>
                             )}
                             <span className="text-xs text-gray-500 font-medium">
-                              {chat.lastMessageTime ? new Date(chat.lastMessageTime).toLocaleDateString() : 'No messages'}
+                              {chat.lastMessageTime ? formatTimeAgo(chat.lastMessageTime) : 'No messages'}
                             </span>
                           </div>
                         </div>
@@ -519,7 +521,7 @@ export default function MessagesPage() {
                             <Users className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                           ) : (
                             <span className="text-white font-bold text-sm sm:text-base">
-                              {selectedChat?.name.charAt(0).toUpperCase()}
+                              {generateAvatar(selectedChat?.name || '')}
                             </span>
                           )}
                         </div>
@@ -576,7 +578,7 @@ export default function MessagesPage() {
                               {member.avatar ? (
                                 <img src={member.avatar} alt={member.name} className="h-full w-full rounded-full" />
                               ) : (
-                                member.name.charAt(0).toUpperCase()
+                                generateAvatar(member.name)
                               )}
                             </div>
                           ))}
@@ -626,7 +628,7 @@ export default function MessagesPage() {
                             msg.sender.id === user.id ? 'text-blue-100' : 'text-gray-500'
                           }`}>
                             <span className="text-xs font-medium">
-                              {new Date(msg.created_at).toLocaleTimeString()}
+                              {formatTimeAgo(msg.created_at)}
                             </span>
                             {msg.sender.id === user.id && (
                               <span className="text-xs">✓✓</span>
@@ -812,7 +814,7 @@ export default function MessagesPage() {
                             {user.avatar ? (
                               <img src={user.avatar} alt={user.name} className="h-full w-full rounded-full" />
                             ) : (
-                              user.name.charAt(0).toUpperCase()
+                              generateAvatar(user.name)
                             )}
                           </div>
                           <div>

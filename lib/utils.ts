@@ -116,7 +116,7 @@ export async function generateUniqueJoinCode(): Promise<string> {
 export interface ChatData {
   id: string
   name: string
-  type: 'direct' | 'group'
+  type: 'direct' | 'group' | 'team'
   lastMessage: string | null
   lastMessageTime: string | null
   unread: boolean
@@ -128,7 +128,7 @@ type UserChatResult = {
   chats: {
     id: string
     name: string
-    type: 'direct' | 'group'
+    type: 'direct' | 'group' | 'team'
     created_at: string
   }
 }
@@ -822,6 +822,311 @@ export async function getAvailableUsersForChat(chatId: string, teamId?: string):
   }
 }
 
+// Create a new group chat
+export async function createGroupChat(
+  coachId: string,
+  chatName: string,
+  memberIds: string[] = []
+): Promise<{ success: boolean; chatId?: string; error?: string }> {
+  try {
+    // Verify the user is a coach
+    const { data: userProfile, error: profileError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', coachId)
+      .single()
+
+    if (profileError || userProfile?.role !== 'coach') {
+      return { success: false, error: 'Only coaches can create group chats' }
+    }
+
+    // Get the coach's team
+    const { data: userTeam, error: teamError } = await supabase
+      .from('team_members')
+      .select('team_id')
+      .eq('user_id', coachId)
+      .single()
+
+    if (teamError) {
+      return { success: false, error: 'Unable to verify team membership' }
+    }
+
+    // If members are provided, verify they're all part of the same team
+    if (memberIds.length > 0) {
+      const { data: memberTeams, error: memberError } = await supabase
+        .from('team_members')
+        .select('user_id, team_id')
+        .in('user_id', memberIds)
+
+      if (memberError) {
+        return { success: false, error: 'Unable to verify member team membership' }
+      }
+
+      // Check if all members are in the same team
+      const allInSameTeam = memberTeams.every((member: any) => member.team_id === userTeam.team_id)
+      if (!allInSameTeam) {
+        return { success: false, error: 'All members must be in the same team' }
+      }
+    }
+
+    // Create the chat
+    const { data: newChat, error: chatError } = await supabase
+      .from('chats')
+      .insert({
+        name: chatName.trim(),
+        type: 'group',
+        created_at: new Date().toISOString()
+      })
+      .select('id')
+      .single()
+
+    if (chatError) {
+      console.error('Error creating chat:', chatError)
+      return { success: false, error: 'Failed to create group chat' }
+    }
+
+    // Add the coach as an admin member
+    const { error: coachMemberError } = await supabase
+      .from('chat_members')
+      .insert({
+        chat_id: newChat.id,
+        user_id: coachId,
+        role: 'admin',
+        joined_at: new Date().toISOString()
+      })
+
+    if (coachMemberError) {
+      console.error('Error adding coach to chat:', coachMemberError)
+      return { success: false, error: 'Failed to add coach to group chat' }
+    }
+
+    // Add other members as regular members
+    if (memberIds.length > 0) {
+      const memberInserts = memberIds.map(userId => ({
+        chat_id: newChat.id,
+        user_id: userId,
+        role: 'member',
+        joined_at: new Date().toISOString()
+      }))
+
+      const { error: membersError } = await supabase
+        .from('chat_members')
+        .insert(memberInserts)
+
+      if (membersError) {
+        console.error('Error adding members to chat:', membersError)
+        return { success: false, error: 'Failed to add members to group chat' }
+      }
+    }
+
+    return { success: true, chatId: newChat.id }
+
+  } catch (error) {
+    console.error('Error in createGroupChat:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+// Create a direct chat between two users
+export async function createDirectChat(
+  userId1: string,
+  userId2: string
+): Promise<{ success: boolean; chatId?: string; error?: string }> {
+  try {
+    // Verify both users are in the same team
+    const { data: user1Team, error: team1Error } = await supabase
+      .from('team_members')
+      .select('team_id')
+      .eq('user_id', userId1)
+      .single()
+
+    const { data: user2Team, error: team2Error } = await supabase
+      .from('team_members')
+      .select('team_id')
+      .eq('user_id', userId2)
+      .single()
+
+    if (team1Error || team2Error) {
+      return { success: false, error: 'Unable to verify team membership' }
+    }
+
+    if (user1Team.team_id !== user2Team.team_id) {
+      return { success: false, error: 'Users must be in the same team to create a direct chat' }
+    }
+
+    // Check if a direct chat already exists between these users
+    const { data: existingChat, error: existingError } = await supabase
+      .from('chats')
+      .select(`
+        id,
+        chat_members!inner (
+          user_id
+        )
+      `)
+      .eq('type', 'direct')
+      .eq('chat_members.user_id', userId1)
+
+    if (existingError) {
+      console.error('Error checking existing direct chat:', existingError)
+      return { success: false, error: 'Failed to check for existing direct chat' }
+    }
+
+    // Check if any of the existing direct chats also has userId2
+    if (existingChat) {
+      for (const chat of existingChat) {
+        const { data: members, error: membersError } = await supabase
+          .from('chat_members')
+          .select('user_id')
+          .eq('chat_id', chat.id)
+
+        if (membersError) continue
+
+        const memberIds = members.map(m => m.user_id)
+        if (memberIds.includes(userId2)) {
+          return { success: true, chatId: chat.id }
+        }
+      }
+    }
+
+    // Get user names for the chat
+    const { data: users, error: usersError } = await supabase
+      .from('users')
+      .select('id, full_name')
+      .in('id', [userId1, userId2])
+
+    if (usersError || !users || users.length !== 2) {
+      return { success: false, error: 'Unable to fetch user information' }
+    }
+
+    const user1Name = users.find(u => u.id === userId1)?.full_name || 'User 1'
+    const user2Name = users.find(u => u.id === userId2)?.full_name || 'User 2'
+
+    // Create the direct chat
+    const { data: newChat, error: chatError } = await supabase
+      .from('chats')
+      .insert({
+        name: `${user1Name} & ${user2Name}`,
+        type: 'direct',
+        created_at: new Date().toISOString()
+      })
+      .select('id')
+      .single()
+
+    if (chatError) {
+      console.error('Error creating direct chat:', chatError)
+      return { success: false, error: 'Failed to create direct chat' }
+    }
+
+    // Add both users as members
+    const { error: membersError } = await supabase
+      .from('chat_members')
+      .insert([
+        {
+          chat_id: newChat.id,
+          user_id: userId1,
+          role: 'member',
+          joined_at: new Date().toISOString()
+        },
+        {
+          chat_id: newChat.id,
+          user_id: userId2,
+          role: 'member',
+          joined_at: new Date().toISOString()
+        }
+      ])
+
+    if (membersError) {
+      console.error('Error adding members to direct chat:', membersError)
+      return { success: false, error: 'Failed to add members to direct chat' }
+    }
+
+    return { success: true, chatId: newChat.id }
+
+  } catch (error) {
+    console.error('Error in createDirectChat:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+// Create a team chat for all team members
+export async function createTeamChat(
+  teamId: string,
+  teamName: string
+): Promise<{ success: boolean; chatId?: string; error?: string }> {
+  try {
+    // Check if team chat already exists
+    const { data: existingChat, error: existingError } = await supabase
+      .from('chats')
+      .select('id')
+      .eq('type', 'team')
+      .eq('name', `${teamName} Team Chat`)
+      .single()
+
+    if (existingError && existingError.code !== 'PGRST116') {
+      console.error('Error checking existing team chat:', existingError)
+      return { success: false, error: 'Failed to check for existing team chat' }
+    }
+
+    if (existingChat) {
+      return { success: true, chatId: existingChat.id }
+    }
+
+    // Create the team chat
+    const { data: newChat, error: chatError } = await supabase
+      .from('chats')
+      .insert({
+        name: `${teamName} Team Chat`,
+        type: 'team',
+        created_at: new Date().toISOString()
+      })
+      .select('id')
+      .single()
+
+    if (chatError) {
+      console.error('Error creating team chat:', chatError)
+      return { success: false, error: 'Failed to create team chat' }
+    }
+
+    // Get all team members
+    const { data: teamMembers, error: membersError } = await supabase
+      .from('team_members')
+      .select('user_id, role')
+      .eq('team_id', teamId)
+
+    if (membersError) {
+      console.error('Error fetching team members:', membersError)
+      return { success: false, error: 'Failed to fetch team members' }
+    }
+
+    if (!teamMembers || teamMembers.length === 0) {
+      return { success: false, error: 'No team members found' }
+    }
+
+    // Add all team members to the chat
+    const memberInserts = teamMembers.map(member => ({
+      chat_id: newChat.id,
+      user_id: member.user_id,
+      role: member.role === 'coach' ? 'admin' : 'member',
+      joined_at: new Date().toISOString()
+    }))
+
+    const { error: addMembersError } = await supabase
+      .from('chat_members')
+      .insert(memberInserts)
+
+    if (addMembersError) {
+      console.error('Error adding team members to chat:', addMembersError)
+      return { success: false, error: 'Failed to add team members to chat' }
+    }
+
+    return { success: true, chatId: newChat.id }
+
+  } catch (error) {
+    console.error('Error in createTeamChat:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
 // Create a new team and add the coach as a member
 export async function createTeam(coachId: string, coachName: string): Promise<{ teamId: string, joinCode: string }> {
   try {
@@ -979,476 +1284,13 @@ export async function getUserTeams(userId: string): Promise<Array<{ id: string, 
   }
 } 
 
-// Get messages for the current user's team
-export async function getTeamMessages(userId: string): Promise<Array<{
-  id: string
-  name: string
-  lastMessage: string
-  time: string
-  unread: boolean
-  avatar: string
-  type: 'athlete' | 'group'
-  conversationId: string
-}>> {
-  try {
-    // First, get the user's team
-    const { data: userTeam, error: teamError } = await supabase
-      .from('team_members')
-      .select(`
-        team_id,
-        teams (
-          id,
-          name
-        )
-      `)
-      .eq('user_id', userId)
-      .single()
 
-    if (teamError) {
-      throw teamError
-    }
 
-    if (!userTeam) {
-      return []
-    }
 
-    // Get all team members for this team
-    const { data: teamMembers, error: membersError } = await supabase
-      .from('team_members')
-      .select(`
-        user_id,
-        role,
-        users (
-          id,
-          full_name,
-          email
-        )
-      `)
-      .eq('team_id', userTeam.team_id)
 
-    if (membersError) {
-      throw membersError
-    }
-
-    // Get all messages for this team
-    const { data: teamMessages, error: messagesError } = await supabase
-      .from('messages')
-      .select(`
-        id,
-        content,
-        created_at,
-        sender_id,
-        team_id,
-        users!messages_sender_id_fkey (
-          full_name
-        )
-      `)
-      .eq('team_id', userTeam.team_id)
-      .order('created_at', { ascending: false })
-
-    if (messagesError) {
-      throw messagesError
-    }
-
-    const conversationsList = []
-    const groupChats = new Map()
-    const regularMessages: any[] = []
-
-    // Process messages to separate group chats from regular team messages
-    teamMessages?.forEach((message: any) => {
-      const content = message.content
-      const groupChatMatch = content.match(/^\[GROUP_CHAT:([^:]+):([^\]]+)\]/)
-      
-      if (groupChatMatch) {
-        // This is a group chat message
-        const [, groupChatId, groupChatName] = groupChatMatch
-        if (!groupChats.has(groupChatId)) {
-          groupChats.set(groupChatId, {
-            id: groupChatId,
-            name: groupChatName,
-            lastMessage: content.replace(/^\[GROUP_CHAT:[^\]]+\]\s*/, ''), // Remove the prefix
-            time: formatTimeAgo(message.created_at),
-            unread: false,
-            avatar: groupChatName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase(),
-            type: 'group' as const,
-            conversationId: groupChatId.startsWith('group_') ? groupChatId : `group_${groupChatId}`
-          })
-        }
-      } else {
-        // Regular team message
-        regularMessages.push(message)
-      }
-    })
-
-    // Add individual group chats
-    groupChats.forEach((groupChat) => {
-      conversationsList.push(groupChat)
-    })
-
-    // Add general team chat (only if there are regular non-group-chat messages)
-    if (regularMessages.length > 0) {
-      const latestTeamMessage = regularMessages[0]
-      conversationsList.push({
-        id: `team_${userTeam.team_id}`,
-        name: `${(userTeam.teams as any).name} Team Chat`,
-        lastMessage: latestTeamMessage.content,
-        time: formatTimeAgo(latestTeamMessage.created_at),
-        unread: false, // TODO: Implement unread logic
-        avatar: (userTeam.teams as any).name.split(' ').map((n: string) => n[0]).join('').slice(0, 2),
-        type: 'group' as const,
-        conversationId: `team_${userTeam.team_id}`
-      })
-    }
-
-    // Add individual conversations with team members
-    teamMembers?.forEach((member: any) => {
-      if (member.user_id !== userId) { // Don't show self
-        // Find the latest message between this user and the current user
-        const directMessages = teamMessages?.filter((msg: any) => 
-          (msg.sender_id === userId && msg.sender_id === member.user_id) ||
-          (msg.sender_id === member.user_id && msg.sender_id === userId)
-        )
-
-        if (directMessages && directMessages.length > 0) {
-          const latestDirectMessage = directMessages[0]
-          conversationsList.push({
-            id: member.user_id,
-            name: member.users.full_name || member.users.email,
-            lastMessage: latestDirectMessage.content,
-            time: formatTimeAgo(latestDirectMessage.created_at),
-            unread: false, // TODO: Implement unread logic
-            avatar: (member.users.full_name || member.users.email).split(' ').map((n: string) => n[0]).join('').slice(0, 2),
-            type: 'athlete' as const,
-            conversationId: `direct_${userId}_${member.user_id}`
-          })
-        }
-      }
-    })
-
-    return conversationsList
-  } catch (error) {
-    console.error('Error fetching team messages:', error)
-    throw error
-  }
-}
-
-// Get conversation messages
-export async function getConversationMessages(conversationId: string): Promise<Array<{
-  id: string
-  sender: string
-  message: string
-  time: string
-  isCoach: boolean
-}>> {
-  try {
-    let messages
-    
-    if (conversationId.startsWith('team_')) {
-      // Team chat - get all messages for the team (excluding group chat messages)
-      const teamId = conversationId.replace('team_', '')
-      const { data, error } = await supabase
-        .from('messages')
-        .select(`
-          id,
-          content,
-          created_at,
-          sender_id,
-          users!messages_sender_id_fkey (
-            full_name,
-            role
-          )
-        `)
-        .eq('team_id', teamId)
-        .not('content', 'like', '[GROUP_CHAT:%')
-        .order('created_at', { ascending: true })
-
-      if (error) throw error
-      messages = data
-    } else if (conversationId.startsWith('group_')) {
-      // Group chat - get messages for a specific group chat
-      const groupChatId = conversationId.replace('group_', '')
-      const { data, error } = await supabase
-        .from('messages')
-        .select(`
-          id,
-          content,
-          created_at,
-          sender_id,
-          users!messages_sender_id_fkey (
-            full_name,
-            role
-          )
-        `)
-        .like('content', `[GROUP_CHAT:${groupChatId}:%`)
-        .order('created_at', { ascending: true })
-
-      if (error) throw error
-      messages = data
-    } else if (conversationId.startsWith('direct_')) {
-      // Direct chat - get messages between two users
-      const [userId1, userId2] = conversationId.replace('direct_', '').split('_')
-      
-      // First get the team_id for these users
-      const { data: userTeam, error: teamError } = await supabase
-        .from('team_members')
-        .select('team_id')
-        .eq('user_id', userId1)
-        .single()
-
-      if (teamError) throw teamError
-
-      // Get messages between these users in the same team
-      const { data, error } = await supabase
-        .from('messages')
-        .select(`
-          id,
-          content,
-          created_at,
-          sender_id,
-          users!messages_sender_id_fkey (
-            full_name,
-            role
-          )
-        `)
-        .eq('team_id', userTeam.team_id)
-        .in('sender_id', [userId1, userId2])
-        .order('created_at', { ascending: true })
-
-      if (error) throw error
-      messages = data
-    } else {
-      throw new Error('Invalid conversation ID format')
-    }
-
-    return messages?.map((message: any) => ({
-      id: message.id,
-      sender: message.users.full_name || message.users.email,
-      message: message.content.replace(/^\[GROUP_CHAT:[^\]]+\]\s*/, ''), // Clean up group chat prefix
-      time: formatTimeAgo(message.created_at),
-      isCoach: message.users.role === 'coach'
-    })) || []
-  } catch (error) {
-    console.error('Error fetching conversation messages:', error)
-    throw error
-  }
-}
-
-// Send a new message to a conversation
-export async function sendMessage(
-  senderId: string,
-  conversationId: string,
-  content: string
-): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  try {
-    // First, get the user's team to ensure they're sending to their own team
-    const { data: userTeam, error: teamError } = await supabase
-      .from('team_members')
-      .select('team_id')
-      .eq('user_id', senderId)
-      .single()
-
-    if (teamError) {
-      console.error('Error fetching user team:', teamError)
-      return { success: false, error: 'Unable to verify team membership' }
-    }
-
-    if (!userTeam) {
-      return { success: false, error: 'User is not part of any team' }
-    }
-
-    let messageContent = content.trim()
-
-    // If this is a group chat, we need to prefix the message with the group chat identifier
-    if (conversationId.startsWith('group_')) {
-      const groupChatId = conversationId.replace('group_', '')
-      // We need to get the group chat name from existing messages
-      const { data: existingMessages, error: fetchError } = await supabase
-        .from('messages')
-        .select('content')
-        .like('content', `[GROUP_CHAT:${groupChatId}:%`)
-        .limit(1)
-        .single()
-
-      if (fetchError) {
-        return { success: false, error: 'Group chat not found' }
-      }
-
-      // Extract group chat name from the existing message
-      const match = existingMessages.content.match(/^\[GROUP_CHAT:[^:]+:([^\]]+)\]/)
-      const groupChatName = match ? match[1] : 'Unknown Group'
-      
-      messageContent = `[GROUP_CHAT:${groupChatId}:${groupChatName}] ${messageContent}`
-    }
-
-    // Insert the new message
-    const { data: newMessage, error: insertError } = await supabase
-      .from('messages')
-      .insert({
-        sender_id: senderId,
-        team_id: userTeam.team_id,
-        content: messageContent,
-        created_at: new Date().toISOString()
-      })
-      .select('id')
-      .single()
-
-    if (insertError) {
-      console.error('Error inserting message:', insertError)
-      return { success: false, error: 'Failed to send message' }
-    }
-
-    return { success: true, messageId: newMessage.id }
-  } catch (error) {
-    console.error('Error in sendMessage:', error)
-    return { success: false, error: 'An unexpected error occurred' }
-  }
-}
-
-// Create a new group chat (conversation)
-export async function createGroupChat(
-  coachId: string,
-  chatName: string,
-  memberIds: string[] = []
-): Promise<{ success: boolean; chatId?: string; error?: string }> {
-  try {
-    // Verify the user is a coach
-    const { data: userProfile, error: profileError } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', coachId)
-      .single()
-
-    if (profileError || userProfile.role !== 'coach') {
-      return { success: false, error: 'Only coaches can create group chats' }
-    }
-
-    // Get the coach's team
-    const { data: userTeam, error: teamError } = await supabase
-      .from('team_members')
-      .select('team_id')
-      .eq('user_id', coachId)
-      .single()
-
-    if (teamError) {
-      return { success: false, error: 'Unable to verify team membership' }
-    }
-
-    // If members are provided, verify they're all part of the same team
-    if (memberIds.length > 0) {
-      const { data: memberTeams, error: memberError } = await supabase
-        .from('team_members')
-        .select('user_id, team_id')
-        .in('user_id', memberIds)
-
-      if (memberError) {
-        return { success: false, error: 'Unable to verify member team membership' }
-      }
-
-      // Check if all members are in the same team
-      const allInSameTeam = memberTeams.every((member: any) => member.team_id === userTeam.team_id)
-      if (!allInSameTeam) {
-        return { success: false, error: 'All members must be in the same team' }
-      }
-    }
-
-    // Create a system message for the group chat with special format for identification
-    const groupChatId = `group_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-    const memberText = memberIds.length > 0 ? ` Members: ${memberIds.join(', ')}` : ' (No members added yet)'
-    const systemMessage = `[GROUP_CHAT:${groupChatId}:${chatName}] Group chat "${chatName}" created by coach.${memberText}`
-    
-    const { data: newMessage, error: insertError } = await supabase
-      .from('messages')
-      .insert({
-        sender_id: coachId,
-        team_id: userTeam.team_id,
-        content: systemMessage,
-        created_at: new Date().toISOString()
-      })
-      .select('id')
-      .single()
-
-    if (insertError) {
-      return { success: false, error: 'Failed to create group chat' }
-    }
-
-    return { success: true, chatId: groupChatId }
-  } catch (error) {
-    console.error('Error in createGroupChat:', error)
-    return { success: false, error: 'An unexpected error occurred' }
-  }
-}
-
-// Add members to an existing group chat
-export async function addMembersToGroupChat(
-  coachId: string,
-  chatId: string,
-  memberIds: string[]
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    // Verify the user is a coach
-    const { data: userProfile, error: profileError } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', coachId)
-      .single()
-
-    if (profileError || userProfile.role !== 'coach') {
-      return { success: false, error: 'Only coaches can add members to group chats' }
-    }
-
-    // Get the coach's team
-    const { data: userTeam, error: teamError } = await supabase
-      .from('team_members')
-      .select('team_id')
-      .eq('user_id', coachId)
-      .single()
-
-    if (teamError) {
-      return { success: false, error: 'Unable to verify team membership' }
-    }
-
-    // Verify all selected members are part of the same team
-    const { data: memberTeams, error: memberError } = await supabase
-      .from('team_members')
-      .select('user_id, team_id')
-      .in('user_id', memberIds)
-
-    if (memberError) {
-      return { success: false, error: 'Unable to verify member team membership' }
-    }
-
-    // Check if all members are in the same team
-    const allInSameTeam = memberTeams.every((member: any) => member.team_id === userTeam.team_id)
-    if (!allInSameTeam) {
-      return { success: false, error: 'All members must be in the same team' }
-    }
-
-    // Add a system message about adding members
-    const memberNames = memberIds.join(', ')
-    const systemMessage = `Members added to group chat: ${memberNames}`
-    
-    const { error: insertError } = await supabase
-      .from('messages')
-      .insert({
-        sender_id: coachId,
-        team_id: userTeam.team_id,
-        content: systemMessage,
-        created_at: new Date().toISOString()
-      })
-
-    if (insertError) {
-      return { success: false, error: 'Failed to add members to group chat' }
-    }
-
-    return { success: true }
-  } catch (error) {
-    console.error('Error in addMembersToGroupChat:', error)
-    return { success: false, error: 'An unexpected error occurred' }
-  }
-}
 
 // Helper function to format time ago
-function formatTimeAgo(dateString: string): string {
+export function formatTimeAgo(dateString: string): string {
   const date = new Date(dateString)
   const now = new Date()
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
@@ -1465,6 +1307,51 @@ function formatTimeAgo(dateString: string): string {
     const days = Math.floor(diffInSeconds / 86400)
     return `${days} day${days > 1 ? 's' : ''} ago`
   }
+}
+
+// Helper function to generate avatar initials from a name
+export function generateAvatar(name: string): string {
+  if (!name || name.trim().length === 0) {
+    return '??'
+  }
+  
+  return name
+    .split(' ')
+    .map((n: string) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
+}
+
+// Helper function to format date for display
+export function formatDate(dateString: string): string {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
+
+  if (diffInDays === 0) {
+    return 'Today'
+  } else if (diffInDays === 1) {
+    return 'Yesterday'
+  } else if (diffInDays < 7) {
+    return date.toLocaleDateString('en-US', { weekday: 'long' })
+  } else {
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+    })
+  }
+}
+
+// Helper function to format time for display
+export function formatTime(dateString: string): string {
+  const date = new Date(dateString)
+  return date.toLocaleTimeString('en-US', { 
+    hour: 'numeric', 
+    minute: '2-digit',
+    hour12: true 
+  })
 } 
 
 // Get team events for a user
@@ -1690,120 +1577,6 @@ export async function updateUserProfile(
   }
 }
 
-export async function deleteConversation(conversationId: string, userId: string): Promise<{ success: boolean; error?: string }> {
-  try {
-    console.log('Attempting to delete conversation:', conversationId)
-    
-    // Verify user has permission to delete (coaches can delete any conversation, users can delete their direct messages)
-    const { data: userProfile, error: profileError } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', userId)
-      .single()
-
-    if (profileError) {
-      return { success: false, error: 'Unable to verify user permissions' }
-    }
-
-    if (conversationId.startsWith('team_')) {
-      // Team chat - only coaches can delete
-      if (userProfile.role !== 'coach') {
-        return { success: false, error: 'Only coaches can delete team chats' }
-      }
-      
-      const teamId = conversationId.replace('team_', '')
-      console.log('Deleting team chat messages for team:', teamId)
-      const { data, error: deleteError } = await supabase
-        .from('messages')
-        .delete()
-        .eq('team_id', teamId)
-        .not('content', 'like', '[GROUP_CHAT:%')
-
-      console.log('Delete result:', { data, error: deleteError })
-
-      if (deleteError) {
-        console.error('Error deleting team chat messages:', deleteError)
-        return { success: false, error: `Failed to delete team chat: ${deleteError.message}` }
-      }
-    } else if (conversationId.startsWith('group_')) {
-      // Group chat - only coaches can delete
-      if (userProfile.role !== 'coach') {
-        return { success: false, error: 'Only coaches can delete group chats' }
-      }
-      
-      // Handle both 'group_' and 'group_group_' prefixes
-      let groupChatId = conversationId.replace(/^group_/, '')
-      if (groupChatId.startsWith('group_')) {
-        groupChatId = groupChatId.replace(/^group_/, '')
-      }
-      console.log('Deleting group chat messages for group:', groupChatId)
-      console.log('Looking for messages with pattern:', `[GROUP_CHAT:${groupChatId}:%`)
-      
-      // First, let's see what messages we're about to delete
-      const { data: messagesToDelete, error: fetchError } = await supabase
-        .from('messages')
-        .select('id, content, created_at')
-        .like('content', `[GROUP_CHAT:${groupChatId}:%`)
-      
-      console.log('Messages found to delete:', messagesToDelete)
-      console.log('Fetch error:', fetchError)
-      
-      const { data, error: deleteError } = await supabase
-        .from('messages')
-        .delete()
-        .like('content', `[GROUP_CHAT:${groupChatId}:%`)
-
-      console.log('Delete result:', { data, error: deleteError })
-
-      if (deleteError) {
-        console.error('Error deleting group chat messages:', deleteError)
-        return { success: false, error: `Failed to delete group chat: ${deleteError.message}` }
-      }
-    } else if (conversationId.startsWith('direct_')) {
-      // Direct chat - user can delete their own direct messages
-      const [userId1, userId2] = conversationId.replace('direct_', '').split('_')
-      
-      // User can only delete if they're one of the participants
-      if (userId !== userId1 && userId !== userId2) {
-        return { success: false, error: 'You can only delete your own direct messages' }
-      }
-
-      // Get the team_id for these users
-      const { data: userTeam, error: teamError } = await supabase
-        .from('team_members')
-        .select('team_id')
-        .eq('user_id', userId)
-        .single()
-
-      if (teamError) {
-        return { success: false, error: 'Unable to verify team membership' }
-      }
-
-      // Delete messages between these users
-      console.log('Deleting direct messages between:', userId1, 'and', userId2, 'in team:', userTeam.team_id)
-      const { data, error: deleteError } = await supabase
-        .from('messages')
-        .delete()
-        .eq('team_id', userTeam.team_id)
-        .in('sender_id', [userId1, userId2])
-
-      console.log('Delete result:', { data, error: deleteError })
-
-      if (deleteError) {
-        console.error('Error deleting direct messages:', deleteError)
-        return { success: false, error: `Failed to delete direct messages: ${deleteError.message}` }
-      }
-    } else {
-      return { success: false, error: 'Invalid conversation type' }
-    }
-
-    console.log('Successfully deleted conversation')
-    return { success: true }
-  } catch (error) {
-    console.error('Error in deleteConversation:', error)
-    return { success: false, error: 'An unexpected error occurred' }
-  }
-} 
 
 // Get workouts for a user (either assigned to them or to their team)
 export async function getUserWorkouts(userId: string): Promise<Array<{
@@ -1940,24 +1713,6 @@ export async function createWorkout(
   }
 }
 
-// Format date to readable format
-export function formatDate(dateString: string): string {
-  try {
-    const date = new Date(dateString)
-    if (isNaN(date.getTime())) {
-      console.warn('Invalid date string:', dateString)
-      return 'Invalid Date'
-    }
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    })
-  } catch (error) {
-    console.error('Error formatting date:', error)
-    return 'Invalid Date'
-  }
-} 
 
 // Update team name (only for coaches)
 export async function updateTeamName(
