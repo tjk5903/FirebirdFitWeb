@@ -25,7 +25,7 @@ export function useTeamMessages(userId: string | undefined) {
           time: chat.lastMessageTime ? formatTimeAgo(chat.lastMessageTime) : 'Just now',
           unread: chat.unread,
           avatar: generateAvatar(chat.name),
-          type: chat.type,
+          memberCount: chat.memberCount,
           conversationId: chat.id
         }))
         

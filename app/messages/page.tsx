@@ -15,7 +15,7 @@ import {
   addMembersToChat,
   canManageChatMembers,
   getAvailableUsersForChat,
-  createGroupChat,
+  createChat,
   generateAvatar,
   formatTimeAgo,
   ChatData,
@@ -47,7 +47,7 @@ export default function MessagesPage() {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const [isSendingMessage, setIsSendingMessage] = useState(false)
   const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false)
-  const [isCreatingGroupChat, setIsCreatingGroupChat] = useState(false)
+  const [isCreatingChat, setIsCreatingChat] = useState(false)
   const [isAddingMembers, setIsAddingMembers] = useState(false)
   
   // UI states
@@ -238,16 +238,16 @@ export default function MessagesPage() {
     }
   }
 
-  // Create new group chat
-  const handleCreateGroupChat = async () => {
+  // Create new chat
+  const handleCreateChat = async () => {
     if (!newChatName.trim() || !user?.id) {
       return
     }
 
-    setIsCreatingGroupChat(true)
+    setIsCreatingChat(true)
 
     try {
-      const result = await createGroupChat(user.id, newChatName.trim(), selectedMembers)
+      const result = await createChat(user.id, newChatName.trim(), selectedMembers)
       
       if (result.success) {
         // Refresh chats after creation
@@ -259,18 +259,18 @@ export default function MessagesPage() {
         setNewChatName('')
         setSelectedMembers([])
         
-        setSuccessMessage(`Group chat "${newChatName}" created successfully!`)
+        setSuccessMessage(`Chat "${newChatName}" created successfully!`)
         setShowSuccessModal(true)
       } else {
-        setSuccessMessage(result.error || 'Failed to create group chat. Please try again.')
+        setSuccessMessage(result.error || 'Failed to create chat. Please try again.')
         setShowSuccessModal(true)
       }
     } catch (error) {
-      console.error('Error creating group chat:', error)
-      setSuccessMessage('Failed to create group chat. Please try again.')
+      console.error('Error creating chat:', error)
+      setSuccessMessage('Failed to create chat. Please try again.')
       setShowSuccessModal(true)
     } finally {
-      setIsCreatingGroupChat(false)
+      setIsCreatingChat(false)
     }
   }
 
@@ -433,11 +433,11 @@ export default function MessagesPage() {
                   >
                     <div className="flex items-center space-x-3 sm:space-x-4">
                       <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-2xl flex items-center justify-center shadow-lg transition-transform duration-300 group-hover:scale-110 ${
-                        chat.type === 'group' 
+                        chat.memberCount > 2 
                           ? 'bg-gradient-to-br from-purple-500 to-purple-600' 
                           : 'bg-gradient-to-br from-blue-500 to-blue-600'
                       } ${chat.unread ? 'ring-2 ring-blue-300' : ''}`}>
-                        {chat.type === 'group' ? (
+                        {chat.memberCount > 2 ? (
                           <Users className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                         ) : (
                           <span className="text-white font-bold text-sm sm:text-base">
@@ -449,7 +449,7 @@ export default function MessagesPage() {
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center space-x-2">
                             <h3 className="font-bold text-gray-900 truncate text-sm sm:text-base">{chat.name}</h3>
-                            {chat.type === 'group' && (
+                            {chat.memberCount > 2 && (
                               <Hash className="h-3 w-3 text-purple-500" />
                             )}
                           </div>
@@ -473,7 +473,7 @@ export default function MessagesPage() {
                             <span className="text-xs text-blue-600 font-bold">New message</span>
                           </div>
                         )}
-                        {chat.type === 'group' && (
+                        {chat.memberCount > 2 && (
                           <div className="flex items-center space-x-1 mt-1">
                             <Users className="h-3 w-3 text-purple-400" />
                             <span className="text-xs text-purple-500 font-medium">Group chat</span>
@@ -513,11 +513,11 @@ export default function MessagesPage() {
                           <ArrowLeft className="h-5 w-5" />
                         </button>
                         <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-2xl flex items-center justify-center shadow-lg ${
-                          selectedChat?.type === 'group' 
+                          (selectedChat?.memberCount || 0) > 2 
                             ? 'bg-gradient-to-br from-purple-500 to-purple-600' 
                             : 'bg-gradient-to-br from-blue-500 to-blue-600'
                         }`}>
-                          {selectedChat?.type === 'group' ? (
+                          {(selectedChat?.memberCount || 0) > 2 ? (
                             <Users className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                           ) : (
                             <span className="text-white font-bold text-sm sm:text-base">
@@ -530,14 +530,14 @@ export default function MessagesPage() {
                             <h2 className="font-bold text-gray-900 text-base sm:text-lg">
                               {selectedChat?.name}
                             </h2>
-                            {selectedChat?.type === 'group' && (
+                            {(selectedChat?.memberCount || 0) > 2 && (
                               <Hash className="h-4 w-4 text-purple-500" />
                             )}
                           </div>
                           <div className="flex items-center space-x-2">
                             <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></span>
                             <p className="text-xs sm:text-sm text-gray-600 font-medium">
-                              {selectedChat?.type === 'group' ? `${chatMembers.length} members` : 'Direct chat'}
+                              {(selectedChat?.memberCount || 0) > 2 ? `${chatMembers.length} members` : 'Direct chat'}
                             </p>
                           </div>
                         </div>
@@ -554,7 +554,7 @@ export default function MessagesPage() {
                           </button>
                           
                           {/* Dropdown Menu */}
-                          {showOptionsDropdown && canManageMembers && selectedChat?.type === 'group' && (
+                          {showOptionsDropdown && canManageMembers && (selectedChat?.memberCount || 0) > 2 && (
                             <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
                               <button
                                 onClick={handleOpenAddMembersModal}
@@ -570,7 +570,7 @@ export default function MessagesPage() {
                     </div>
                     
                     {/* Chat Members (for group chats) */}
-                    {selectedChat?.type === 'group' && chatMembers.length > 0 && (
+                    {(selectedChat?.memberCount || 0) > 2 && chatMembers.length > 0 && (
                       <div className="mt-4 flex items-center space-x-2">
                         <div className="flex -space-x-2">
                           {chatMembers.slice(0, 5).map(member => (
@@ -713,7 +713,7 @@ export default function MessagesPage() {
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Create Group Chat</h3>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Create Chat</h3>
                 <button
                   onClick={() => setShowNewChat(false)}
                   className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 transition-colors"
@@ -745,11 +745,11 @@ export default function MessagesPage() {
                   Cancel
                 </button>
                 <button
-                  onClick={handleCreateGroupChat}
-                  disabled={!newChatName.trim() || isCreatingGroupChat}
+                  onClick={handleCreateChat}
+                  disabled={!newChatName.trim() || isCreatingChat}
                   className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isCreatingGroupChat ? (
+                  {isCreatingChat ? (
                     <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                   ) : (
                     'Create Chat'

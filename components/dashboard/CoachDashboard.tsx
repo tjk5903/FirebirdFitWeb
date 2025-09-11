@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { TeamStats, createWorkout, createEvent, createGroupChat, getTeamMembers } from '@/lib/utils'
+import { TeamStats, createWorkout, createEvent, createChat, getTeamMembers } from '@/lib/utils'
 import { useTeamMessages } from '@/lib/hooks/useTeamMessages'
 import { 
   Users, 
@@ -123,7 +123,7 @@ export default function CoachDashboard() {
   const [selectedMembers, setSelectedMembers] = useState<string[]>([])
   const [teamMembers, setTeamMembers] = useState<any[]>([])
   const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false)
-  const [isCreatingGroupChat, setIsCreatingGroupChat] = useState(false)
+  const [isCreatingChat, setIsCreatingChat] = useState(false)
 
   // Use custom hook for team messages
   const { teamMessages, isLoadingMessages } = useTeamMessages(user?.id)
@@ -368,13 +368,13 @@ export default function CoachDashboard() {
     )
   }
 
-  // Handle create group chat
-  const handleCreateGroupChat = async () => {
+  // Handle create chat
+  const handleCreateChat = async () => {
     if (!newChatName.trim() || !user?.id) return
 
-    setIsCreatingGroupChat(true)
+    setIsCreatingChat(true)
     try {
-      const result = await createGroupChat(user.id, newChatName.trim(), selectedMembers)
+      const result = await createChat(user.id, newChatName.trim(), selectedMembers)
       
       if (result.success) {
         // Close modal and reset form
@@ -390,7 +390,7 @@ export default function CoachDashboard() {
     } catch (error) {
       console.error('Error creating group chat:', error)
     } finally {
-      setIsCreatingGroupChat(false)
+      setIsCreatingChat(false)
     }
   }
 
@@ -990,7 +990,7 @@ export default function CoachDashboard() {
                     <div className="h-10 w-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center">
                       <MessageSquare className="h-5 w-5 text-white" />
                     </div>
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-900">Create Group Chat</h3>
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900">Create Chat</h3>
                   </div>
                   <button
                     onClick={() => setShowCreateChat(false)}
@@ -1084,11 +1084,11 @@ export default function CoachDashboard() {
                     Cancel
                   </button>
                   <button
-                    onClick={handleCreateGroupChat}
-                    disabled={!newChatName.trim() || isCreatingGroupChat}
+                    onClick={handleCreateChat}
+                    disabled={!newChatName.trim() || isCreatingChat}
                     className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-6 py-2 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isCreatingGroupChat ? (
+                    {isCreatingChat ? (
                       <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                     ) : (
                       'Create Chat'

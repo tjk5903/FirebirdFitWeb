@@ -116,10 +116,10 @@ export async function generateUniqueJoinCode(): Promise<string> {
 export interface ChatData {
   id: string
   name: string
-  type: 'direct' | 'group' | 'team'
   lastMessage: string | null
   lastMessageTime: string | null
   unread: boolean
+  memberCount: number
 }
 
 // Type definitions for Supabase query results
@@ -128,7 +128,6 @@ type UserChatResult = {
   chats: {
     id: string
     name: string
-    type: 'direct' | 'group' | 'team'
     created_at: string
   }
 }
@@ -150,7 +149,6 @@ export async function getUserChats(userId: string): Promise<ChatData[]> {
         chats!inner (
           id,
           name,
-          type,
           created_at
         )
       `)
@@ -168,16 +166,41 @@ export async function getUserChats(userId: string): Promise<ChatData[]> {
     // Extract chat IDs
     const chatIds = userChats.map(uc => uc.chat_id)
 
-    // Get the last message for each chat
-    const { data: lastMessages, error: messagesError } = await supabase
-      .from('messages')
-      .select('chat_id, message, created_at')
-      .in('chat_id', chatIds)
-      .order('created_at', { ascending: false }) as { data: LastMessageResult[] | null, error: any }
+    // Get the last message for each chat (optional - don't fail if messages table doesn't exist)
+    let lastMessages: LastMessageResult[] | null = null
+    if (chatIds.length > 0) {
+      const { data: messagesData, error: messagesError } = await supabase
+        .from('messages')
+        .select('chat_id, message, created_at')
+        .in('chat_id', chatIds)
+        .order('created_at', { ascending: false }) as { data: LastMessageResult[] | null, error: any }
 
-    if (messagesError) {
-      console.error('Error fetching last messages:', messagesError)
-      throw messagesError
+      if (messagesError) {
+        console.error('Error fetching last messages:', messagesError)
+        console.error('Messages error details:', JSON.stringify(messagesError, null, 2))
+        console.log('Continuing without last messages...')
+      } else {
+        lastMessages = messagesData
+      }
+    }
+
+    // Get member counts for each chat
+    const { data: memberCounts, error: memberCountError } = await supabase
+      .from('chat_members')
+      .select('chat_id')
+      .in('chat_id', chatIds)
+
+    if (memberCountError) {
+      console.error('Error fetching member counts:', memberCountError)
+    }
+
+    // Create a map of chat_id to member count
+    const memberCountMap = new Map<string, number>()
+    if (memberCounts) {
+      memberCounts.forEach(member => {
+        const count = memberCountMap.get(member.chat_id) || 0
+        memberCountMap.set(member.chat_id, count + 1)
+      })
     }
 
     // Create a map of chat_id to last message
@@ -201,10 +224,10 @@ export async function getUserChats(userId: string): Promise<ChatData[]> {
       return {
         id: chat.id,
         name: chat.name,
-        type: chat.type,
         lastMessage: lastMsg ? lastMsg.message : null,
         lastMessageTime: lastMsg ? lastMsg.created_at : chat.created_at,
-        unread: false // For now, we'll set this to false. Unread logic can be implemented later
+        unread: false, // For now, we'll set this to false. Unread logic can be implemented later
+        memberCount: memberCountMap.get(chat.id) || 0
       }
     })
 
@@ -322,6 +345,7 @@ export async function sendChatMessage(
     }
 
     // Insert the message into the database
+    console.log('Sending message:', { chatId, senderId, message: message.trim() })
     const { data: newMessage, error: insertError } = await supabase
       .from('messages')
       .insert({
@@ -346,8 +370,11 @@ export async function sendChatMessage(
 
     if (insertError) {
       console.error('Error sending message:', insertError)
+      console.error('Message insert error details:', JSON.stringify(insertError, null, 2))
       throw insertError
     }
+
+    console.log('Message sent successfully:', newMessage)
 
     if (!newMessage) {
       throw new Error('Failed to create message')
@@ -548,7 +575,6 @@ export interface ChatMember {
   chat_id: string
   user_id: string
   role: 'admin' | 'member'
-  joined_at: string
   user: {
     id: string
     full_name: string
@@ -574,7 +600,6 @@ type ChatMemberResult = {
   chat_id: string
   user_id: string
   role: 'admin' | 'member'
-  joined_at: string
   users: {
     id: string
     full_name: string
@@ -594,7 +619,6 @@ export async function getChatMembers(chatId: string): Promise<ChatMemberDisplay[
         chat_id,
         user_id,
         role,
-        joined_at,
         users!chat_members_user_id_fkey (
           id,
           full_name,
@@ -603,8 +627,7 @@ export async function getChatMembers(chatId: string): Promise<ChatMemberDisplay[
           avatar
         )
       `)
-      .eq('chat_id', chatId)
-      .order('joined_at', { ascending: true }) as { data: ChatMemberResult[] | null, error: any }
+      .eq('chat_id', chatId) as { data: ChatMemberResult[] | null, error: any }
 
     if (error) {
       console.error('Error fetching chat members:', error)
@@ -692,8 +715,7 @@ export async function addMembersToChat(
     const newMembers = newUserIds.map(userId => ({
       chat_id: chatId,
       user_id: userId,
-      role: 'member' as const,
-      joined_at: new Date().toISOString()
+      role: 'member' as const
     }))
 
     const { error: insertError } = await supabase
@@ -823,7 +845,8 @@ export async function getAvailableUsersForChat(chatId: string, teamId?: string):
 }
 
 // Create a new group chat
-export async function createGroupChat(
+// Create a chat - simple function that just creates a chat with selected members
+export async function createChat(
   coachId: string,
   chatName: string,
   memberIds: string[] = []
@@ -837,7 +860,7 @@ export async function createGroupChat(
       .single()
 
     if (profileError || userProfile?.role !== 'coach') {
-      return { success: false, error: 'Only coaches can create group chats' }
+      return { success: false, error: 'Only coaches can create chats' }
     }
 
     // Get the coach's team
@@ -869,12 +892,18 @@ export async function createGroupChat(
       }
     }
 
-    // Create the chat
+    // Create the chat - no type needed, just a simple chat
+    console.log('Creating chat with data:', {
+      name: chatName.trim(),
+      team_id: userTeam.team_id,
+      owner_id: coachId
+    })
     const { data: newChat, error: chatError } = await supabase
       .from('chats')
       .insert({
         name: chatName.trim(),
-        type: 'group',
+        team_id: userTeam.team_id,
+        owner_id: coachId,
         created_at: new Date().toISOString()
       })
       .select('id')
@@ -882,31 +911,37 @@ export async function createGroupChat(
 
     if (chatError) {
       console.error('Error creating chat:', chatError)
-      return { success: false, error: 'Failed to create group chat' }
+      console.error('Chat error details:', JSON.stringify(chatError, null, 2))
+      return { success: false, error: `Failed to create chat: ${chatError.message || 'Unknown error'}` }
     }
 
+    console.log('Chat created successfully:', newChat)
+
     // Add the coach as an admin member
-    const { error: coachMemberError } = await supabase
+    console.log('Adding coach to chat:', { chatId: newChat.id, coachId, role: 'admin' })
+    const { data: coachMemberData, error: coachMemberError } = await supabase
       .from('chat_members')
       .insert({
         chat_id: newChat.id,
         user_id: coachId,
-        role: 'admin',
-        joined_at: new Date().toISOString()
+        role: 'admin'
       })
+      .select()
 
     if (coachMemberError) {
       console.error('Error adding coach to chat:', coachMemberError)
-      return { success: false, error: 'Failed to add coach to group chat' }
+      console.error('Coach member error details:', JSON.stringify(coachMemberError, null, 2))
+      return { success: false, error: `Failed to add coach to chat: ${coachMemberError.message || 'Unknown error'}` }
     }
+
+    console.log('Coach added to chat successfully:', coachMemberData)
 
     // Add other members as regular members
     if (memberIds.length > 0) {
       const memberInserts = memberIds.map(userId => ({
         chat_id: newChat.id,
         user_id: userId,
-        role: 'member',
-        joined_at: new Date().toISOString()
+        role: 'member'
       }))
 
       const { error: membersError } = await supabase
@@ -915,217 +950,18 @@ export async function createGroupChat(
 
       if (membersError) {
         console.error('Error adding members to chat:', membersError)
-        return { success: false, error: 'Failed to add members to group chat' }
+        return { success: false, error: 'Failed to add members to chat' }
       }
     }
 
     return { success: true, chatId: newChat.id }
 
   } catch (error) {
-    console.error('Error in createGroupChat:', error)
+    console.error('Error in createChat:', error)
     return { success: false, error: 'An unexpected error occurred' }
   }
 }
 
-// Create a direct chat between two users
-export async function createDirectChat(
-  userId1: string,
-  userId2: string
-): Promise<{ success: boolean; chatId?: string; error?: string }> {
-  try {
-    // Verify both users are in the same team
-    const { data: user1Team, error: team1Error } = await supabase
-      .from('team_members')
-      .select('team_id')
-      .eq('user_id', userId1)
-      .single()
-
-    const { data: user2Team, error: team2Error } = await supabase
-      .from('team_members')
-      .select('team_id')
-      .eq('user_id', userId2)
-      .single()
-
-    if (team1Error || team2Error) {
-      return { success: false, error: 'Unable to verify team membership' }
-    }
-
-    if (user1Team.team_id !== user2Team.team_id) {
-      return { success: false, error: 'Users must be in the same team to create a direct chat' }
-    }
-
-    // Check if a direct chat already exists between these users
-    const { data: existingChat, error: existingError } = await supabase
-      .from('chats')
-      .select(`
-        id,
-        chat_members!inner (
-          user_id
-        )
-      `)
-      .eq('type', 'direct')
-      .eq('chat_members.user_id', userId1)
-
-    if (existingError) {
-      console.error('Error checking existing direct chat:', existingError)
-      return { success: false, error: 'Failed to check for existing direct chat' }
-    }
-
-    // Check if any of the existing direct chats also has userId2
-    if (existingChat) {
-      for (const chat of existingChat) {
-        const { data: members, error: membersError } = await supabase
-          .from('chat_members')
-          .select('user_id')
-          .eq('chat_id', chat.id)
-
-        if (membersError) continue
-
-        const memberIds = members.map(m => m.user_id)
-        if (memberIds.includes(userId2)) {
-          return { success: true, chatId: chat.id }
-        }
-      }
-    }
-
-    // Get user names for the chat
-    const { data: users, error: usersError } = await supabase
-      .from('users')
-      .select('id, full_name')
-      .in('id', [userId1, userId2])
-
-    if (usersError || !users || users.length !== 2) {
-      return { success: false, error: 'Unable to fetch user information' }
-    }
-
-    const user1Name = users.find(u => u.id === userId1)?.full_name || 'User 1'
-    const user2Name = users.find(u => u.id === userId2)?.full_name || 'User 2'
-
-    // Create the direct chat
-    const { data: newChat, error: chatError } = await supabase
-      .from('chats')
-      .insert({
-        name: `${user1Name} & ${user2Name}`,
-        type: 'direct',
-        created_at: new Date().toISOString()
-      })
-      .select('id')
-      .single()
-
-    if (chatError) {
-      console.error('Error creating direct chat:', chatError)
-      return { success: false, error: 'Failed to create direct chat' }
-    }
-
-    // Add both users as members
-    const { error: membersError } = await supabase
-      .from('chat_members')
-      .insert([
-        {
-          chat_id: newChat.id,
-          user_id: userId1,
-          role: 'member',
-          joined_at: new Date().toISOString()
-        },
-        {
-          chat_id: newChat.id,
-          user_id: userId2,
-          role: 'member',
-          joined_at: new Date().toISOString()
-        }
-      ])
-
-    if (membersError) {
-      console.error('Error adding members to direct chat:', membersError)
-      return { success: false, error: 'Failed to add members to direct chat' }
-    }
-
-    return { success: true, chatId: newChat.id }
-
-  } catch (error) {
-    console.error('Error in createDirectChat:', error)
-    return { success: false, error: 'An unexpected error occurred' }
-  }
-}
-
-// Create a team chat for all team members
-export async function createTeamChat(
-  teamId: string,
-  teamName: string
-): Promise<{ success: boolean; chatId?: string; error?: string }> {
-  try {
-    // Check if team chat already exists
-    const { data: existingChat, error: existingError } = await supabase
-      .from('chats')
-      .select('id')
-      .eq('type', 'team')
-      .eq('name', `${teamName} Team Chat`)
-      .single()
-
-    if (existingError && existingError.code !== 'PGRST116') {
-      console.error('Error checking existing team chat:', existingError)
-      return { success: false, error: 'Failed to check for existing team chat' }
-    }
-
-    if (existingChat) {
-      return { success: true, chatId: existingChat.id }
-    }
-
-    // Create the team chat
-    const { data: newChat, error: chatError } = await supabase
-      .from('chats')
-      .insert({
-        name: `${teamName} Team Chat`,
-        type: 'team',
-        created_at: new Date().toISOString()
-      })
-      .select('id')
-      .single()
-
-    if (chatError) {
-      console.error('Error creating team chat:', chatError)
-      return { success: false, error: 'Failed to create team chat' }
-    }
-
-    // Get all team members
-    const { data: teamMembers, error: membersError } = await supabase
-      .from('team_members')
-      .select('user_id, role')
-      .eq('team_id', teamId)
-
-    if (membersError) {
-      console.error('Error fetching team members:', membersError)
-      return { success: false, error: 'Failed to fetch team members' }
-    }
-
-    if (!teamMembers || teamMembers.length === 0) {
-      return { success: false, error: 'No team members found' }
-    }
-
-    // Add all team members to the chat
-    const memberInserts = teamMembers.map(member => ({
-      chat_id: newChat.id,
-      user_id: member.user_id,
-      role: member.role === 'coach' ? 'admin' : 'member',
-      joined_at: new Date().toISOString()
-    }))
-
-    const { error: addMembersError } = await supabase
-      .from('chat_members')
-      .insert(memberInserts)
-
-    if (addMembersError) {
-      console.error('Error adding team members to chat:', addMembersError)
-      return { success: false, error: 'Failed to add team members to chat' }
-    }
-
-    return { success: true, chatId: newChat.id }
-
-  } catch (error) {
-    console.error('Error in createTeamChat:', error)
-    return { success: false, error: 'An unexpected error occurred' }
-  }
-}
 
 // Create a new team and add the coach as a member
 export async function createTeam(coachId: string, coachName: string): Promise<{ teamId: string, joinCode: string }> {
