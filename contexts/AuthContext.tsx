@@ -231,10 +231,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Redirect to appropriate dashboard if requested (for session restoration)
         if (shouldRedirect && typeof window !== 'undefined') {
           const baseUrl = getBaseUrl()
-          // Always redirect to /dashboard - role-based rendering happens inside the dashboard page
-          const dashboardUrl = `${baseUrl}/dashboard`
-          console.log('Session restoration redirecting to:', dashboardUrl)
-          window.location.href = dashboardUrl
+          const currentPath = window.location.pathname
+          
+          // Only redirect if we're on the home page or login page
+          if (currentPath === '/' || currentPath === '/login') {
+            const dashboardUrl = `${baseUrl}/dashboard`
+            console.log('Session restoration redirecting to:', dashboardUrl)
+            window.location.href = dashboardUrl
+          }
         }
       } catch (error: any) {
         console.error('Error handling user session:', error)

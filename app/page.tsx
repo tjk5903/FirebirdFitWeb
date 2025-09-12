@@ -12,10 +12,19 @@ export default function HomePage() {
   useEffect(() => {
     if (!isLoading) {
       if (user) {
-        // Redirect to dashboard by default
-        router.push('/dashboard')
+        // Only redirect to dashboard if we're on the home page or login page
+        const currentPath = window.location.pathname
+        if (currentPath === '/' || currentPath === '/login') {
+          router.push('/dashboard')
+        }
+        // If user is on any other page, let them stay there
       } else {
-        router.push('/login')
+        // Only redirect to login if we're on the home page
+        const currentPath = window.location.pathname
+        if (currentPath === '/') {
+          router.push('/login')
+        }
+        // If user is on a protected page without being logged in, let the page handle the redirect
       }
     }
   }, [user, isLoading, router])
@@ -25,10 +34,17 @@ export default function HomePage() {
     if (isLoading) {
       const forceRedirectTimeout = setTimeout(() => {
         console.warn('Force redirect due to extended loading state')
+        const currentPath = window.location.pathname
         if (user) {
-          router.push('/dashboard')
+          // Only redirect to dashboard if we're on home or login page
+          if (currentPath === '/' || currentPath === '/login') {
+            router.push('/dashboard')
+          }
         } else {
-          router.push('/login')
+          // Only redirect to login if we're on home page
+          if (currentPath === '/') {
+            router.push('/login')
+          }
         }
       }, 2000) // 2 second timeout for loading state
 
