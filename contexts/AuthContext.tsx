@@ -71,15 +71,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (cachedUser && !user) {
           try {
             const parsedUser = JSON.parse(cachedUser)
-            console.log('Found cached user, using immediately:', parsedUser.email)
+            console.log('Found cached user, validating session:', parsedUser.email)
+            
+            // Set user immediately for instant UI
             if (mounted) {
               setUser(parsedUser)
               setIsLoading(false)
+            }
+            
+            // Validate session in background without blocking UI
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session?.user && session.user.id === parsedUser.id) {
+              console.log('Cached user session is valid')
               loadingManager.stopLoading('auth-session')
-              return // Skip the session check if we have cached user
+              return
+            } else {
+              console.log('Cached user session expired, clearing cache')
+              localStorage.removeItem('cached_user')
+              if (mounted) {
+                setUser(null)
+                setIsLoading(false)
+              }
+              // Continue with normal session check below
             }
           } catch (e) {
-            console.log('Failed to parse cached user, continuing with session check')
+            console.log('Failed to parse cached user, clearing cache and continuing with session check')
+            localStorage.removeItem('cached_user')
           }
         }
         
@@ -277,9 +294,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         supabase.auth.getSession().then(({ data: { session } }) => {
           if (session?.user && mounted) {
             console.log('Tab visible - session still valid')
+          } else if (mounted) {
+            console.log('Session expired on tab focus, clearing user')
+            setUser(null)
+            localStorage.removeItem('cached_user')
           }
         }).catch(error => {
           console.log('Session check on visibility change failed:', error)
+          if (mounted) {
+            setUser(null)
+            localStorage.removeItem('cached_user')
+          }
         })
       }
     }

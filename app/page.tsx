@@ -20,6 +20,22 @@ export default function HomePage() {
     }
   }, [user, isLoading, router])
 
+  // Additional failsafe: if we've been loading for too long, force redirect
+  useEffect(() => {
+    if (isLoading) {
+      const forceRedirectTimeout = setTimeout(() => {
+        console.warn('Force redirect due to extended loading state')
+        if (user) {
+          router.push('/dashboard')
+        } else {
+          router.push('/login')
+        }
+      }, 2000) // 2 second timeout for loading state
+
+      return () => clearTimeout(forceRedirectTimeout)
+    }
+  }, [isLoading, user, router])
+
   // FAILSAFE: If loading takes too long, redirect to login anyway
   useEffect(() => {
     const failsafeTimeout = setTimeout(() => {
