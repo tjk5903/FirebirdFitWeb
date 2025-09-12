@@ -281,7 +281,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       clearAllData()
       setHasLoadedFromStorage(false)
     }
-  }, [user?.id, refreshAll, clearAllData, workouts.length, teams.length, teamMembers.length, chats.length])
+  }, [user?.id]) // Removed dependencies that cause unnecessary re-runs
   
   // Persist data to localStorage for tab switching
   useEffect(() => {

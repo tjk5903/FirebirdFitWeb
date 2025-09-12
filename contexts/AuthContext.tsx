@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { User, UserRole, upsertUser } from '@/lib/utils'
+import { loadingManager } from '@/lib/loadingManager'
 
 interface AuthContextType {
   user: User | null
@@ -58,11 +59,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Check session on mount and handle auth state changes
   useEffect(() => {
+    let mounted = true
+    
     const getSession = async () => {
       try {
         console.log('Getting session...')
+        loadingManager.startLoading('auth-session', 5000) // 5 second timeout
         const { data: { session } } = await supabase.auth.getSession()
         console.log('Session result:', session ? 'Session found' : 'No session')
+        
+        if (!mounted) return // Prevent state updates if component unmounted
+        
         if (session?.user) {
           try {
             // For initial session restoration, redirect to appropriate dashboard
@@ -70,29 +77,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await handleUserSession(session.user, shouldRedirect)
           } catch (sessionError: any) {
             console.error('Session handling failed:', sessionError)
+            if (!mounted) return
+            
             // Only sign out if it's an actual auth error, otherwise keep trying
             if (sessionError?.message?.includes('JWT') || sessionError?.code === 'PGRST301') {
               console.log('Auth error detected, signing out')
               await supabase.auth.signOut()
-              setUser(null)
+              if (mounted) setUser(null)
             } else {
               console.log('Non-auth error, keeping session but stopping loading')
-              setError('Having trouble loading your profile. You can continue using the app.')
-              // Don't sign out, just stop loading and let user continue
+              if (mounted) setError('Having trouble loading your profile. You can continue using the app.')
             }
-            setIsLoading(false)
+            if (mounted) setIsLoading(false)
           }
         } else {
           // No session, user is anonymous - set user to null and stop loading
           console.log('No session found, user is anonymous')
-          setUser(null)
-          setIsLoading(false)
+          if (mounted) {
+            setUser(null)
+            setIsLoading(false)
+          }
         }
       } catch (error) {
         console.error('Error getting session:', error)
-        // Even if there's an error, stop loading and treat as anonymous
-        setUser(null)
-        setIsLoading(false)
+        if (mounted) {
+          setUser(null)
+          setIsLoading(false)
+        }
+      } finally {
+        loadingManager.stopLoading('auth-session')
       }
     }
 
@@ -233,10 +246,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Note: handleUserSession manages its own loading state in finally block
     })
 
-    return () => {
-      subscription.unsubscribe()
+    // Handle visibility change to prevent unnecessary re-authentication
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && user) {
+        // Tab became visible and user is logged in - just refresh session silently
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session?.user && mounted) {
+            console.log('Tab visible - session still valid')
+          }
+        }).catch(error => {
+          console.log('Session check on visibility change failed:', error)
+        })
+      }
     }
-  }, [])
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [user])
 
   // Sign in with magic link (unified auth method)
   const signInWithMagicLink = async (email: string, role: UserRole) => {

@@ -25,7 +25,7 @@ export default function HomePage() {
     const failsafeTimeout = setTimeout(() => {
       console.warn('Home page loading timeout - redirecting to login')
       router.push('/login')
-    }, 5000) // 5 second timeout
+    }, 2000) // 2 second timeout - much faster
 
     return () => clearTimeout(failsafeTimeout)
   }, [router])
