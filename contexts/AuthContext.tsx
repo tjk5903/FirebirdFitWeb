@@ -64,7 +64,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const getSession = async () => {
       try {
         console.log('Getting session...')
-        loadingManager.startLoading('auth-session', 5000) // 5 second timeout
+        loadingManager.startLoading('auth-session', 3000) // Reduced to 3 seconds
+        
+        // Check if we have a cached user in localStorage first
+        const cachedUser = localStorage.getItem('cached_user')
+        if (cachedUser && !user) {
+          try {
+            const parsedUser = JSON.parse(cachedUser)
+            console.log('Found cached user, using immediately:', parsedUser.email)
+            if (mounted) {
+              setUser(parsedUser)
+              setIsLoading(false)
+              loadingManager.stopLoading('auth-session')
+              return // Skip the session check if we have cached user
+            }
+          } catch (e) {
+            console.log('Failed to parse cached user, continuing with session check')
+          }
+        }
+        
         const { data: { session } } = await supabase.auth.getSession()
         console.log('Session result:', session ? 'Session found' : 'No session')
         
@@ -180,12 +198,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Create user object with correct role from database
         setError(null) // Clear any previous errors (unless set above)
-        setUser({
+        const userData = {
           id: supabaseUser.id,
           name: userName,
           email: supabaseUser.email,
           role: finalRole,
-        })
+        }
+        setUser(userData)
+        
+        // Cache user data for instant loading on refresh
+        localStorage.setItem('cached_user', JSON.stringify(userData))
         
         console.log(`User session created with role: ${finalRole}`)
         
@@ -232,6 +254,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Processing SIGNED_OUT event')
         setUser(null)
         setIsLoading(false)
+        // Clear cached user data
+        localStorage.removeItem('cached_user')
         // Redirect to login page using correct domain
         if (typeof window !== 'undefined') {
           const baseUrl = getBaseUrl()
