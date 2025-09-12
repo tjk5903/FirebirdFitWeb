@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const getSession = async () => {
       try {
         console.log('Getting session...')
-        loadingManager.startLoading('auth-session', 3000) // Reduced to 3 seconds
+        loadingManager.startLoading('auth-session', 2000) // Reduced to 2 seconds
         
         // Check if we have a cached user in localStorage first
         const cachedUser = localStorage.getItem('cached_user')
@@ -73,25 +73,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const parsedUser = JSON.parse(cachedUser)
             console.log('Found cached user, validating session:', parsedUser.email)
             
-            // Set user immediately for instant UI
-            if (mounted) {
-              setUser(parsedUser)
-              setIsLoading(false)
-            }
-            
-            // Validate session in background without blocking UI
+            // Validate session first before setting user
             const { data: { session } } = await supabase.auth.getSession()
             if (session?.user && session.user.id === parsedUser.id) {
-              console.log('Cached user session is valid')
-              loadingManager.stopLoading('auth-session')
-              return
+              console.log('Cached user session is valid, setting user')
+              if (mounted) {
+                setUser(parsedUser)
+                setIsLoading(false)
+                loadingManager.stopLoading('auth-session')
+                return
+              }
             } else {
               console.log('Cached user session expired, clearing cache')
               localStorage.removeItem('cached_user')
-              if (mounted) {
-                setUser(null)
-                setIsLoading(false)
-              }
               // Continue with normal session check below
             }
           } catch (e) {
@@ -131,6 +125,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (mounted) {
             setUser(null)
             setIsLoading(false)
+            // Clear any stale cached user data
+            localStorage.removeItem('cached_user')
           }
         }
       } catch (error) {

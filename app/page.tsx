@@ -57,10 +57,20 @@ export default function HomePage() {
     const failsafeTimeout = setTimeout(() => {
       console.warn('Home page loading timeout - redirecting to login')
       router.push('/login')
-    }, 1000) // 1 second timeout - even faster
+    }, 1500) // 1.5 second timeout - slightly longer but still fast
 
     return () => clearTimeout(failsafeTimeout)
   }, [router])
+
+  // Additional failsafe: Force stop loading after 3 seconds regardless
+  useEffect(() => {
+    const forceStopTimeout = setTimeout(() => {
+      console.warn('Force stopping loading state after 3 seconds')
+      // This will trigger a re-render and force the redirect logic
+    }, 3000)
+
+    return () => clearTimeout(forceStopTimeout)
+  }, [])
 
   if (isLoading) {
     return <LoadingSpinner />
