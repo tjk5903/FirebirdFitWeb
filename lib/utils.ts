@@ -1148,6 +1148,8 @@ export async function createTeam(coachId: string, coachName: string): Promise<{ 
 // Join a team using a join code
 export async function joinTeam(userId: string, joinCode: string): Promise<{ teamId: string, teamName: string }> {
   try {
+    console.log('Join team attempt:', { userId, joinCode })
+    
     // First, check if user is already part of any team
     const { data: existingTeams, error: existingTeamsError } = await supabase
       .from('team_members')
@@ -1155,8 +1157,11 @@ export async function joinTeam(userId: string, joinCode: string): Promise<{ team
       .eq('user_id', userId)
 
     if (existingTeamsError) {
+      console.error('Error checking existing teams:', existingTeamsError)
       throw existingTeamsError
     }
+
+    console.log('Existing teams check:', { existingTeams })
 
     if (existingTeams && existingTeams.length > 0) {
       throw new Error('You are already part of a team')
@@ -1174,15 +1179,19 @@ export async function joinTeam(userId: string, joinCode: string): Promise<{ team
     }
 
     // Look up the team by join code
+    console.log('Looking up team with join code:', joinCode)
     const { data: team, error: teamError } = await supabase
       .from('teams')
       .select('id, name')
       .eq('join_code', joinCode)
       .single()
 
+    console.log('Team lookup result:', { team, teamError })
+
     if (teamError) {
       if (teamError.code === 'PGRST116') {
         // No team found with this join code
+        console.log('No team found with join code:', joinCode)
         throw new Error('Invalid code')
       }
       throw teamError
@@ -1195,6 +1204,11 @@ export async function joinTeam(userId: string, joinCode: string): Promise<{ team
     } else if (userProfile.role === 'coach') {
       teamMemberRole = 'coach'
     }
+    
+    console.log('User role and team member role:', { 
+      userRole: userProfile.role, 
+      teamMemberRole 
+    })
 
     // Add user as team member
     const { error: insertError } = await supabase
