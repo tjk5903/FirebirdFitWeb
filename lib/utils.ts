@@ -1800,20 +1800,22 @@ export async function getTeamMembers(userId: string): Promise<Array<{
 }>> {
   try {
     // First, get the user's team
-    const { data: userTeam, error: teamError } = await supabase
+    const { data: userTeams, error: teamError } = await supabase
       .from('team_members')
       .select('team_id')
       .eq('user_id', userId)
-      .single()
 
     if (teamError) {
       console.error('Error fetching user team:', teamError)
       throw teamError
     }
 
-    if (!userTeam) {
+    if (!userTeams || userTeams.length === 0) {
       return []
     }
+
+    // Use the first team (users should only be in one team)
+    const userTeam = userTeams[0]
 
     // Get all team members for this team
     const { data: teamMembers, error: membersError } = await supabase

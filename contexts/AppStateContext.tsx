@@ -146,6 +146,14 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const refreshTeamMembers = useCallback(async (showLoading = true) => {
     if (!user?.id) return
     
+    // Only fetch team members if user has teams
+    if (teams.length === 0) {
+      console.log('No teams found, skipping team members fetch')
+      setTeamMembers([])
+      setIsLoadingTeamMembers(false)
+      return
+    }
+    
     // Don't show loading if we already have data
     if (showLoading && teamMembers.length === 0) {
       setIsLoadingTeamMembers(true)
@@ -163,7 +171,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         setIsLoadingTeamMembers(false)
       }
     }
-  }, [user?.id, teamMembers.length])
+  }, [user?.id, teams.length, teamMembers.length])
   
   const refreshChats = useCallback(async (showLoading = true) => {
     if (!user?.id) return
