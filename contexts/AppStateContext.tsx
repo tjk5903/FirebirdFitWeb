@@ -98,10 +98,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [teamMembersError, setTeamMembersError] = useState<string | null>(null)
   const [chatsError, setChatsError] = useState<string | null>(null)
   
+  // Request guards to prevent multiple simultaneous requests
+  const [isRequestingWorkouts, setIsRequestingWorkouts] = useState(false)
+  const [isRequestingTeams, setIsRequestingTeams] = useState(false)
+  const [isRequestingTeamMembers, setIsRequestingTeamMembers] = useState(false)
+  const [isRequestingChats, setIsRequestingChats] = useState(false)
+  
   // Data fetching functions
   const refreshWorkouts = useCallback(async (showLoading = true) => {
-    if (!user?.id) return
+    if (!user?.id || isRequestingWorkouts) return
     
+    setIsRequestingWorkouts(true)
     // Don't show loading if we already have data or if it's a background refresh
     if (showLoading && workouts.length === 0) {
       setIsLoadingWorkouts(true)
@@ -115,15 +122,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       console.error('Error fetching workouts:', error)
       setWorkoutsError('Failed to load workouts')
     } finally {
+      setIsRequestingWorkouts(false)
       if (showLoading) {
         setIsLoadingWorkouts(false)
       }
     }
-  }, [user?.id, workouts.length])
+  }, [user?.id, workouts.length, isRequestingWorkouts])
   
   const refreshTeams = useCallback(async (showLoading = true) => {
-    if (!user?.id) return
+    if (!user?.id || isRequestingTeams) return
     
+    setIsRequestingTeams(true)
     // Don't show loading if we already have data
     if (showLoading && teams.length === 0) {
       setIsLoadingTeams(true)
@@ -137,14 +146,15 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       console.error('Error fetching teams:', error)
       setTeamsError('Failed to load teams')
     } finally {
+      setIsRequestingTeams(false)
       if (showLoading) {
         setIsLoadingTeams(false)
       }
     }
-  }, [user?.id, teams.length])
+  }, [user?.id, teams.length, isRequestingTeams])
   
   const refreshTeamMembers = useCallback(async (showLoading = true) => {
-    if (!user?.id) return
+    if (!user?.id || isRequestingTeamMembers) return
     
     // Only fetch team members if user has teams
     if (teams.length === 0) {
@@ -154,6 +164,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       return
     }
     
+    setIsRequestingTeamMembers(true)
     // Don't show loading if we already have data
     if (showLoading && teamMembers.length === 0) {
       setIsLoadingTeamMembers(true)
@@ -167,15 +178,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       console.error('Error fetching team members:', error)
       setTeamMembersError('Failed to load team members')
     } finally {
+      setIsRequestingTeamMembers(false)
       if (showLoading) {
         setIsLoadingTeamMembers(false)
       }
     }
-  }, [user?.id, teams.length, teamMembers.length])
+  }, [user?.id, teams.length, teamMembers.length, isRequestingTeamMembers])
   
   const refreshChats = useCallback(async (showLoading = true) => {
-    if (!user?.id) return
+    if (!user?.id || isRequestingChats) return
     
+    setIsRequestingChats(true)
     // Don't show loading if we already have data
     if (showLoading && chats.length === 0) {
       setIsLoadingChats(true)
@@ -189,11 +202,12 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       console.error('Error fetching chats:', error)
       setChatsError('Failed to load chats')
     } finally {
+      setIsRequestingChats(false)
       if (showLoading) {
         setIsLoadingChats(false)
       }
     }
-  }, [user?.id, chats.length])
+  }, [user?.id, chats.length, isRequestingChats])
   
   // Refresh all data
   const refreshAll = useCallback(async (showLoading = true) => {
@@ -239,6 +253,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     setTeamsError(null)
     setTeamMembersError(null)
     setChatsError(null)
+    // Reset request guards
+    setIsRequestingWorkouts(false)
+    setIsRequestingTeams(false)
+    setIsRequestingTeamMembers(false)
+    setIsRequestingChats(false)
   }, [])
   
   // Track if data has been loaded from localStorage
@@ -248,11 +267,16 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   // FAILSAFE: Never let loading states run forever
   useEffect(() => {
     const failsafeTimeout = setTimeout(() => {
-      console.log('Failsafe: Clearing all loading states')
+      console.log('Failsafe: Clearing all loading states and request guards')
       setIsLoadingWorkouts(false)
       setIsLoadingTeams(false)
       setIsLoadingTeamMembers(false)
       setIsLoadingChats(false)
+      // Also clear request guards
+      setIsRequestingWorkouts(false)
+      setIsRequestingTeams(false)
+      setIsRequestingTeamMembers(false)
+      setIsRequestingChats(false)
     }, 2000) // 2 second max loading time
     
     return () => clearTimeout(failsafeTimeout)
