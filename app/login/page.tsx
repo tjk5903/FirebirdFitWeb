@@ -89,34 +89,48 @@ export default function LoginPage() {
           {/* Role Selection */}
           <div className="relative bg-gray-100 rounded-2xl p-1 mb-6">
             <div 
-              className={`absolute top-1 bottom-1 w-1/2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-md transition-all duration-500 ease-in-out ${
-                role === 'athlete' ? 'left-1' : 'left-[calc(50%-2px)]'
+              className={`absolute top-1 bottom-1 w-1/3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-md transition-all duration-500 ease-in-out ${
+                role === 'athlete' ? 'left-1' : 
+                role === 'coach' ? 'left-[calc(33.33%+2px)]' : 
+                'left-[calc(66.66%+4px)]'
               }`}
             ></div>
             <div className="relative flex">
               <button
                 type="button"
                 onClick={() => setRole('athlete')}
-                className={`flex-1 py-4 px-6 rounded-xl transition-all duration-500 flex items-center justify-center space-x-3 relative z-10 ${
+                className={`flex-1 py-4 px-4 rounded-xl transition-all duration-500 flex items-center justify-center space-x-2 relative z-10 ${
                   role === 'athlete'
                     ? 'text-white font-bold'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                <Activity className={`h-6 w-6 transition-all duration-300 ${role === 'athlete' ? 'text-white' : 'text-gray-400'}`} />
-                <span className="font-bold text-lg">Athlete</span>
+                <Activity className={`h-5 w-5 transition-all duration-300 ${role === 'athlete' ? 'text-white' : 'text-gray-400'}`} />
+                <span className="font-bold text-sm">Athlete</span>
               </button>
               <button
                 type="button"
                 onClick={() => setRole('coach')}
-                className={`flex-1 py-4 px-6 rounded-xl transition-all duration-500 flex items-center justify-center space-x-3 relative z-10 ${
+                className={`flex-1 py-4 px-4 rounded-xl transition-all duration-500 flex items-center justify-center space-x-2 relative z-10 ${
                   role === 'coach'
                     ? 'text-white font-bold'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                <Shield className={`h-6 w-6 transition-all duration-300 ${role === 'coach' ? 'text-white' : 'text-gray-400'}`} />
-                <span className="font-bold text-lg">Coach</span>
+                <Shield className={`h-5 w-5 transition-all duration-300 ${role === 'coach' ? 'text-white' : 'text-gray-400'}`} />
+                <span className="font-bold text-sm">Coach</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setRole('assistant_coach')}
+                className={`flex-1 py-4 px-4 rounded-xl transition-all duration-500 flex items-center justify-center space-x-2 relative z-10 ${
+                  role === 'assistant_coach'
+                    ? 'text-white font-bold'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <Users className={`h-5 w-5 transition-all duration-300 ${role === 'assistant_coach' ? 'text-white' : 'text-gray-400'}`} />
+                <span className="font-bold text-sm">Assistant</span>
               </button>
             </div>
           </div>
@@ -178,7 +192,9 @@ export default function LoginPage() {
                   We've sent a magic link to <span className="font-semibold text-blue-600">{email}</span>
                 </p>
                 <p className="text-sm text-gray-500">
-                  Click the link in your email to sign in as a <span className="font-semibold">{role}</span>.
+                  Click the link in your email to sign in as a <span className="font-semibold">
+                    {role === 'assistant_coach' ? 'Assistant Coach' : role}
+                  </span>.
                 </p>
               </div>
               

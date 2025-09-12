@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export type UserRole = 'coach' | 'athlete'
+export type UserRole = 'coach' | 'athlete' | 'assistant_coach'
 
 export interface User {
   id: string
