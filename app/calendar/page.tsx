@@ -48,7 +48,7 @@ export default function CalendarPage() {
     attendees: ''
   })
 
-  const isCoach = isCoachOrAssistant(user?.role)
+  const isCoach = user?.role ? isCoachOrAssistant(user.role) : false
 
   // Load events when user loads
   useEffect(() => {
