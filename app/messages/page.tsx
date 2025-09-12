@@ -24,10 +24,11 @@ import {
   ChatMemberDisplay,
   isCoachOrAssistant
 } from '@/lib/utils'
-import { Search, Send, Plus, X, Users, MoreVertical, ArrowLeft, MessageCircle, Hash, Trash2 } from 'lucide-react'
+import { Search, Send, Plus, X, Users, MoreVertical, ArrowLeft, MessageCircle, Hash, Trash2, UserPlus } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
 import MainNavigation from '@/components/navigation/MainNavigation'
 import { ChatItemSkeleton } from '@/components/ui/SkeletonLoader'
+import MemberSelector from '@/components/ui/MemberSelector'
 
 export default function MessagesPage() {
   const { user, isLoading } = useAuth()
@@ -44,7 +45,6 @@ export default function MessagesPage() {
   const [newMessage, setNewMessage] = useState('')
   const [showNewChat, setShowNewChat] = useState(false)
   const [newChatName, setNewChatName] = useState('')
-  const [selectedMembers, setSelectedMembers] = useState<string[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
   
   // Local chat data
@@ -54,7 +54,6 @@ export default function MessagesPage() {
   // Loading states
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const [isSendingMessage, setIsSendingMessage] = useState(false)
-  const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false)
   const [isCreatingChat, setIsCreatingChat] = useState(false)
   const [isAddingMembers, setIsAddingMembers] = useState(false)
   
@@ -67,8 +66,8 @@ export default function MessagesPage() {
   const [isDeletingChat, setIsDeletingChat] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   
-  // Available users for adding to chat
-  const [availableUsers, setAvailableUsers] = useState<ChatMemberDisplay[]>([])
+  const [selectedMembersToAdd, setSelectedMembersToAdd] = useState<string[]>([])
+  const [chatToAddMembers, setChatToAddMembers] = useState<ChatData | null>(null)
   
   // Permission states
   const [canManageMembers, setCanManageMembers] = useState(false)
@@ -239,7 +238,7 @@ export default function MessagesPage() {
     setIsCreatingChat(true)
 
     try {
-      const result = await createChat(user.id, newChatName.trim(), selectedMembers)
+      const result = await createChat(user.id, newChatName.trim(), selectedMembersToAdd)
       
       if (result.success) {
         // Refresh chats after creation using AppState
@@ -248,7 +247,7 @@ export default function MessagesPage() {
         // Close modal and reset form
         setShowNewChat(false)
         setNewChatName('')
-        setSelectedMembers([])
+        setSelectedMembersToAdd([])
         
         setSuccessMessage(`Chat "${newChatName}" created successfully!`)
         setShowSuccessModal(true)
@@ -265,54 +264,48 @@ export default function MessagesPage() {
     }
   }
 
+
+  // Open add members modal
+  const handleOpenAddMembersModal = (chat: ChatData) => {
+    if (!user?.id) return
+
+    setChatToAddMembers(chat)
+    setSelectedMembersToAdd([])
+    setShowAddMembersModal(true)
+  }
+
   // Add members to chat
   const handleAddMembers = async () => {
-    if (!selectedChatId || !user?.id || selectedMembers.length === 0) {
+    if (!chatToAddMembers || !user?.id || selectedMembersToAdd.length === 0) {
       return
     }
 
     setIsAddingMembers(true)
 
     try {
-      await addMembersToChat(selectedChatId, selectedMembers, user.id)
+      const result = await addMembersToChat(chatToAddMembers.id, selectedMembersToAdd, user.id)
       
-      // Refresh chat members
-      const members = await getChatMembers(selectedChatId)
-      setChatMembers(members)
-      
-      // Close modal and reset form
-      setShowAddMembersModal(false)
-      setSelectedMembers([])
-      setShowOptionsDropdown(false)
-      
-      setSuccessMessage(`Successfully added ${selectedMembers.length} member(s) to the chat!`)
-      setShowSuccessModal(true)
+      if (result.success) {
+        // Refresh chats to show updated member count
+        await refreshChats()
+        
+        // Close modal and reset
+        setShowAddMembersModal(false)
+        setChatToAddMembers(null)
+        setSelectedMembersToAdd([])
+        
+        setSuccessMessage(`Successfully added ${selectedMembersToAdd.length} member${selectedMembersToAdd.length !== 1 ? 's' : ''} to the chat!`)
+        setShowSuccessModal(true)
+      } else {
+        setSuccessMessage(result.error || 'Failed to add members to chat.')
+        setShowSuccessModal(true)
+      }
     } catch (error) {
-      console.error('Failed to add members:', error)
-      setSuccessMessage('Failed to add members. Please try again.')
+      console.error('Error adding members to chat:', error)
+      setSuccessMessage('Failed to add members to chat. Please try again.')
       setShowSuccessModal(true)
     } finally {
       setIsAddingMembers(false)
-    }
-  }
-
-  // Open add members modal
-  const handleOpenAddMembersModal = async () => {
-    if (!selectedChatId) return
-
-    setIsLoadingTeamMembers(true)
-    try {
-      // Get user's team ID (this would need to be implemented)
-      const users = await getAvailableUsersForChat(selectedChatId)
-      setAvailableUsers(users)
-      setShowAddMembersModal(true)
-      setShowOptionsDropdown(false)
-    } catch (error) {
-      console.error('Failed to load available users:', error)
-      setSuccessMessage('Failed to load available users.')
-      setShowSuccessModal(true)
-    } finally {
-      setIsLoadingTeamMembers(false)
     }
   }
 
@@ -364,13 +357,6 @@ export default function MessagesPage() {
     setShowOptionsDropdown(false)
   }
 
-  const toggleMemberSelection = (memberId: string) => {
-    setSelectedMembers(prev => 
-      prev.includes(memberId) 
-        ? prev.filter(id => id !== memberId)
-        : [...prev, memberId]
-    )
-  }
 
   // Show loading state while auth is loading
   if (isLoading) {
@@ -514,16 +500,28 @@ export default function MessagesPage() {
                               </div>
                             )}
                             {isCoachOrAssistant(user?.role) && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleOpenDeleteModal(chat)
-                                }}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 hover:bg-red-100 rounded-full"
-                                title="Delete chat"
-                              >
-                                <Trash2 className="h-4 w-4 text-red-500 hover:text-red-700" />
-                              </button>
+                              <div className="flex items-center space-x-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleOpenAddMembersModal(chat)
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 hover:bg-blue-100 rounded-full"
+                                  title="Add members"
+                                >
+                                  <UserPlus className="h-4 w-4 text-blue-500 hover:text-blue-700" />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleOpenDeleteModal(chat)
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 hover:bg-red-100 rounded-full"
+                                  title="Delete chat"
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-500 hover:text-red-700" />
+                                </button>
+                              </div>
                             )}
                             <span className="text-xs text-gray-500 font-medium">
                               {chat.lastMessageTime ? formatTimeAgo(chat.lastMessageTime) : 'No messages'}
@@ -623,7 +621,7 @@ export default function MessagesPage() {
                           {showOptionsDropdown && canManageMembers && (selectedChat?.memberCount || 0) > 2 && (
                             <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
                               <button
-                                onClick={handleOpenAddMembersModal}
+                                onClick={() => handleOpenAddMembersModal(selectedChat!)}
                                 className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2"
                               >
                                 <Users className="h-4 w-4" />
@@ -827,96 +825,6 @@ export default function MessagesPage() {
         </div>
       )}
 
-      {/* Add Members Modal */}
-      {showAddMembersModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Add Members</h3>
-                <button
-                  onClick={() => setShowAddMembersModal(false)}
-                  className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="h-4 w-4 sm:h-5 sm:w-5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-4 sm:p-6">
-              <div className="mb-4">
-                <p className="text-sm text-gray-600 mb-4">
-                  Add members to "{selectedChat?.name}" group chat
-                </p>
-              </div>
-
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Select Members to Add
-                </label>
-                
-                {isLoadingTeamMembers ? (
-                  <div className="text-center py-4">
-                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                    <p className="text-sm text-gray-600">Loading available users...</p>
-                  </div>
-                ) : availableUsers.length === 0 ? (
-                  <div className="text-center py-4">
-                    <p className="text-sm text-gray-600">No users available to add.</p>
-                    <p className="text-xs text-gray-500 mt-1">All team members are already in this chat.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-60 overflow-y-auto">
-                    {availableUsers.map((user) => (
-                      <label key={user.id} className="flex items-center space-x-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={selectedMembers.includes(user.id)}
-                          onChange={() => toggleMemberSelection(user.id)}
-                          className="h-4 w-4 text-blue-500 rounded focus:ring-blue-500"
-                        />
-                        <div className="flex items-center space-x-2">
-                          <div className="h-6 w-6 rounded-full bg-gray-300 flex items-center justify-center text-xs font-bold">
-                            {user.avatar ? (
-                              <img src={user.avatar} alt={user.name} className="h-full w-full rounded-full" />
-                            ) : (
-                              generateAvatar(user.name)
-                            )}
-                          </div>
-                          <div>
-                            <span className="text-sm text-gray-900">{user.name}</span>
-                            <span className="text-xs text-gray-500 ml-1">({user.role})</span>
-                          </div>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center justify-end space-x-3">
-                <button
-                  onClick={() => setShowAddMembersModal(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddMembers}
-                  disabled={selectedMembers.length === 0 || isAddingMembers}
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isAddingMembers ? (
-                    <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  ) : (
-                    `Add ${selectedMembers.length > 0 ? selectedMembers.length : ''} Member${selectedMembers.length !== 1 ? 's' : ''}`
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Success Modal */}
       {showSuccessModal && (
@@ -1008,6 +916,81 @@ export default function MessagesPage() {
                   <>
                     <Trash2 className="h-4 w-4" />
                     <span>Delete Chat</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Members Modal */}
+      {showAddMembersModal && chatToAddMembers && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col animate-scale-in">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                  <UserPlus className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">Add Members</h3>
+                  <p className="text-sm text-gray-500">Add members to "{chatToAddMembers.name}"</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <MemberSelector
+                selectedMembers={selectedMembersToAdd}
+                onMemberToggle={(memberId) => {
+                  setSelectedMembersToAdd(prev => 
+                    prev.includes(memberId) 
+                      ? prev.filter(id => id !== memberId)
+                      : [...prev, memberId]
+                  )
+                }}
+                onMembersChange={setSelectedMembersToAdd}
+                userId={user?.id || ''}
+                title="Select Members to Add"
+                description="Choose team members to add to this chat"
+              />
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-gray-200 flex items-center justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowAddMembersModal(false)
+                  setChatToAddMembers(null)
+                  setSelectedMembersToAdd([])
+                }}
+                disabled={isAddingMembers}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddMembers}
+                disabled={isAddingMembers || selectedMembersToAdd.length === 0}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                {isAddingMembers ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <span>Adding...</span>
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="h-4 w-4" />
+                    <span>
+                      {selectedMembersToAdd.length > 0 
+                        ? `Add ${selectedMembersToAdd.length} Member${selectedMembersToAdd.length !== 1 ? 's' : ''}`
+                        : 'Add Members'
+                      }
+                    </span>
                   </>
                 )}
               </button>

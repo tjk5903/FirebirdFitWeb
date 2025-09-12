@@ -693,77 +693,6 @@ type PermissionCheckResult = {
   } | null
 }
 
-// Add members to a group chat (coach only)
-export async function addMembersToChat(
-  chatId: string, 
-  userIds: string[], 
-  requestingUserId: string
-): Promise<ChatMemberDisplay[]> {
-  try {
-    // First, verify the requesting user is a coach and admin of this chat
-    const { data: requestingMember, error: permissionError } = await supabase
-      .from('chat_members')
-      .select(`
-        role,
-        users!chat_members_user_id_fkey (
-          role
-        )
-      `)
-      .eq('chat_id', chatId)
-      .eq('user_id', requestingUserId)
-      .single() as { data: PermissionCheckResult | null, error: any }
-
-    if (permissionError || !requestingMember) {
-      throw new Error('You are not a member of this chat')
-    }
-
-    if (requestingMember.users?.role !== 'coach' || requestingMember.role !== 'admin') {
-      throw new Error('Only coach admins can add members to group chats')
-    }
-
-    // Check which users are not already members
-    const { data: existingMembers, error: existingError } = await supabase
-      .from('chat_members')
-      .select('user_id')
-      .eq('chat_id', chatId)
-      .in('user_id', userIds)
-
-    if (existingError) {
-      console.error('Error checking existing members:', existingError)
-      throw existingError
-    }
-
-    const existingUserIds = existingMembers?.map(m => m.user_id) || []
-    const newUserIds = userIds.filter(id => !existingUserIds.includes(id))
-
-    if (newUserIds.length === 0) {
-      throw new Error('All selected users are already members of this chat')
-    }
-
-    // Add new members
-    const newMembers = newUserIds.map(userId => ({
-      chat_id: chatId,
-      user_id: userId,
-      role: 'member' as const
-    }))
-
-    const { error: insertError } = await supabase
-      .from('chat_members')
-      .insert(newMembers)
-
-    if (insertError) {
-      console.error('Error adding members:', insertError)
-      throw insertError
-    }
-
-    // Return updated member list
-    return await getChatMembers(chatId)
-
-  } catch (error) {
-    console.error('Error in addMembersToChat:', error)
-    throw error
-  }
-}
 
 // Check if user can manage chat members (coach and admin)
 export async function canManageChatMembers(chatId: string, userId: string): Promise<boolean> {
@@ -992,6 +921,84 @@ export async function createChat(
 }
 
 // Delete a chat (only coaches and assistant coaches can delete chats)
+export async function addMembersToChat(
+  chatId: string,
+  memberIds: string[],
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // First, verify the user is a coach or assistant coach
+    const { data: userProfile, error: profileError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single()
+
+    if (profileError) {
+      console.error('Error fetching user profile:', profileError)
+      return { success: false, error: 'Failed to verify user permissions' }
+    }
+
+    if (userProfile.role !== 'coach' && userProfile.role !== 'assistant_coach') {
+      return { success: false, error: 'Only coaches and assistant coaches can add members to chats' }
+    }
+
+    // Verify the user is a member of the chat
+    const { data: chatMember, error: memberError } = await supabase
+      .from('chat_members')
+      .select('role')
+      .eq('chat_id', chatId)
+      .eq('user_id', userId)
+      .single()
+
+    if (memberError || !chatMember) {
+      return { success: false, error: 'You are not a member of this chat' }
+    }
+
+    // Get existing members to avoid duplicates
+    const { data: existingMembers, error: existingError } = await supabase
+      .from('chat_members')
+      .select('user_id')
+      .eq('chat_id', chatId)
+
+    if (existingError) {
+      console.error('Error fetching existing members:', existingError)
+      return { success: false, error: 'Failed to check existing members' }
+    }
+
+    const existingMemberIds = existingMembers?.map(m => m.user_id) || []
+    const newMemberIds = memberIds.filter(id => !existingMemberIds.includes(id))
+
+    if (newMemberIds.length === 0) {
+      return { success: true, error: 'All selected members are already in the chat' }
+    }
+
+    // Add new members to the chat
+    const membersToAdd = newMemberIds.map(memberId => ({
+      chat_id: chatId,
+      user_id: memberId,
+      role: 'member',
+      joined_at: new Date().toISOString()
+    }))
+
+    const { error: insertError } = await supabase
+      .from('chat_members')
+      .insert(membersToAdd)
+
+    if (insertError) {
+      console.error('Error adding members to chat:', insertError)
+      return { success: false, error: `Failed to add members: ${insertError.message || 'Unknown error'}` }
+    }
+
+    console.log(`Successfully added ${newMemberIds.length} members to chat ${chatId}`)
+    return { success: true }
+
+  } catch (error) {
+    console.error('Error in addMembersToChat:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
 export async function deleteChat(
   chatId: string,
   userId: string

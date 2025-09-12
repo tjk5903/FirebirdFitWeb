@@ -30,6 +30,7 @@ import {
   Zap
 } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
+import MemberSelector from '@/components/ui/MemberSelector'
 
 const mockTeamStats: TeamStats = {
   totalAthletes: 24,
@@ -121,8 +122,6 @@ export default function CoachDashboard() {
   // Create Chat modal state
   const [newChatName, setNewChatName] = useState('')
   const [selectedMembers, setSelectedMembers] = useState<string[]>([])
-  const [teamMembers, setTeamMembers] = useState<any[]>([])
-  const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false)
   const [isCreatingChat, setIsCreatingChat] = useState(false)
 
   // Use custom hook for team messages
@@ -343,21 +342,6 @@ export default function CoachDashboard() {
     }
   }
 
-  // Load team members for chat modal
-  const loadTeamMembers = async () => {
-    if (!user?.id) return
-    
-    setIsLoadingTeamMembers(true)
-    try {
-      const members = await getTeamMembers(user.id)
-      setTeamMembers(members)
-    } catch (error) {
-      console.error('Error loading team members:', error)
-      setTeamMembers([])
-    } finally {
-      setIsLoadingTeamMembers(false)
-    }
-  }
 
   // Toggle member selection for chat
   const toggleMemberSelection = (memberId: string) => {
@@ -560,8 +544,6 @@ export default function CoachDashboard() {
                       setShowCreateEvent(true)
                     } else if (action.title === 'Create Chat') {
                       setShowCreateChat(true)
-                      // Load team members when opening chat modal
-                      loadTeamMembers()
                     }
                   }}
                 >
@@ -1016,64 +998,14 @@ export default function CoachDashboard() {
                 </div>
 
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Select Members (Optional)
-                  </label>
-                  <p className="text-xs text-gray-500 mb-3">You can add members now or later. Group chats can be created without initial members.</p>
-                  
-                  {isLoadingTeamMembers ? (
-                    <div className="text-center py-4">
-                      <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                      <p className="text-sm text-gray-600">Loading team members...</p>
-                    </div>
-                  ) : teamMembers.length === 0 ? (
-                    <div className="text-center py-4">
-                      <p className="text-sm text-gray-600">No team members found.</p>
-                      <p className="text-xs text-gray-500 mt-1">Make sure you're part of a team.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3 max-h-60 overflow-y-auto">
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-600 mb-2">Athletes</h4>
-                        <div className="space-y-2">
-                          {teamMembers.filter(member => member.type === 'athlete').map((athlete) => (
-                            <label key={athlete.id} className="flex items-center space-x-3 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={selectedMembers.includes(athlete.id)}
-                                onChange={() => toggleMemberSelection(athlete.id)}
-                                className="h-4 w-4 text-purple-500 rounded focus:ring-purple-500"
-                              />
-                              <span className="text-sm text-gray-900">{athlete.name}</span>
-                            </label>
-                          ))}
-                          {teamMembers.filter(member => member.type === 'athlete').length === 0 && (
-                            <p className="text-xs text-gray-500 italic">No athletes found</p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-600 mb-2">Staff</h4>
-                        <div className="space-y-2">
-                          {teamMembers.filter(member => member.type === 'staff').map((staff) => (
-                            <label key={staff.id} className="flex items-center space-x-3 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={selectedMembers.includes(staff.id)}
-                                onChange={() => toggleMemberSelection(staff.id)}
-                                className="h-4 w-4 text-purple-500 rounded focus:ring-purple-500"
-                              />
-                              <span className="text-sm text-gray-900">{staff.name}</span>
-                            </label>
-                          ))}
-                          {teamMembers.filter(member => member.type === 'staff').length === 0 && (
-                            <p className="text-xs text-gray-500 italic">No staff members found</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  <MemberSelector
+                    selectedMembers={selectedMembers}
+                    onMemberToggle={toggleMemberSelection}
+                    onMembersChange={setSelectedMembers}
+                    userId={user?.id || ''}
+                    title="Select Members (Optional)"
+                    description="You can add members now or later. Group chats can be created without initial members."
+                  />
                 </div>
 
                 <div className="flex items-center justify-end space-x-3">
