@@ -321,15 +321,21 @@ export default function MessagesPage() {
       const result = await deleteChat(chatToDelete.id, user.id)
       
       if (result.success) {
-        // Remove chat from local state
-        updateChats(chats.filter(chat => chat.id !== chatToDelete.id))
-        
-        // If this was the selected chat, clear selection
+        // Clear selected chat if it was the deleted one
         if (selectedChatId === chatToDelete.id) {
           setSelectedChatId(null)
           setMessages([])
           setChatMembers([])
         }
+        
+        // Clean up real-time subscription for the deleted chat
+        if (subscriptionRef.current) {
+          unsubscribeFromMessages(subscriptionRef.current)
+          subscriptionRef.current = null
+        }
+        
+        // Refresh chats from AppState to ensure consistency
+        await refreshChats()
         
         // Close modal and reset
         setShowDeleteModal(false)
