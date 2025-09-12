@@ -78,7 +78,7 @@ export default function MemberSelector({
       onMembersChange(newSelection)
     } else {
       // Select all members of this role
-      const newSelection = [...new Set([...selectedMembers, ...membersToToggle.map(m => m.id)])]
+      const newSelection = Array.from(new Set([...selectedMembers, ...membersToToggle.map(m => m.id)]))
       onMembersChange(newSelection)
     }
   }
