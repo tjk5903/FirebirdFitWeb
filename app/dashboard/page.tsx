@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { isCoachOrAssistant } from '@/lib/utils'
 import CoachDashboard from '@/components/dashboard/CoachDashboard'
 import AthleteDashboard from '@/components/dashboard/AthleteDashboard'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
@@ -29,7 +30,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-soft-white">
-      {user.role === 'coach' ? <CoachDashboard /> : <AthleteDashboard />}
+      {isCoachOrAssistant(user.role) ? <CoachDashboard /> : <AthleteDashboard />}
     </div>
   )
 } 

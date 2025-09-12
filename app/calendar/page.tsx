@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { getTeamEvents, createEvent, updateEvent, deleteEvent } from '@/lib/utils'
+import { getTeamEvents, createEvent, updateEvent, deleteEvent, isCoachOrAssistant } from '@/lib/utils'
 import { Calendar, Plus, Edit, Trash2, Clock, MapPin, Users, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 import MainNavigation from '@/components/navigation/MainNavigation'
 
@@ -48,7 +48,7 @@ export default function CalendarPage() {
     attendees: ''
   })
 
-  const isCoach = user?.role === 'coach'
+  const isCoach = isCoachOrAssistant(user?.role)
 
   // Load events when user loads
   useEffect(() => {

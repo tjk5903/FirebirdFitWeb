@@ -8,6 +8,35 @@ export function cn(...inputs: ClassValue[]) {
 
 export type UserRole = 'coach' | 'athlete' | 'assistant_coach'
 
+// Permission helper functions
+export const canCreateTeams = (userRole: UserRole): boolean => {
+  return userRole === 'coach'
+}
+
+export const canCreateGroupChats = (userRole: UserRole): boolean => {
+  return userRole === 'coach' || userRole === 'assistant_coach'
+}
+
+export const canAddEvents = (userRole: UserRole): boolean => {
+  return userRole === 'coach' || userRole === 'assistant_coach'
+}
+
+export const canCreateWorkouts = (userRole: UserRole): boolean => {
+  return userRole === 'coach' || userRole === 'assistant_coach'
+}
+
+export const canManageTeam = (userRole: UserRole): boolean => {
+  return userRole === 'coach'
+}
+
+export const canJoinTeams = (userRole: UserRole): boolean => {
+  return userRole === 'athlete' || userRole === 'assistant_coach'
+}
+
+export const isCoachOrAssistant = (userRole: UserRole): boolean => {
+  return userRole === 'coach' || userRole === 'assistant_coach'
+}
+
 export interface User {
   id: string
   name: string
@@ -962,6 +991,84 @@ export async function createChat(
   }
 }
 
+// Delete a chat (only coaches and assistant coaches can delete chats)
+export async function deleteChat(
+  chatId: string,
+  userId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // First, verify the user is a coach or assistant coach
+    const { data: userProfile, error: profileError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single()
+
+    if (profileError) {
+      console.error('Error fetching user profile:', profileError)
+      return { success: false, error: 'Failed to verify user permissions' }
+    }
+
+    if (userProfile.role !== 'coach' && userProfile.role !== 'assistant_coach') {
+      return { success: false, error: 'Only coaches and assistant coaches can delete chats' }
+    }
+
+    // Verify the user is a member of the chat (and preferably an admin)
+    const { data: chatMember, error: memberError } = await supabase
+      .from('chat_members')
+      .select('role')
+      .eq('chat_id', chatId)
+      .eq('user_id', userId)
+      .single()
+
+    if (memberError || !chatMember) {
+      return { success: false, error: 'You are not a member of this chat' }
+    }
+
+    // Delete all messages in the chat first
+    const { error: messagesError } = await supabase
+      .from('messages')
+      .delete()
+      .eq('chat_id', chatId)
+
+    if (messagesError) {
+      console.error('Error deleting chat messages:', messagesError)
+      console.error('Messages error details:', JSON.stringify(messagesError, null, 2))
+      return { success: false, error: `Failed to delete chat messages: ${messagesError.message || 'Unknown error'}` }
+    }
+
+    // Delete all chat members
+    const { error: membersError } = await supabase
+      .from('chat_members')
+      .delete()
+      .eq('chat_id', chatId)
+
+    if (membersError) {
+      console.error('Error deleting chat members:', membersError)
+      console.error('Members error details:', JSON.stringify(membersError, null, 2))
+      return { success: false, error: `Failed to delete chat members: ${membersError.message || 'Unknown error'}` }
+    }
+
+    // Finally, delete the chat itself
+    const { error: chatError } = await supabase
+      .from('chats')
+      .delete()
+      .eq('id', chatId)
+
+    if (chatError) {
+      console.error('Error deleting chat:', chatError)
+      console.error('Chat error details:', JSON.stringify(chatError, null, 2))
+      return { success: false, error: `Failed to delete chat: ${chatError.message || 'Unknown error'}` }
+    }
+
+    console.log('Chat deleted successfully:', chatId)
+    return { success: true }
+
+  } catch (error) {
+    console.error('Error in deleteChat:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
 
 // Create a new team and add the coach as a member
 export async function createTeam(coachId: string, coachName: string): Promise<{ teamId: string, joinCode: string }> {

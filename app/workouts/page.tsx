@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { getUserWorkouts, createWorkout, formatDate, getTeamMembers, getWorkoutExercises, deleteWorkout as deleteWorkoutFromDB } from '@/lib/utils'
+import { getUserWorkouts, createWorkout, formatDate, getTeamMembers, getWorkoutExercises, deleteWorkout as deleteWorkoutFromDB, isCoachOrAssistant } from '@/lib/utils'
 import { 
   Plus, 
   Search, 
@@ -240,7 +240,7 @@ export default function WorkoutsPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
 
-  const isCoach = user?.role === 'coach'
+  const isCoach = user?.role ? isCoachOrAssistant(user.role) : false
 
   // Create workout form state
   const [workoutName, setWorkoutName] = useState('')

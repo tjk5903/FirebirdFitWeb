@@ -16,11 +16,13 @@ import {
   canManageChatMembers,
   getAvailableUsersForChat,
   createChat,
+  deleteChat,
   generateAvatar,
   formatTimeAgo,
   ChatData,
   MessageData,
-  ChatMemberDisplay
+  ChatMemberDisplay,
+  isCoachOrAssistant
 } from '@/lib/utils'
 import { Search, Send, Plus, X, Users, MoreVertical, ArrowLeft, MessageCircle, Hash, Trash2 } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
@@ -55,6 +57,8 @@ export default function MessagesPage() {
   const [showAddMembersModal, setShowAddMembersModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [chatToDelete, setChatToDelete] = useState<ChatData | null>(null)
+  const [isDeletingChat, setIsDeletingChat] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   
   // Available users for adding to chat
@@ -325,6 +329,54 @@ export default function MessagesPage() {
     }
   }
 
+  // Delete chat
+  const handleDeleteChat = async () => {
+    if (!chatToDelete || !user?.id) {
+      return
+    }
+
+    setIsDeletingChat(true)
+
+    try {
+      const result = await deleteChat(chatToDelete.id, user.id)
+      
+      if (result.success) {
+        // Remove chat from local state
+        setChats(prev => prev.filter(chat => chat.id !== chatToDelete.id))
+        
+        // If this was the selected chat, clear selection
+        if (selectedChatId === chatToDelete.id) {
+          setSelectedChatId(null)
+          setMessages([])
+          setChatMembers([])
+        }
+        
+        // Close modal and reset
+        setShowDeleteModal(false)
+        setChatToDelete(null)
+        
+        setSuccessMessage('Chat deleted successfully!')
+        setShowSuccessModal(true)
+      } else {
+        setSuccessMessage(result.error || 'Failed to delete chat')
+        setShowSuccessModal(true)
+      }
+    } catch (error) {
+      console.error('Failed to delete chat:', error)
+      setSuccessMessage('Failed to delete chat. Please try again.')
+      setShowSuccessModal(true)
+    } finally {
+      setIsDeletingChat(false)
+    }
+  }
+
+  // Open delete confirmation modal
+  const handleOpenDeleteModal = (chat: ChatData) => {
+    setChatToDelete(chat)
+    setShowDeleteModal(true)
+    setShowOptionsDropdown(false)
+  }
+
   const toggleMemberSelection = (memberId: string) => {
     setSelectedMembers(prev => 
       prev.includes(memberId) 
@@ -375,7 +427,7 @@ export default function MessagesPage() {
             </div>
           </div>
 
-          {user?.role === 'coach' && (
+          {isCoachOrAssistant(user?.role) && (
             <button
               onClick={() => setShowNewChat(true)}
               className="flex items-center space-x-2 bg-blue-500 hover:bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-2xl transition-colors text-sm sm:text-base"
@@ -458,6 +510,18 @@ export default function MessagesPage() {
                               <div className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded-full min-w-[20px] text-center">
                                 New
                               </div>
+                            )}
+                            {isCoachOrAssistant(user?.role) && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleOpenDeleteModal(chat)
+                                }}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 hover:bg-red-100 rounded-full"
+                                title="Delete chat"
+                              >
+                                <Trash2 className="h-4 w-4 text-red-500 hover:text-red-700" />
+                              </button>
                             )}
                             <span className="text-xs text-gray-500 font-medium">
                               {chat.lastMessageTime ? formatTimeAgo(chat.lastMessageTime) : 'No messages'}
@@ -691,7 +755,7 @@ export default function MessagesPage() {
                     </div>
                     <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2 sm:mb-3">Select a conversation</h3>
                     <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">Choose a chat from the list to start messaging with your team</p>
-                    {user?.role === 'coach' && (
+                    {isCoachOrAssistant(user?.role) && (
                       <button
                         onClick={() => setShowNewChat(true)}
                         className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-2xl hover:shadow-lg transition-all duration-300 hover:scale-105 text-sm sm:text-base"
@@ -883,6 +947,67 @@ export default function MessagesPage() {
                 className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl transition-all duration-300 transform hover:scale-105"
               >
                 OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Chat Confirmation Modal */}
+      {showDeleteModal && chatToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md animate-scale-in">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="h-10 w-10 bg-red-100 rounded-full flex items-center justify-center">
+                  <Trash2 className="h-5 w-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900">Delete Chat</h3>
+                  <p className="text-sm text-gray-500">This action cannot be undone</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              <p className="text-gray-600 mb-4">
+                Are you sure you want to delete the chat <span className="font-semibold">"{chatToDelete.name}"</span>?
+              </p>
+              <p className="text-sm text-red-600 bg-red-50 p-3 rounded-xl">
+                <strong>Warning:</strong> This will permanently delete the chat and all messages. All members will lose access to this conversation.
+              </p>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-gray-200 flex items-center justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false)
+                  setChatToDelete(null)
+                }}
+                disabled={isDeletingChat}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteChat}
+                disabled={isDeletingChat}
+                className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                {isDeletingChat ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-4 w-4" />
+                    <span>Delete Chat</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

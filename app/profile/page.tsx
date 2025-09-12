@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { createTeam, joinTeam, getUserTeams, updateTeamName, updateUserProfile, UserRole } from '@/lib/utils'
+import { createTeam, joinTeam, getUserTeams, updateTeamName, updateUserProfile, UserRole, canCreateTeams, canJoinTeams } from '@/lib/utils'
 import { 
   ArrowLeft, 
   User, 
@@ -455,7 +455,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Create Team Section - Only for Coaches */}
-            {user?.role === 'coach' && (
+            {canCreateTeams(user?.role) && (
               <div className="card-elevated hover-lift mt-6">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg sm:text-xl font-bold text-gray-900">Team Management</h3>
@@ -540,8 +540,8 @@ export default function ProfilePage() {
               </div>
             )}
 
-                         {/* Join Team Section - Only for Athletes */}
-             {user?.role === 'athlete' && (
+                         {/* Join Team Section - For Athletes and Assistant Coaches */}
+             {canJoinTeams(user?.role) && (
                <div className="card-elevated hover-lift mt-6">
                  <div className="flex items-center justify-between mb-6">
                    <h3 className="text-lg sm:text-xl font-bold text-gray-900">Join Team</h3>
@@ -550,6 +550,11 @@ export default function ProfilePage() {
                  <div className="space-y-4">
                    <p className="text-gray-600">
                      Enter the 6-digit join code provided by your coach to join their team.
+                     {user?.role === 'assistant_coach' && (
+                       <span className="block mt-1 text-sm text-blue-600">
+                         As an Assistant Coach, you'll be able to create workouts, events, and group chats once you join a team.
+                       </span>
+                     )}
                    </p>
                    
                    {joinTeamError && (
@@ -609,7 +614,7 @@ export default function ProfilePage() {
              <div className="card-elevated hover-lift mt-6">
                <div className="flex items-center justify-between mb-6">
                  <h3 className="text-lg sm:text-xl font-bold text-gray-900">My Teams</h3>
-                 {user?.role === 'coach' && userTeams.length > 0 && (
+                 {canCreateTeams(user?.role) && userTeams.length > 0 && (
                    <div className="flex items-center space-x-2">
                      {!isEditingTeams ? (
                        <button
@@ -661,7 +666,7 @@ export default function ProfilePage() {
                  </div>
                )}
 
-               {user?.role === 'coach' && isEditingTeams && (
+               {canCreateTeams(user?.role) && isEditingTeams && (
                  <div className="mb-4 p-3 bg-blue-50 border-2 border-blue-200 rounded-xl">
                    <p className="text-sm text-blue-700">
                      <strong>Note:</strong> Changing the team name won't affect your join code.
@@ -684,7 +689,7 @@ export default function ProfilePage() {
                              <Users className="h-6 w-6 text-white" />
                            </div>
                            <div className="flex-1">
-                             {isEditingTeams && user?.role === 'coach' ? (
+                             {isEditingTeams && canCreateTeams(user?.role) ? (
                                <div className="space-y-2">
                                  <input
                                    type="text"
@@ -719,7 +724,7 @@ export default function ProfilePage() {
                      </div>
                      <h4 className="text-lg font-semibold text-gray-900 mb-2">No Teams Yet</h4>
                      <p className="text-gray-600">
-                       {user?.role === 'coach' 
+                       {canCreateTeams(user?.role) 
                          ? "Create your first team to get started!" 
                          : "You are not part of any teams yet."
                        }
