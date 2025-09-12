@@ -2,6 +2,7 @@
 class LoadingManager {
   private loadingStates = new Set<string>()
   private timeouts = new Map<string, NodeJS.Timeout>()
+  private navigationLoading = false
 
   // Start loading with automatic timeout
   startLoading(key: string, timeoutMs: number = 10000) {
@@ -38,6 +39,15 @@ class LoadingManager {
     return this.loadingStates.has(key)
   }
 
+  // Navigation loading state
+  setNavigationLoading(loading: boolean) {
+    this.navigationLoading = loading
+  }
+
+  isNavigationLoading(): boolean {
+    return this.navigationLoading
+  }
+
   // Get all loading states
   getAllLoadingStates(): string[] {
     return Array.from(this.loadingStates)
@@ -48,6 +58,7 @@ class LoadingManager {
     this.loadingStates.clear()
     this.timeouts.forEach(timeout => clearTimeout(timeout))
     this.timeouts.clear()
+    this.navigationLoading = false
   }
 }
 

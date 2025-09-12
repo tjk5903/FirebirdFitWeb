@@ -102,7 +102,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const refreshWorkouts = useCallback(async (showLoading = true) => {
     if (!user?.id) return
     
-    // Don't show loading if we already have data
+    // Don't show loading if we already have data or if it's a background refresh
     if (showLoading && workouts.length === 0) {
       setIsLoadingWorkouts(true)
     }

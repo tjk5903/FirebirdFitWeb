@@ -364,8 +364,8 @@ export default function MessagesPage() {
   }
 
 
-  // Show loading state while auth is loading
-  if (isLoading) {
+  // Only show loading state if user is not yet determined (not if already authenticated)
+  if (isLoading && !user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
         <div className="text-center">
