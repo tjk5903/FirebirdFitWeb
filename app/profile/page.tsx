@@ -224,7 +224,7 @@ export default function ProfilePage() {
 
   const handleJoinTeam = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user) return
+    if (!user || isJoiningTeam) return // Prevent multiple submissions
 
     setIsJoiningTeam(true)
     setJoinTeamError('')
@@ -239,6 +239,7 @@ export default function ProfilePage() {
       const teams = await getUserTeams(user.id)
       setUserTeams(teams)
     } catch (err: any) {
+      console.error('Join team error:', err)
       setJoinTeamError(err.message || 'Failed to join team. Please try again.')
     } finally {
       setIsJoiningTeam(false)

@@ -1162,6 +1162,17 @@ export async function joinTeam(userId: string, joinCode: string): Promise<{ team
       throw new Error('You are already part of a team')
     }
 
+    // Get user's role to assign correct team member role
+    const { data: userProfile, error: userError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single()
+
+    if (userError) {
+      throw new Error('Failed to verify user profile')
+    }
+
     // Look up the team by join code
     const { data: team, error: teamError } = await supabase
       .from('teams')
@@ -1177,13 +1188,21 @@ export async function joinTeam(userId: string, joinCode: string): Promise<{ team
       throw teamError
     }
 
+    // Determine the appropriate team member role based on user's role
+    let teamMemberRole = 'athlete' // Default role
+    if (userProfile.role === 'assistant_coach') {
+      teamMemberRole = 'assistant_coach'
+    } else if (userProfile.role === 'coach') {
+      teamMemberRole = 'coach'
+    }
+
     // Add user as team member
     const { error: insertError } = await supabase
       .from('team_members')
       .insert({
         team_id: team.id,
         user_id: userId,
-        role: 'athlete',
+        role: teamMemberRole,
         joined_at: new Date().toISOString()
       })
 
