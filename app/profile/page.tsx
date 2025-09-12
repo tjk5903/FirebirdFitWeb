@@ -39,6 +39,7 @@ export default function ProfilePage() {
   const [joinTeamSuccess, setJoinTeamSuccess] = useState('')
   const [userTeams, setUserTeams] = useState<Array<{ id: string, name: string, joinCode: string, role: string }>>([])
   const [isLoadingTeams, setIsLoadingTeams] = useState(false)
+  const [teamsError, setTeamsError] = useState('')
   const [isEditingTeams, setIsEditingTeams] = useState(false)
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null)
   const [teamNameError, setTeamNameError] = useState('')
@@ -69,21 +70,33 @@ export default function ProfilePage() {
   // Load user's teams when user loads
   useEffect(() => {
     const loadUserTeams = async () => {
-      if (!user) return
+      if (!user || userTeams.length > 0) return // Don't reload if already loaded
       
       setIsLoadingTeams(true)
+      
+      // Add timeout to prevent infinite loading
+      const timeout = setTimeout(() => {
+        console.warn('Teams loading timeout - stopping loading state')
+        setIsLoadingTeams(false)
+      }, 5000) // 5 second timeout
+      
       try {
         const teams = await getUserTeams(user.id)
+        clearTimeout(timeout)
         setUserTeams(teams)
+        setTeamsError('') // Clear any previous errors
       } catch (error) {
         console.error('Error loading user teams:', error)
+        clearTimeout(timeout)
+        setUserTeams([]) // Set empty array on error
+        setTeamsError('Failed to load teams. Please try again.')
       } finally {
         setIsLoadingTeams(false)
       }
     }
 
     loadUserTeams()
-  }, [user])
+  }, [user?.id]) // Only depend on user ID, not the whole user object
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoaded(true), 100)
@@ -92,9 +105,29 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     try {
+      // Clear teams data before logout
+      setUserTeams([])
+      setIsLoadingTeams(false)
       await logout()
     } catch (error) {
       console.error('Error during logout:', error)
+    }
+  }
+
+  const refreshTeams = async () => {
+    if (!user) return
+    
+    setIsLoadingTeams(true)
+    setTeamsError('')
+    try {
+      const teams = await getUserTeams(user.id)
+      setUserTeams(teams)
+    } catch (error) {
+      console.error('Error refreshing teams:', error)
+      setUserTeams([])
+      setTeamsError('Failed to refresh teams. Please try again.')
+    } finally {
+      setIsLoadingTeams(false)
     }
   }
 
@@ -679,6 +712,20 @@ export default function ProfilePage() {
                    <div className="flex items-center justify-center py-8">
                      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-3"></div>
                      <span className="text-gray-600">Loading teams...</span>
+                   </div>
+                 ) : teamsError ? (
+                   <div className="flex flex-col items-center justify-center py-8">
+                     <div className="h-16 w-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                       <AlertCircle className="h-8 w-8 text-red-500" />
+                     </div>
+                     <h4 className="text-lg font-semibold text-gray-900 mb-2">Error Loading Teams</h4>
+                     <p className="text-gray-600 mb-4 text-center">{teamsError}</p>
+                     <button
+                       onClick={refreshTeams}
+                       className="flex items-center space-x-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl transition-all duration-200"
+                     >
+                       <span>Try Again</span>
+                     </button>
                    </div>
                  ) : userTeams.length > 0 ? (
                    <div className="space-y-3">
