@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { useAppState } from '@/contexts/AppStateContext'
 import { 
-  getUserChats, 
   getChatMessages, 
   sendChatMessage, 
   subscribeToMessages, 
@@ -27,9 +27,17 @@ import {
 import { Search, Send, Plus, X, Users, MoreVertical, ArrowLeft, MessageCircle, Hash, Trash2 } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
 import MainNavigation from '@/components/navigation/MainNavigation'
+import { ChatItemSkeleton } from '@/components/ui/SkeletonLoader'
 
 export default function MessagesPage() {
   const { user, isLoading } = useAuth()
+  const { 
+    chats, 
+    isLoadingChats, 
+    chatsError,
+    refreshChats,
+    updateChats
+  } = useAppState()
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
@@ -39,13 +47,11 @@ export default function MessagesPage() {
   const [selectedMembers, setSelectedMembers] = useState<string[]>([])
   const [isLoaded, setIsLoaded] = useState(false)
   
-  // Chat data
-  const [chats, setChats] = useState<ChatData[]>([])
+  // Local chat data
   const [messages, setMessages] = useState<MessageData[]>([])
   const [chatMembers, setChatMembers] = useState<ChatMemberDisplay[]>([])
   
   // Loading states
-  const [isLoadingChats, setIsLoadingChats] = useState(false)
   const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const [isSendingMessage, setIsSendingMessage] = useState(false)
   const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false)
@@ -70,25 +76,7 @@ export default function MessagesPage() {
   // Real-time subscription
   const subscriptionRef = useRef<any>(null)
 
-  // Load user's chats on component mount
-  useEffect(() => {
-    const loadChats = async () => {
-      if (!user?.id) return
-      
-      setIsLoadingChats(true)
-      try {
-        const userChats = await getUserChats(user.id)
-        setChats(userChats)
-      } catch (error) {
-        console.error('Failed to load chats:', error)
-        setChats([])
-      } finally {
-        setIsLoadingChats(false)
-      }
-    }
-
-    loadChats()
-  }, [user?.id])
+  // Chats are now loaded by AppState context
 
   // Set up real-time subscription when chats are loaded
   useEffect(() => {
@@ -109,7 +97,7 @@ export default function MessagesPage() {
         setMessages(prev => addMessageToList(prev, newMessage, selectedChatId || ''))
 
         // Update chat list with new last message
-        setChats(prev => updateChatListWithNewMessage(prev, newMessage.chat_id, newMessage))
+        updateChats(updateChatListWithNewMessage(chats, newMessage.chat_id, newMessage))
       }
     )
 
@@ -228,7 +216,7 @@ export default function MessagesPage() {
       setMessages(prev => addMessageToList(prev, sentMessage, selectedChatId))
 
       // Update chat list with new last message
-      setChats(prev => updateChatListWithNewMessage(prev, selectedChatId, sentMessage))
+      updateChats(updateChatListWithNewMessage(chats, selectedChatId, sentMessage))
 
       // Clear input field
       setNewMessage('')
@@ -254,9 +242,8 @@ export default function MessagesPage() {
       const result = await createChat(user.id, newChatName.trim(), selectedMembers)
       
       if (result.success) {
-        // Refresh chats after creation
-        const userChats = await getUserChats(user.id)
-        setChats(userChats)
+        // Refresh chats after creation using AppState
+        await refreshChats()
         
         // Close modal and reset form
         setShowNewChat(false)
@@ -342,7 +329,7 @@ export default function MessagesPage() {
       
       if (result.success) {
         // Remove chat from local state
-        setChats(prev => prev.filter(chat => chat.id !== chatToDelete.id))
+        updateChats(chats.filter(chat => chat.id !== chatToDelete.id))
         
         // If this was the selected chat, clear selection
         if (selectedChatId === chatToDelete.id) {
@@ -467,10 +454,25 @@ export default function MessagesPage() {
 
               {/* Chat List */}
               <div className="flex-1 overflow-y-auto bg-gradient-to-b from-gray-50/50 to-white">
-                {isLoadingChats ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-3"></div>
-                    <span className="text-gray-600">Loading chats...</span>
+                {isLoadingChats && chats.length === 0 ? (
+                  <div className="space-y-0">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <ChatItemSkeleton key={i} />
+                    ))}
+                  </div>
+                ) : chatsError ? (
+                  <div className="text-center py-8">
+                    <div className="text-red-500 mb-4">
+                      <MessageCircle className="h-12 w-12 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold">Error Loading Chats</h3>
+                      <p className="text-sm text-gray-600">{chatsError}</p>
+                      <button 
+                        onClick={refreshChats}
+                        className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                      >
+                        Try Again
+                      </button>
+                    </div>
                   </div>
                 ) : filteredChats.length > 0 ? (
                   filteredChats.map((chat) => (

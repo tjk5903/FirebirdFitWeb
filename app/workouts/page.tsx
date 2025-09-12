@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { getUserWorkouts, createWorkout, formatDate, getTeamMembers, getWorkoutExercises, deleteWorkout as deleteWorkoutFromDB, isCoachOrAssistant } from '@/lib/utils'
+import { useAppState } from '@/contexts/AppStateContext'
+import { createWorkout, formatDate, getWorkoutExercises, deleteWorkout as deleteWorkoutFromDB, isCoachOrAssistant } from '@/lib/utils'
 import { 
   Plus, 
   Search, 
@@ -26,6 +27,7 @@ import {
 } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
 import MainNavigation from '@/components/navigation/MainNavigation'
+import { WorkoutCardSkeleton, DashboardStatsSkeleton } from '@/components/ui/SkeletonLoader'
 
 // Mock workout data removed - now using only real data from database
 
@@ -214,8 +216,18 @@ function WorkoutExercisePreview({ workoutId }: { workoutId: string }) {
 
 export default function WorkoutsPage() {
   const { user, logout } = useAuth()
+  const { 
+    workouts, 
+    teamMembers, 
+    isLoadingWorkouts, 
+    isLoadingTeamMembers, 
+    workoutsError,
+    teamMembersError,
+    refreshWorkouts,
+    refreshTeamMembers,
+    updateWorkouts
+  } = useAppState()
   const router = useRouter()
-  const [workouts, setWorkouts] = useState<any[]>([])
   const [filteredWorkouts, setFilteredWorkouts] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedType, setSelectedType] = useState('all')
@@ -223,16 +235,8 @@ export default function WorkoutsPage() {
   const [selectedWorkout, setSelectedWorkout] = useState<any>(null)
   const [showWorkoutDetails, setShowWorkoutDetails] = useState(false)
   const [isLoaded, setIsLoaded] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
   const [isCreatingWorkout, setIsCreatingWorkout] = useState(false)
-  const [teamMembers, setTeamMembers] = useState<Array<{
-    id: string
-    name: string
-    email: string
-    role: string
-  }>>([])
   const [selectedMembers, setSelectedMembers] = useState<string[]>([])
-  const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false)
   
   // Custom modal states
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -252,52 +256,11 @@ export default function WorkoutsPage() {
   const [exerciseReps, setExerciseReps] = useState('10')
   const [exerciseRest, setExerciseRest] = useState('60')
 
-  // Fetch workouts from Supabase
-  useEffect(() => {
-    const fetchWorkouts = async () => {
-      if (!user?.id) return
-      
-      try {
-        setIsLoading(true)
-        console.log('Fetching workouts for user:', user.id)
-        const fetchedWorkouts = await getUserWorkouts(user.id)
-        setWorkouts(fetchedWorkouts)
-      } catch (error) {
-        console.error('Error fetching workouts:', error)
-        // Keep empty array on error - no more fallback to mock data
-        setWorkouts([])
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchWorkouts()
-  }, [user?.id])
-
+  // Initialize loaded state
   useEffect(() => {
     const timer = setTimeout(() => setIsLoaded(true), 100)
     return () => clearTimeout(timer)
   }, [])
-
-  // Load team members for workout assignment
-  useEffect(() => {
-    const loadTeamMembers = async () => {
-      if (!user?.id || !isCoach) return
-      
-      setIsLoadingTeamMembers(true)
-      try {
-        const members = await getTeamMembers(user.id)
-        setTeamMembers(members)
-      } catch (error) {
-        console.error('Error loading team members:', error)
-        setTeamMembers([])
-      } finally {
-        setIsLoadingTeamMembers(false)
-      }
-    }
-
-    loadTeamMembers()
-  }, [user?.id, isCoach])
 
   useEffect(() => {
     filterWorkouts()
@@ -372,9 +335,8 @@ export default function WorkoutsPage() {
       
       if (result.success) {
         console.log('Workout created successfully, refreshing workout list...')
-        // Refresh the workout list
-        const fetchedWorkouts = await getUserWorkouts(user.id)
-        setWorkouts(fetchedWorkouts)
+        // Refresh the workout list using AppState
+        await refreshWorkouts()
         
         // Reset form and close modal
         setWorkoutName('')
@@ -444,7 +406,7 @@ export default function WorkoutsPage() {
       
       if (result.success) {
         // Remove from local state only if database deletion succeeded
-        setWorkouts(workouts.filter(workout => workout.id !== workoutToDelete.id))
+        updateWorkouts(workouts.filter(workout => workout.id !== workoutToDelete.id))
         console.log('Workout deleted successfully')
         setSuccessMessage('Workout deleted successfully!')
         setShowSuccessModal(true)
@@ -546,26 +508,25 @@ export default function WorkoutsPage() {
         </div>
 
         {/* Workouts Grid */}
-        {isLoading ? (
+        {isLoadingWorkouts && workouts.length === 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden animate-pulse">
-                <div className="h-1 bg-gray-200"></div>
-                <div className="p-4 sm:p-6">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="h-10 w-10 bg-gray-200 rounded-xl"></div>
-                    <div className="flex-1">
-                      <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                      <div className="h-3 bg-gray-200 rounded"></div>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="h-3 bg-gray-200 rounded"></div>
-                    <div className="h-3 bg-gray-200 rounded"></div>
-                  </div>
-                </div>
-              </div>
+              <WorkoutCardSkeleton key={i} />
             ))}
+          </div>
+        ) : workoutsError ? (
+          <div className="text-center py-12">
+            <div className="text-red-500 mb-4">
+              <Activity className="h-12 w-12 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold">Error Loading Workouts</h3>
+              <p className="text-sm text-gray-600">{workoutsError}</p>
+              <button 
+                onClick={refreshWorkouts}
+                className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -651,7 +612,7 @@ export default function WorkoutsPage() {
         )}
 
         {/* Empty State */}
-        {!isLoading && filteredWorkouts.length === 0 && (
+        {!isLoadingWorkouts && filteredWorkouts.length === 0 && (
           <div className="bg-white rounded-3xl shadow-2xl p-6 sm:p-12 border border-gray-100 text-center">
             <Dumbbell className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mx-auto mb-3 sm:mb-4" />
             <h3 className="text-lg sm:text-xl font-semibold text-gray-600 mb-2">No workouts found</h3>
