@@ -810,26 +810,38 @@ export async function createChat(
   memberIds: string[] = []
 ): Promise<{ success: boolean; chatId?: string; error?: string }> {
   try {
+    console.log('🔧 createChat: Starting with coachId:', coachId)
+    console.log('🔧 createChat: Chat name:', chatName)
+    console.log('🔧 createChat: Member IDs:', memberIds)
+    
     // Verify the user is a coach
+    console.log('🔍 createChat: Verifying user role...')
     const { data: userProfile, error: profileError } = await supabase
       .from('users')
       .select('role')
       .eq('id', coachId)
       .single()
 
+    console.log('🔍 createChat: User profile result:', { userProfile, profileError })
+
     if (profileError || userProfile?.role !== 'coach') {
+      console.log('🚨 createChat: Role verification failed')
       return { success: false, error: 'Only coaches can create chats' }
     }
 
     // Get the coach's team
+    console.log('🔍 createChat: Getting coach team...')
     const { data: userTeam, error: teamError } = await supabase
       .from('team_members')
       .select('team_id')
       .eq('user_id', coachId)
       .single()
 
+    console.log('🔍 createChat: Team lookup result:', { userTeam, teamError })
+
     if (teamError) {
-      return { success: false, error: 'Unable to verify team membership' }
+      console.log('🚨 createChat: Team verification failed')
+      return { success: false, error: `Unable to verify team membership: ${teamError.message}` }
     }
 
     // If members are provided, verify they're all part of the same team
@@ -851,7 +863,7 @@ export async function createChat(
     }
 
     // Create the chat - no type needed, just a simple chat
-    console.log('Creating chat with data:', {
+    console.log('🔧 createChat: Creating chat with data:', {
       name: chatName.trim(),
       team_id: userTeam.team_id,
       owner_id: coachId
@@ -867,13 +879,15 @@ export async function createChat(
       .select('id')
       .single()
 
+    console.log('🔧 createChat: Chat creation result:', { newChat, chatError })
+
     if (chatError) {
-      console.error('Error creating chat:', chatError)
-      console.error('Chat error details:', JSON.stringify(chatError, null, 2))
+      console.error('🚨 createChat: Error creating chat:', chatError)
+      console.error('🚨 createChat: Chat error details:', JSON.stringify(chatError, null, 2))
       return { success: false, error: `Failed to create chat: ${chatError.message || 'Unknown error'}` }
     }
 
-    console.log('Chat created successfully:', newChat)
+    console.log('✅ createChat: Chat created successfully:', newChat)
 
     // Add the coach as an admin member
     console.log('Adding coach to chat:', { chatId: newChat.id, coachId, role: 'admin' })
@@ -1414,6 +1428,9 @@ export async function createEvent(
   }
 ): Promise<{ success: boolean; eventId?: string; error?: string }> {
   try {
+    console.log('🔧 createEvent: Starting with userId:', userId)
+    console.log('🔧 createEvent: Event data:', eventData)
+    
     // First, get the user's team
     const { data: userTeam, error: teamError } = await supabase
       .from('team_members')
@@ -1421,40 +1438,52 @@ export async function createEvent(
       .eq('user_id', userId)
       .single()
 
+    console.log('🔧 createEvent: Team lookup result:', { userTeam, teamError })
+
     if (teamError) {
       console.error('Error fetching user team:', teamError)
-      return { success: false, error: 'Unable to verify team membership' }
+      return { success: false, error: `Unable to verify team membership: ${teamError.message}` }
     }
 
     if (!userTeam) {
+      console.log('🔧 createEvent: No team found for user')
       return { success: false, error: 'User is not part of any team' }
     }
 
+    console.log('🔧 createEvent: User team found:', userTeam.team_id)
+
     // Insert the new event
+    const insertData = {
+      team_id: userTeam.team_id,
+      title: eventData.title,
+      description: eventData.description || null,
+      event_type: eventData.event_type,
+      start_time: eventData.start_time,
+      end_time: eventData.end_time,
+      location: eventData.location || null,
+      created_at: new Date().toISOString()
+    }
+
+    console.log('🔧 createEvent: Inserting data:', insertData)
+
     const { data: newEvent, error: insertError } = await supabase
       .from('events')
-      .insert({
-        team_id: userTeam.team_id,
-        title: eventData.title,
-        description: eventData.description || null,
-        event_type: eventData.event_type,
-        start_time: eventData.start_time,
-        end_time: eventData.end_time,
-        location: eventData.location || null,
-        created_at: new Date().toISOString()
-      })
+      .insert(insertData)
       .select('id')
       .single()
 
+    console.log('🔧 createEvent: Insert result:', { newEvent, insertError })
+
     if (insertError) {
       console.error('Error inserting event:', insertError)
-      return { success: false, error: 'Failed to create event' }
+      return { success: false, error: `Failed to create event: ${insertError.message}` }
     }
 
+    console.log('🔧 createEvent: Success! Event ID:', newEvent.id)
     return { success: true, eventId: newEvent.id }
   } catch (error) {
     console.error('Error in createEvent:', error)
-    return { success: false, error: 'An unexpected error occurred' }
+    return { success: false, error: `An unexpected error occurred: ${error}` }
   }
 }
 
@@ -1517,23 +1546,26 @@ export async function deleteEvent(eventId: string): Promise<{ success: boolean; 
 
 export async function deleteWorkout(workoutId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    console.log('Attempting to delete workout:', workoutId)
+    console.log('🔧 deleteWorkout: Starting deletion for ID:', workoutId)
     
     // Delete the workout (exercises are stored in the same row, so they'll be deleted automatically)
-    const { error: workoutDeleteError } = await supabase
+    console.log('🔧 deleteWorkout: Calling Supabase delete...')
+    const { error: workoutDeleteError, data } = await supabase
       .from('workouts')
       .delete()
       .eq('id', workoutId)
 
+    console.log('🔧 deleteWorkout: Supabase response:', { data, workoutDeleteError })
+
     if (workoutDeleteError) {
-      console.error('Error deleting workout:', workoutDeleteError)
+      console.error('🚨 deleteWorkout: Error deleting workout:', workoutDeleteError)
       return { success: false, error: `Failed to delete workout: ${workoutDeleteError.message}` }
     }
 
-    console.log('Successfully deleted workout')
+    console.log('✅ deleteWorkout: Successfully deleted workout')
     return { success: true }
   } catch (error) {
-    console.error('Error in deleteWorkout:', error)
+    console.error('💥 deleteWorkout: Error in deleteWorkout:', error)
     return { success: false, error: 'An unexpected error occurred' }
   }
 }
@@ -1663,39 +1695,48 @@ export async function createWorkout(
   }
 ): Promise<{ success: boolean; workoutId?: string; error?: string }> {
   try {
-    console.log('Creating workout for user:', userId)
-    console.log('Workout data:', workoutData)
+    console.log('🔧 createWorkout: Starting with userId:', userId)
+    console.log('🔧 createWorkout: Workout data:', workoutData)
     
     // Get user's teams to get a team_id
+    console.log('🔍 createWorkout: Getting user teams...')
     const userTeams = await getUserTeams(userId)
+    console.log('🔍 createWorkout: User teams result:', userTeams)
+    
     if (userTeams.length === 0) {
-      console.error('User has no teams')
+      console.error('🚨 createWorkout: User has no teams')
       return { success: false, error: 'User must be part of a team to create workouts' }
     }
     
     const teamId = userTeams[0].id // Use the first team
-    console.log('Using team ID:', teamId)
+    console.log('✅ createWorkout: Using team ID:', teamId)
     
     // Create the workout with exercises
+    const insertData = {
+      team_id: teamId,
+      title: workoutData.title,
+      description: workoutData.description || '',
+      assigned_to: workoutData.assigned_to && workoutData.assigned_to.length > 0 ? workoutData.assigned_to[0] : null, // For now, only assign to first selected member
+      date_assigned: new Date().toISOString(),
+      exercises: workoutData.exercises || null
+    }
+    
+    console.log('🔧 createWorkout: Inserting workout data:', insertData)
+    
     const { data: workout, error: workoutError } = await supabase
       .from('workouts')
-      .insert({
-        team_id: teamId,
-        title: workoutData.title,
-        description: workoutData.description || '',
-        assigned_to: workoutData.assigned_to && workoutData.assigned_to.length > 0 ? workoutData.assigned_to[0] : null, // For now, only assign to first selected member
-        date_assigned: new Date().toISOString(),
-        exercises: workoutData.exercises || null
-      })
+      .insert(insertData)
       .select()
       .single()
     
+    console.log('🔧 createWorkout: Insert result:', { workout, workoutError })
+    
     if (workoutError) {
-      console.error('Error creating workout:', workoutError)
+      console.error('🚨 createWorkout: Error creating workout:', workoutError)
       return { success: false, error: workoutError.message }
     }
     
-    console.log('Workout created successfully with exercises:', workout)
+    console.log('✅ createWorkout: Workout created successfully:', workout)
     
     return { success: true, workoutId: workout.id }
   } catch (error) {

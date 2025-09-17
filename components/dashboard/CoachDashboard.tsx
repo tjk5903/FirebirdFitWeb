@@ -950,8 +950,13 @@ export default function CoachDashboard() {
                     Cancel
                   </button>
                   <button
-                    onClick={handleCreateEvent}
-                    disabled={isCreatingEvent}
+                    type="button"
+                    disabled={!eventForm.title.trim() || !eventForm.date || !eventForm.time || isCreatingEvent}
+                    onClick={() => {
+                      console.log('🖱️ Event creation button clicked!')
+                      const fakeEvent = { preventDefault: () => {} } as React.FormEvent
+                      handleCreateEvent(fakeEvent)
+                    }}
                     className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-3 rounded-2xl transition-all duration-300 transform hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isCreatingEvent ? 'Creating...' : 'Create Event'}

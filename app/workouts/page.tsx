@@ -393,30 +393,37 @@ export default function WorkoutsPage() {
   }
 
   const handleDeleteClick = (workout: any) => {
+    console.log('🗑️ Delete button clicked for workout:', workout)
     setWorkoutToDelete(workout)
     setShowDeleteModal(true)
   }
 
   const confirmDeleteWorkout = async () => {
-    if (!workoutToDelete) return
+    if (!workoutToDelete) {
+      console.log('🚨 No workout selected for deletion')
+      return
+    }
+
+    console.log('🔥 Confirming deletion for workout:', workoutToDelete)
 
     try {
-      console.log('Deleting workout:', workoutToDelete.id)
+      console.log('🗑️ Deleting workout:', workoutToDelete.id)
       const result = await deleteWorkoutFromDB(workoutToDelete.id)
+      console.log('🔥 Delete result:', result)
       
       if (result.success) {
         // Remove from local state only if database deletion succeeded
         updateWorkouts(workouts.filter(workout => workout.id !== workoutToDelete.id))
-        console.log('Workout deleted successfully')
+        console.log('✅ Workout deleted successfully')
         setSuccessMessage('Workout deleted successfully!')
         setShowSuccessModal(true)
       } else {
-        console.error('Failed to delete workout:', result.error)
+        console.error('❌ Failed to delete workout:', result.error)
         setSuccessMessage(`Failed to delete workout: ${result.error}`)
         setShowSuccessModal(true)
       }
     } catch (error) {
-      console.error('Error deleting workout:', error)
+      console.error('💥 Error deleting workout:', error)
       setSuccessMessage('An error occurred while deleting the workout')
       setShowSuccessModal(true)
     } finally {

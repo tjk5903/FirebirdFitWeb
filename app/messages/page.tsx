@@ -231,17 +231,33 @@ export default function MessagesPage() {
 
   // Create new chat
   const handleCreateChat = async () => {
+    console.log('💬 handleCreateChat: Function called!')
+    console.log('💬 handleCreateChat: Chat name:', newChatName)
+    console.log('💬 handleCreateChat: User:', user)
+    console.log('💬 handleCreateChat: Selected members:', selectedMembersToAdd)
+    
     if (!newChatName.trim() || !user?.id) {
+      console.log('🚨 handleCreateChat: Validation failed:', {
+        chatName: newChatName.trim(),
+        userId: user?.id
+      })
+      alert('Please enter a chat name')
       return
     }
 
+    console.log('🚀 handleCreateChat: Starting chat creation...')
     setIsCreatingChat(true)
 
     try {
+      console.log('📞 handleCreateChat: Calling createChat function...')
       const result = await createChat(user.id, newChatName.trim(), selectedMembersToAdd)
+      console.log('📊 handleCreateChat: Create result:', result)
       
       if (result.success) {
+        console.log('✅ handleCreateChat: Chat created successfully!')
+        
         // Refresh chats after creation using AppState
+        console.log('🔄 handleCreateChat: Refreshing chats...')
         await refreshChats()
         
         // Close modal and reset form
@@ -252,14 +268,16 @@ export default function MessagesPage() {
         setSuccessMessage(`Chat "${newChatName}" created successfully!`)
         setShowSuccessModal(true)
       } else {
+        console.error('❌ handleCreateChat: Chat creation failed:', result.error)
         setSuccessMessage(result.error || 'Failed to create chat. Please try again.')
         setShowSuccessModal(true)
       }
     } catch (error) {
-      console.error('Error creating chat:', error)
+      console.error('💥 handleCreateChat: Error creating chat:', error)
       setSuccessMessage('Failed to create chat. Please try again.')
       setShowSuccessModal(true)
     } finally {
+      console.log('🏁 handleCreateChat: Setting isCreatingChat to false')
       setIsCreatingChat(false)
     }
   }

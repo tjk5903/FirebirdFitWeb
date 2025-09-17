@@ -36,6 +36,7 @@ export default function CalendarPage() {
     created_at: string
   }>>([])
   const [isLoadingEvents, setIsLoadingEvents] = useState(false)
+  const [isCreatingEvent, setIsCreatingEvent] = useState(false)
   
   const [eventForm, setEventForm] = useState({
     title: '',
@@ -152,11 +153,26 @@ export default function CalendarPage() {
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log('🎯 Calendar: handleCreateEvent called!')
+    console.log('🎯 Calendar: Form data:', eventForm)
+    console.log('🎯 Calendar: User:', user)
+    
     if (!eventForm.title || !eventForm.date || !eventForm.time || !user) {
+      console.log('🚨 Calendar: Validation failed:', {
+        title: eventForm.title,
+        date: eventForm.date,
+        time: eventForm.time,
+        user: !!user
+      })
+      alert('Please fill in all required fields (Title, Date, Time)')
       return
     }
 
+    setIsCreatingEvent(true)
+    
     try {
+      console.log('🚀 Calendar: Starting event creation process...')
+      
       // Calculate end time based on duration
       const startDateTime = new Date(`${eventForm.date}T${eventForm.time}`)
       const endDateTime = new Date(startDateTime.getTime() + parseInt(eventForm.duration) * 60 * 1000)
@@ -170,18 +186,26 @@ export default function CalendarPage() {
         location: eventForm.location || undefined
       }
 
+      console.log('📅 Calendar: Event data prepared:', eventData)
+
       let result
       if (editingEvent) {
-        // Update existing event
+        console.log('✏️ Calendar: Updating existing event:', editingEvent.id)
         result = await updateEvent(editingEvent.id, eventData)
       } else {
-        // Create new event
+        console.log('➕ Calendar: Creating new event')
         result = await createEvent(user.id, eventData)
       }
       
+      console.log('📊 Calendar: API result:', result)
+      
       if (result.success) {
+        console.log('✅ Calendar: Event created successfully!')
+        
         // Refresh events
+        console.log('🔄 Refreshing events list...')
         const teamEvents = await getTeamEvents(user.id)
+        console.log('📅 Updated events:', teamEvents)
         setEvents(teamEvents)
         
         setShowCreateEvent(false)
@@ -196,12 +220,17 @@ export default function CalendarPage() {
           description: '',
           attendees: ''
         })
+        
+        console.log('✅ Event created successfully!')
       } else {
+        console.error('❌ Calendar: Failed to create event:', result.error)
         alert(`Failed to ${editingEvent ? 'update' : 'create'} event: ${result.error}`)
       }
     } catch (error) {
-      console.error('Error creating/updating event:', error)
-      alert(`An error occurred while ${editingEvent ? 'updating' : 'creating'} the event`)
+      console.error('💥 Calendar: Error creating/updating event:', error)
+      alert(`An error occurred while ${editingEvent ? 'updating' : 'creating'} the event: ${error}`)
+    } finally {
+      setIsCreatingEvent(false)
     }
   }
 
@@ -686,9 +715,10 @@ export default function CalendarPage() {
                 </button>
                 <button
                   type="submit"
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-2xl transition-colors"
+                  disabled={isCreatingEvent}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {editingEvent ? 'Update Event' : 'Create Event'}
+                  {isCreatingEvent ? 'Creating...' : (editingEvent ? 'Update Event' : 'Create Event')}
                 </button>
               </div>
             </form>
