@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Getting session...')
         loadingManager.startLoading('auth-session', 2000) // Reduced to 2 seconds
         
-        // If we have a cached user, validate their session
+        // If we have a cached user, validate their session and refresh their data
         if (user) {
           const { data: { session } } = await supabase.auth.getSession()
           if (!session?.user || session.user.id !== user.id) {
@@ -99,7 +99,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
             // Continue with normal session check below
           } else {
-            console.log('Cached user session validated')
+            // Session is valid, but refresh user data from database to ensure it's current
+            console.log('Cached user session valid, refreshing user data from database')
+            try {
+              const { data: currentProfile, error: profileError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', session.user.id)
+                .single()
+
+              if (!profileError && currentProfile && mounted) {
+                const updatedUser = {
+                  id: currentProfile.id,
+                  email: currentProfile.email,
+                  name: currentProfile.full_name || currentProfile.email,
+                  role: currentProfile.role as UserRole,
+                  avatar: currentProfile.avatar || ''
+                }
+                
+                // Update user if data has changed
+                if (JSON.stringify(user) !== JSON.stringify(updatedUser)) {
+                  console.log('User data updated from database')
+                  setUser(updatedUser)
+                  localStorage.setItem('cached_user', JSON.stringify(updatedUser))
+                }
+              }
+            } catch (error) {
+              console.error('Error refreshing user data:', error)
+              // Keep existing cached user if refresh fails
+            }
+            
             loadingManager.stopLoading('auth-session')
             return
           }
