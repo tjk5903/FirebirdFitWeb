@@ -1148,7 +1148,11 @@ export async function createTeam(coachId: string, coachName: string): Promise<{ 
 // Join a team using a join code
 export async function joinTeam(userId: string, joinCode: string): Promise<{ teamId: string, teamName: string }> {
   try {
-    console.log('Join team attempt:', { userId, joinCode })
+    console.log('🚀 JOIN TEAM DEBUG - Starting join team process')
+    console.log('   - User ID:', userId)
+    console.log('   - Join Code:', joinCode)
+    console.log('   - Join Code Type:', typeof joinCode)
+    console.log('   - Join Code Length:', joinCode?.length)
     
     // First, check if user is already part of any team
     const { data: existingTeams, error: existingTeamsError } = await supabase
@@ -1161,7 +1165,7 @@ export async function joinTeam(userId: string, joinCode: string): Promise<{ team
       throw existingTeamsError
     }
 
-    console.log('Existing teams check:', { existingTeams })
+    console.log('🔍 Existing teams check result:', { existingTeams, error: existingTeamsError })
 
     if (existingTeams && existingTeams.length > 0) {
       throw new Error('You are already part of a team')
@@ -1179,14 +1183,18 @@ export async function joinTeam(userId: string, joinCode: string): Promise<{ team
     }
 
     // Look up the team by join code
-    console.log('Looking up team with join code:', joinCode)
+    console.log('🔍 Looking up team with join code:', joinCode)
     const { data: team, error: teamError } = await supabase
       .from('teams')
-      .select('id, name')
+      .select('id, name, join_code')
       .eq('join_code', joinCode)
       .single()
 
-    console.log('Team lookup result:', { team, teamError })
+    console.log('🎯 Team lookup result:')
+    console.log('   - Team data:', team)
+    console.log('   - Error:', teamError)
+    console.log('   - Error code:', teamError?.code)
+    console.log('   - Error message:', teamError?.message)
 
     if (teamError) {
       if (teamError.code === 'PGRST116') {

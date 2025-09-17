@@ -127,7 +127,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         setIsLoadingWorkouts(false)
       }
     }
-  }, [user?.id, workouts.length, isRequestingWorkouts])
+  }, [user?.id])
   
   const refreshTeams = useCallback(async (showLoading = true) => {
     if (!user?.id || isRequestingTeams) return
@@ -151,7 +151,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         setIsLoadingTeams(false)
       }
     }
-  }, [user?.id, teams.length, isRequestingTeams])
+  }, [user?.id])
   
   const refreshTeamMembers = useCallback(async (showLoading = true) => {
     if (!user?.id || isRequestingTeamMembers) return
@@ -183,7 +183,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         setIsLoadingTeamMembers(false)
       }
     }
-  }, [user?.id, teams.length, teamMembers.length, isRequestingTeamMembers])
+  }, [user?.id, teams.length])
   
   const refreshChats = useCallback(async (showLoading = true) => {
     if (!user?.id || isRequestingChats) return
@@ -207,7 +207,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         setIsLoadingChats(false)
       }
     }
-  }, [user?.id, chats.length, isRequestingChats])
+  }, [user?.id])
   
   // Refresh all data
   const refreshAll = useCallback(async (showLoading = true) => {

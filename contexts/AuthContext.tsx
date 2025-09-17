@@ -316,7 +316,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription.unsubscribe()
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [user])
+  }, []) // Only run once on mount
 
   // Sign in with magic link (unified auth method)
   const signInWithMagicLink = async (email: string, role: UserRole) => {
