@@ -9,23 +9,23 @@ import AthleteDashboard from '@/components/dashboard/AthleteDashboard'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 
 export default function DashboardPage() {
-  const { user, isLoading } = useAuth()
+  const { user } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login')
-    }
-  }, [user, isLoading, router])
+    // Small delay to allow auth context to restore from cache
+    const checkAuth = setTimeout(() => {
+      if (!user) {
+        router.push('/login')
+      }
+    }, 150) // Very short delay to prevent flash
 
-  // Show loading spinner while checking auth state
-  if (isLoading) {
-    return <LoadingSpinner />
-  }
+    return () => clearTimeout(checkAuth)
+  }, [user, router])
 
-  // Redirect to login if no user (this should happen automatically via useEffect)
+  // Show nothing briefly while auth is initializing to prevent flash
   if (!user) {
-    return <LoadingSpinner />
+    return <div className="min-h-screen bg-soft-white" />
   }
 
   return (

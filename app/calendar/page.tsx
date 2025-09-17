@@ -16,7 +16,7 @@ const eventTypes = [
 ]
 
 export default function CalendarPage() {
-  const { user, isLoading } = useAuth()
+  const { user } = useAuth()
   const router = useRouter()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showCreateEvent, setShowCreateEvent] = useState(false)
@@ -295,16 +295,19 @@ export default function CalendarPage() {
     'July', 'August', 'September', 'October', 'November', 'December'
   ]
 
-  // Only show loading state if user is not yet determined (not if already authenticated)
-  if (isLoading && !user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading calendar...</p>
-        </div>
-      </div>
-    )
+  // Redirect to login if no user (with small delay to allow auth restoration)
+  useEffect(() => {
+    if (!user) {
+      const redirectTimeout = setTimeout(() => {
+        router.push('/login')
+      }, 150)
+      return () => clearTimeout(redirectTimeout)
+    }
+  }, [user, router])
+
+  // Show nothing briefly if no user to prevent flash
+  if (!user) {
+    return <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50" />
   }
 
   // Redirect to login if no user

@@ -20,14 +20,17 @@ export default function LoginPage() {
 
   // Check if user is already authenticated
   useEffect(() => {
-    if (!isLoading) {
+    // Small delay to allow auth context to restore from cache
+    const checkAuth = setTimeout(() => {
       if (user) {
         router.push('/dashboard')
       } else {
         setIsCheckingSession(false)
       }
-    }
-  }, [user, isLoading, router])
+    }, 100) // Very short delay
+
+    return () => clearTimeout(checkAuth)
+  }, [user, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -19,8 +19,10 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  // Initialize user state - will be populated after hydration
   const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isHydrated, setIsHydrated] = useState(false)
+  const [isLoading, setIsLoading] = useState(false) // Never show loading states
   const [error, setError] = useState<string | null>(null)
 
   const clearError = () => setError(null)
@@ -57,8 +59,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return '/dashboard'
   }
 
+  // Hydration effect - restore user from localStorage after mount
+  useEffect(() => {
+    setIsHydrated(true)
+    
+    // Restore user from localStorage immediately after hydration
+    try {
+      const cachedUser = localStorage.getItem('cached_user')
+      if (cachedUser) {
+        const parsedUser = JSON.parse(cachedUser)
+        console.log('Restoring cached user after hydration:', parsedUser.email)
+        setUser(parsedUser)
+      }
+    } catch (e) {
+      console.error('Error restoring cached user:', e)
+      localStorage.removeItem('cached_user')
+    }
+  }, [])
+
   // Check session on mount and handle auth state changes
   useEffect(() => {
+    if (!isHydrated) return // Wait for hydration
+    
     let mounted = true
     
     const getSession = async () => {
@@ -66,31 +88,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Getting session...')
         loadingManager.startLoading('auth-session', 2000) // Reduced to 2 seconds
         
-        // Check if we have a cached user in localStorage first
-        const cachedUser = localStorage.getItem('cached_user')
-        if (cachedUser && !user) {
-          try {
-            const parsedUser = JSON.parse(cachedUser)
-            console.log('Found cached user, validating session:', parsedUser.email)
-            
-            // Validate session first before setting user
-            const { data: { session } } = await supabase.auth.getSession()
-            if (session?.user && session.user.id === parsedUser.id) {
-              console.log('Cached user session is valid, setting user')
-              if (mounted) {
-                setUser(parsedUser)
-                setIsLoading(false)
-                loadingManager.stopLoading('auth-session')
-                return
-              }
-            } else {
-              console.log('Cached user session expired, clearing cache')
-              localStorage.removeItem('cached_user')
-              // Continue with normal session check below
-            }
-          } catch (e) {
-            console.log('Failed to parse cached user, clearing cache and continuing with session check')
+        // If we have a cached user, validate their session
+        if (user) {
+          const { data: { session } } = await supabase.auth.getSession()
+          if (!session?.user || session.user.id !== user.id) {
+            console.log('Cached user session expired, clearing cache')
             localStorage.removeItem('cached_user')
+            if (mounted) {
+              setUser(null)
+            }
+            // Continue with normal session check below
+          } else {
+            console.log('Cached user session validated')
+            loadingManager.stopLoading('auth-session')
+            return
           }
         }
         
@@ -316,7 +327,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription.unsubscribe()
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, []) // Only run once on mount
+  }, [isHydrated, user]) // Run when hydrated and when user changes
 
   // Sign in with magic link (unified auth method)
   const signInWithMagicLink = async (email: string, role: UserRole) => {

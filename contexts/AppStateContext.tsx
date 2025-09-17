@@ -105,14 +105,12 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [isRequestingChats, setIsRequestingChats] = useState(false)
   
   // Data fetching functions
-  const refreshWorkouts = useCallback(async (showLoading = true) => {
+  const refreshWorkouts = useCallback(async (showLoading = false) => {
     if (!user?.id || isRequestingWorkouts) return
     
     setIsRequestingWorkouts(true)
-    // Don't show loading if we already have data or if it's a background refresh
-    if (showLoading && workouts.length === 0) {
-      setIsLoadingWorkouts(true)
-    }
+    // NEVER show loading states - always show cached data instantly
+    setIsLoadingWorkouts(false)
     setWorkoutsError(null)
     
     try {
@@ -123,20 +121,16 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       setWorkoutsError('Failed to load workouts')
     } finally {
       setIsRequestingWorkouts(false)
-      if (showLoading) {
-        setIsLoadingWorkouts(false)
-      }
+      setIsLoadingWorkouts(false)
     }
   }, [user?.id])
   
-  const refreshTeams = useCallback(async (showLoading = true) => {
+  const refreshTeams = useCallback(async (showLoading = false) => {
     if (!user?.id || isRequestingTeams) return
     
     setIsRequestingTeams(true)
-    // Don't show loading if we already have data
-    if (showLoading && teams.length === 0) {
-      setIsLoadingTeams(true)
-    }
+    // NEVER show loading states - always show cached data instantly
+    setIsLoadingTeams(false)
     setTeamsError(null)
     
     try {
@@ -147,13 +141,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       setTeamsError('Failed to load teams')
     } finally {
       setIsRequestingTeams(false)
-      if (showLoading) {
-        setIsLoadingTeams(false)
-      }
+      setIsLoadingTeams(false)
     }
   }, [user?.id])
   
-  const refreshTeamMembers = useCallback(async (showLoading = true) => {
+  const refreshTeamMembers = useCallback(async (showLoading = false) => {
     if (!user?.id || isRequestingTeamMembers) return
     
     // Only fetch team members if user has teams
@@ -165,10 +157,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }
     
     setIsRequestingTeamMembers(true)
-    // Don't show loading if we already have data
-    if (showLoading && teamMembers.length === 0) {
-      setIsLoadingTeamMembers(true)
-    }
+    // NEVER show loading states - always show cached data instantly
+    setIsLoadingTeamMembers(false)
     setTeamMembersError(null)
     
     try {
@@ -179,20 +169,16 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       setTeamMembersError('Failed to load team members')
     } finally {
       setIsRequestingTeamMembers(false)
-      if (showLoading) {
-        setIsLoadingTeamMembers(false)
-      }
+      setIsLoadingTeamMembers(false)
     }
   }, [user?.id, teams.length])
   
-  const refreshChats = useCallback(async (showLoading = true) => {
+  const refreshChats = useCallback(async (showLoading = false) => {
     if (!user?.id || isRequestingChats) return
     
     setIsRequestingChats(true)
-    // Don't show loading if we already have data
-    if (showLoading && chats.length === 0) {
-      setIsLoadingChats(true)
-    }
+    // NEVER show loading states - always show cached data instantly
+    setIsLoadingChats(false)
     setChatsError(null)
     
     try {
@@ -203,21 +189,20 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       setChatsError('Failed to load chats')
     } finally {
       setIsRequestingChats(false)
-      if (showLoading) {
-        setIsLoadingChats(false)
-      }
+      setIsLoadingChats(false)
     }
   }, [user?.id])
   
   // Refresh all data
-  const refreshAll = useCallback(async (showLoading = true) => {
+  const refreshAll = useCallback(async (showLoading = false) => {
     if (!user?.id) return
     
+    // Always refresh silently in background - never show loading states
     await Promise.all([
-      refreshWorkouts(showLoading),
-      refreshTeams(showLoading),
-      refreshTeamMembers(showLoading),
-      refreshChats(showLoading)
+      refreshWorkouts(false),
+      refreshTeams(false), 
+      refreshTeamMembers(false),
+      refreshChats(false)
     ])
   }, [user?.id, refreshWorkouts, refreshTeams, refreshTeamMembers, refreshChats])
   

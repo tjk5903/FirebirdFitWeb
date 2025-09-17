@@ -24,7 +24,7 @@ import {
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
 
 export default function ProfilePage() {
-  const { user, logout, isLoading } = useAuth()
+  const { user, logout } = useAuth()
   const router = useRouter()
   const [isLoaded, setIsLoaded] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -301,16 +301,19 @@ export default function ProfilePage() {
     setTeamNameSuccess('')
   }
 
-  // Show loading state while auth is loading
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading profile...</p>
-        </div>
-      </div>
-    )
+  // Redirect to login if no user (with small delay to allow auth restoration)
+  useEffect(() => {
+    if (!user) {
+      const redirectTimeout = setTimeout(() => {
+        router.push('/login')
+      }, 150)
+      return () => clearTimeout(redirectTimeout)
+    }
+  }, [user, router])
+
+  // Show nothing briefly if no user to prevent flash
+  if (!user) {
+    return <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50" />
   }
 
   // Redirect to login if no user
