@@ -1260,8 +1260,10 @@ export async function joinTeam(userId: string, joinCode: string): Promise<{ team
 export async function getUserTeams(userId: string): Promise<Array<{ id: string, name: string, joinCode: string, role: string }>> {
   try {
     console.log('🔍 getUserTeams: Starting team lookup for user:', userId)
+    console.log('🔍 getUserTeams: About to call Supabase...')
     
-    const { data, error } = await supabase
+    // Add timeout to prevent hanging
+    const queryPromise = supabase
       .from('team_members')
       .select(`
         team_id,
@@ -1274,6 +1276,13 @@ export async function getUserTeams(userId: string): Promise<Array<{ id: string, 
       `)
       .eq('user_id', userId)
 
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Query timeout after 10 seconds')), 10000)
+    )
+
+    const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any
+
+    console.log('🔍 getUserTeams: Supabase call completed!')
     console.log('🔍 getUserTeams: Raw database response:')
     console.log('   - Data:', data)
     console.log('   - Error:', error)
