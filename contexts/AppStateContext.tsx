@@ -59,6 +59,7 @@ interface AppStateContextType {
   refreshTeamMembers: () => Promise<void>
   refreshChats: () => Promise<void>
   refreshAll: () => Promise<void>
+  forceRefreshAll: () => Promise<void>
   
   // Data updates
   updateWorkouts: (workouts: WorkoutData[]) => void
@@ -130,26 +131,45 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   }, [user?.id])
   
   const refreshTeams = useCallback(async (showLoading = true) => {
-    if (!user?.id || isRequestingTeams) return
+    if (!user?.id || isRequestingTeams) {
+      console.log('🛑 refreshTeams: Blocked - user?.id:', user?.id, 'isRequestingTeams:', isRequestingTeams)
+      return
+    }
+    
+    console.log('🔄 refreshTeams: Starting team refresh for user:', user.id)
+    console.log('   - showLoading:', showLoading)
+    console.log('   - current teams.length:', teams.length)
     
     setIsRequestingTeams(true)
     // Show loading only if we have no data AND showLoading is true
     if (showLoading && teams.length === 0) {
+      console.log('📊 refreshTeams: Setting loading state to true')
       setIsLoadingTeams(true)
     }
     setTeamsError(null)
     
     try {
+      console.log('📞 refreshTeams: Calling getUserTeams...')
       const fetchedTeams = await getUserTeams(user.id)
+      console.log('✅ refreshTeams: Received teams:', fetchedTeams)
       setTeams(fetchedTeams)
+      
+      // Cache the teams
+      try {
+        localStorage.setItem(`teams_${user.id}`, JSON.stringify(fetchedTeams))
+        console.log('💾 refreshTeams: Teams cached successfully')
+      } catch (cacheError) {
+        console.warn('⚠️ refreshTeams: Failed to cache teams:', cacheError)
+      }
     } catch (error) {
-      console.error('Error fetching teams:', error)
+      console.error('🚨 refreshTeams: Error fetching teams:', error)
       setTeamsError('Failed to load teams')
     } finally {
       setIsRequestingTeams(false)
       if (showLoading) {
         setIsLoadingTeams(false)
       }
+      console.log('🏁 refreshTeams: Completed')
     }
   }, [user?.id])
   
@@ -246,6 +266,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   
   // Clear all data
   const clearAllData = useCallback(() => {
+    console.log('🧹 clearAllData: Clearing all data and cache')
+    
     setWorkouts([])
     setTeams([])
     setTeamMembers([])
@@ -259,7 +281,20 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     setIsRequestingTeams(false)
     setIsRequestingTeamMembers(false)
     setIsRequestingChats(false)
-  }, [])
+    
+    // Clear localStorage cache if user exists
+    if (user?.id) {
+      try {
+        localStorage.removeItem(`workouts_${user.id}`)
+        localStorage.removeItem(`teams_${user.id}`)
+        localStorage.removeItem(`teamMembers_${user.id}`)
+        localStorage.removeItem(`chats_${user.id}`)
+        console.log('🗑️ clearAllData: Cache cleared for user:', user.id)
+      } catch (error) {
+        console.warn('⚠️ clearAllData: Failed to clear cache:', error)
+      }
+    }
+  }, [user?.id])
   
   // Track if data has been loaded from localStorage
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false)
@@ -412,6 +447,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval)
   }, [user?.id, hasLoadedFromStorage, lastRefreshTime, refreshAll])
   
+  // Force refresh with cache clear
+  const forceRefreshAll = useCallback(async () => {
+    console.log('🔄 forceRefreshAll: Starting forced refresh with cache clear')
+    clearAllData()
+    
+    // Wait a moment for state to clear
+    setTimeout(() => {
+      refreshAll(true)
+    }, 100)
+  }, [clearAllData, refreshAll])
+  
   const value: AppStateContextType = {
     // Data states
     workouts,
@@ -437,6 +483,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     refreshTeamMembers,
     refreshChats,
     refreshAll,
+    forceRefreshAll,
     
     // Data updates
     updateWorkouts,

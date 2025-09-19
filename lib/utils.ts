@@ -1259,6 +1259,8 @@ export async function joinTeam(userId: string, joinCode: string): Promise<{ team
 // Get teams that the current user belongs to
 export async function getUserTeams(userId: string): Promise<Array<{ id: string, name: string, joinCode: string, role: string }>> {
   try {
+    console.log('🔍 getUserTeams: Starting team lookup for user:', userId)
+    
     const { data, error } = await supabase
       .from('team_members')
       .select(`
@@ -1272,19 +1274,36 @@ export async function getUserTeams(userId: string): Promise<Array<{ id: string, 
       `)
       .eq('user_id', userId)
 
+    console.log('🔍 getUserTeams: Raw database response:')
+    console.log('   - Data:', data)
+    console.log('   - Error:', error)
+    console.log('   - Data length:', data?.length)
+
     if (error) {
+      console.error('🚨 getUserTeams: Database error:', error)
       throw error
     }
 
+    if (!data || data.length === 0) {
+      console.log('⚠️ getUserTeams: No team memberships found for user')
+      return []
+    }
+
     // Transform the data to a cleaner format
-    return data.map((member: any) => ({
-      id: member.teams.id,
-      name: member.teams.name,
-      joinCode: member.teams.join_code,
-      role: member.role
-    }))
+    const transformedTeams = data.map((member: any) => {
+      console.log('🔄 getUserTeams: Processing member:', member)
+      return {
+        id: member.teams.id,
+        name: member.teams.name,
+        joinCode: member.teams.join_code,
+        role: member.role
+      }
+    })
+
+    console.log('✅ getUserTeams: Successfully transformed teams:', transformedTeams)
+    return transformedTeams
   } catch (error) {
-    console.error('Error fetching user teams:', error)
+    console.error('🚨 getUserTeams: Caught error:', error)
     throw error
   }
 } 
