@@ -225,7 +225,8 @@ export default function WorkoutsPage() {
     teamMembersError,
     refreshWorkouts,
     refreshTeamMembers,
-    updateWorkouts
+    updateWorkouts,
+    removeWorkout
   } = useAppState()
   const router = useRouter()
   const [filteredWorkouts, setFilteredWorkouts] = useState<any[]>([])
@@ -412,8 +413,8 @@ export default function WorkoutsPage() {
       console.log('🔥 Delete result:', result)
       
       if (result.success) {
-        // Remove from local state only if database deletion succeeded
-        updateWorkouts(workouts.filter(workout => workout.id !== workoutToDelete.id))
+        // Remove from local state and cache only if database deletion succeeded
+        removeWorkout(workoutToDelete.id)
         console.log('✅ Workout deleted successfully')
         setSuccessMessage('Workout deleted successfully!')
         setShowSuccessModal(true)

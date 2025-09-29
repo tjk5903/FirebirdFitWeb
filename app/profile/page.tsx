@@ -59,7 +59,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (user) {
       setProfileData({
-        name: user.name || '',
+        name: user.name || user.full_name || '',
         email: user.email || '',
         role: user.role || 'coach',
         avatar: user.avatar || ''
@@ -197,7 +197,7 @@ export default function ProfilePage() {
 
   const handleCancel = () => {
     setProfileData({
-      name: user?.name || '',
+      name: user?.name || user?.full_name || '',
       email: user?.email || '',
       role: user?.role || 'coach',
       avatar: user?.avatar || ''

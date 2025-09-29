@@ -3,6 +3,9 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { AppStateProvider } from '@/contexts/AppStateContext'
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
+import { GlobalLoadingManager } from '@/components/ui/GlobalLoadingManager'
+import HydrationFix from '@/components/ui/HydrationFix'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -19,13 +22,18 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <AuthProvider>
-          <AppStateProvider>
-            <div className="min-h-screen bg-soft-white">
-              {children}
-            </div>
-          </AppStateProvider>
-        </AuthProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            <AppStateProvider>
+              <GlobalLoadingManager>
+                <HydrationFix />
+                <div className="min-h-screen bg-soft-white">
+                  {children}
+                </div>
+              </GlobalLoadingManager>
+            </AppStateProvider>
+          </AuthProvider>
+        </ErrorBoundary>
       </body>
     </html>
   )

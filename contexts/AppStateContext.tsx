@@ -1,7 +1,8 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabaseClient'
 import { 
   getUserWorkouts, 
   getUserTeams, 
@@ -63,6 +64,8 @@ interface AppStateContextType {
   
   // Data updates
   updateWorkouts: (workouts: WorkoutData[]) => void
+  removeWorkout: (workoutId: string) => void
+  cleanupStaleData: () => Promise<void>
   updateTeams: (teams: TeamData[]) => void
   updateTeamMembers: (members: ChatMemberDisplay[]) => void
   updateChats: (chats: ChatData[]) => void
@@ -105,30 +108,47 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [isRequestingTeamMembers, setIsRequestingTeamMembers] = useState(false)
   const [isRequestingChats, setIsRequestingChats] = useState(false)
   
-  // Data fetching functions
+  // Data fetching functions with improved error handling
   const refreshWorkouts = useCallback(async (showLoading = true) => {
     if (!user?.id || isRequestingWorkouts) return
     
     setIsRequestingWorkouts(true)
+    setWorkoutsError(null)
+    
     // Show loading only if we have no data AND showLoading is true
     if (showLoading && workouts.length === 0) {
       setIsLoadingWorkouts(true)
     }
-    setWorkoutsError(null)
     
     try {
-      const fetchedWorkouts = await getUserWorkouts(user.id)
-      setWorkouts(fetchedWorkouts)
-    } catch (error) {
-      console.error('Error fetching workouts:', error)
-      setWorkoutsError('Failed to load workouts')
+      // Use a more resilient approach for workouts
+      const fetchedWorkouts = await Promise.race([
+        getUserWorkouts(user.id),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Workouts fetch timeout')), 3000)  // Reduced to 3 seconds
+        )
+      ]) as any
+      
+      setWorkouts(fetchedWorkouts || [])
+      console.log('✅ Workouts loaded successfully:', fetchedWorkouts?.length || 0)
+    } catch (error: any) {
+      console.error('❌ Error fetching workouts:', error)
+      
+      // More specific error messages
+      if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
+        setWorkoutsError('Network error. Please check your connection and try again.')
+      } else if (error?.message?.includes('permission') || error?.message?.includes('unauthorized')) {
+        setWorkoutsError('Permission denied. Please refresh the page and try again.')
+      } else {
+        setWorkoutsError('Failed to load workouts. Please try again.')
+      }
     } finally {
       setIsRequestingWorkouts(false)
       if (showLoading) {
         setIsLoadingWorkouts(false)
       }
     }
-  }, [user?.id])
+  }, [user?.id, workouts.length])
   
   const refreshTeams = useCallback(async (showLoading = true) => {
     if (!user?.id || isRequestingTeams) {
@@ -150,9 +170,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     
     try {
       console.log('📞 refreshTeams: Calling getUserTeams...')
-      const fetchedTeams = await getUserTeams(user.id)
+      
+      // Use a more resilient approach for teams
+      const fetchedTeams = await Promise.race([
+        getUserTeams(user.id),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Teams fetch timeout')), 3000)  // Reduced to 3 seconds
+        )
+      ]) as any
+      
       console.log('✅ refreshTeams: Received teams:', fetchedTeams)
-      setTeams(fetchedTeams)
+      setTeams(fetchedTeams || [])
       
       // Cache the teams
       try {
@@ -161,9 +189,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       } catch (cacheError) {
         console.warn('⚠️ refreshTeams: Failed to cache teams:', cacheError)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('🚨 refreshTeams: Error fetching teams:', error)
-      setTeamsError('Failed to load teams')
+      
+      // More specific error messages
+      if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
+        setTeamsError('Network error. Please check your connection and try again.')
+      } else if (error?.message?.includes('permission') || error?.message?.includes('unauthorized')) {
+        setTeamsError('Permission denied. Please refresh the page and try again.')
+      } else {
+        setTeamsError('Failed to load teams. Please try again.')
+      }
     } finally {
       setIsRequestingTeams(false)
       if (showLoading) {
@@ -194,9 +230,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     try {
       const fetchedMembers = await getTeamMembers(user.id)
       setTeamMembers(fetchedMembers)
-    } catch (error) {
-      console.error('Error fetching team members:', error)
-      setTeamMembersError('Failed to load team members')
+    } catch (error: any) {
+      console.error('❌ Error fetching team members:', error)
+      
+      // More specific error messages
+      if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
+        setTeamMembersError('Network error. Please check your connection and try again.')
+      } else if (error?.message?.includes('permission') || error?.message?.includes('unauthorized')) {
+        setTeamMembersError('Permission denied. Please refresh the page and try again.')
+      } else {
+        setTeamMembersError('Failed to load team members. Please try again.')
+      }
     } finally {
       setIsRequestingTeamMembers(false)
       if (showLoading) {
@@ -218,9 +262,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     try {
       const fetchedChats = await getUserChats(user.id)
       setChats(fetchedChats)
-    } catch (error) {
-      console.error('Error fetching chats:', error)
-      setChatsError('Failed to load chats')
+    } catch (error: any) {
+      console.error('❌ Error fetching chats:', error)
+      
+      // More specific error messages
+      if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
+        setChatsError('Network error. Please check your connection and try again.')
+      } else if (error?.message?.includes('permission') || error?.message?.includes('unauthorized')) {
+        setChatsError('Permission denied. Please refresh the page and try again.')
+      } else {
+        setChatsError('Failed to load chats. Please try again.')
+      }
     } finally {
       setIsRequestingChats(false)
       if (showLoading) {
@@ -229,23 +281,190 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.id])
   
-  // Refresh all data
-  const refreshAll = useCallback(async (showLoading = true) => {
-    if (!user?.id) return
+  // Optimized data fetching with deduplication and throttling
+  const optimizedRefreshAll = useCallback(async (showLoading = true) => {
+    if (!user?.id || isInitializing.current) return
+
+    const now = Date.now()
     
-    // Pass showLoading to individual refresh functions
-    await Promise.all([
-      refreshWorkouts(showLoading),
-      refreshTeams(showLoading), 
-      refreshTeamMembers(showLoading),
-      refreshChats(showLoading)
-    ])
-  }, [user?.id, refreshWorkouts, refreshTeams, refreshTeamMembers, refreshChats])
+    // Throttle data fetches to prevent excessive calls
+    if (now - lastDataFetch.current < DATA_FETCH_THROTTLE) {
+      console.log('⏱️ Data fetch throttled')
+      return
+    }
+    
+    // Prevent multiple simultaneous refresh operations
+    if (refreshPromise.current) {
+      console.log('🔄 Refresh already in progress, waiting...')
+      return refreshPromise.current
+    }
+
+    lastDataFetch.current = now
+    isInitializing.current = true
+
+    refreshPromise.current = (async () => {
+      try {
+        console.log('🔄 Starting optimized data refresh')
+        
+        // Check if we have any data loaded
+        const hasDataLoaded = workouts.length > 0 || teams.length > 0 || teamMembers.length > 0 || chats.length > 0
+        
+        if (hasDataLoaded && !showLoading) {
+          console.log('📱 Data already loaded, skipping refresh')
+          return
+        }
+        
+        // Fast UI approach: Show cached data immediately, then update in background
+        if (hasDataLoaded) {
+          console.log('⚡ Fast refresh: Using cached data, updating in background')
+          
+          // Start background refresh without loading states
+          Promise.all([
+            refreshWorkouts(false),
+            refreshTeams(false), 
+            refreshTeamMembers(false),
+            refreshChats(false)
+          ]).then(() => {
+            console.log('🔄 Background refresh completed')
+            cleanupStaleData().catch(() => {})
+            checkDatabaseHealth().catch(() => {})
+          }).catch(error => {
+            console.warn('⚠️ Background refresh failed:', error)
+          })
+          
+        } else {
+          console.log('⏳ Fresh load: Showing loading states for new data')
+          await Promise.all([
+            refreshWorkouts(true),
+            refreshTeams(true), 
+            refreshTeamMembers(true),
+            refreshChats(true)
+          ])
+          
+          // Clean up after fresh load
+          cleanupStaleData().catch(() => {})
+          checkDatabaseHealth().catch(() => {})
+        }
+        
+        setLastRefreshTime(now)
+        console.log('✅ Data refresh completed successfully')
+        
+      } catch (error) {
+        console.error('❌ Error during data refresh:', error)
+      } finally {
+        isInitializing.current = false
+        refreshPromise.current = null
+      }
+    })()
+
+    return refreshPromise.current
+  }, [user?.id, workouts.length, teams.length, teamMembers.length, chats.length, refreshWorkouts, refreshTeams, refreshTeamMembers, refreshChats])
+
+  // Refresh all data - now uses optimized version
+  const refreshAll = useCallback(async (showLoading = true) => {
+    return optimizedRefreshAll(showLoading)
+  }, [optimizedRefreshAll])
   
   // Data update functions
   const updateWorkouts = useCallback((newWorkouts: WorkoutData[]) => {
     setWorkouts(newWorkouts)
   }, [])
+
+  // Remove specific workout from state and cache
+  const removeWorkout = useCallback((workoutId: string) => {
+    console.log('🗑️ removeWorkout: Removing workout from state and cache:', workoutId)
+    
+    // Update state
+    setWorkouts(prev => prev.filter(workout => workout.id !== workoutId))
+    
+    // Update cache
+    if (user?.id) {
+      try {
+        const cachedWorkouts = localStorage.getItem(`workouts_${user.id}`)
+        if (cachedWorkouts) {
+          const workouts = JSON.parse(cachedWorkouts)
+          const updatedWorkouts = workouts.filter((w: any) => w.id !== workoutId)
+          localStorage.setItem(`workouts_${user.id}`, JSON.stringify(updatedWorkouts))
+          console.log('🗑️ removeWorkout: Updated cache, removed workout')
+        }
+      } catch (error) {
+        console.warn('⚠️ removeWorkout: Failed to update cache:', error)
+      }
+    }
+  }, [user?.id])
+
+  // Clean up stale data - remove workouts that no longer exist in database
+  const cleanupStaleData = useCallback(async () => {
+    if (!user?.id || workouts.length === 0) return
+
+    console.log('🧹 cleanupStaleData: Checking for stale workout data...')
+    
+    try {
+      // Get fresh workout IDs from database
+      const { data: dbWorkouts, error } = await supabase
+        .from('workouts')
+        .select('id')
+        .eq('user_id', user.id)
+
+      if (error) {
+        console.warn('⚠️ cleanupStaleData: Failed to fetch workout IDs:', error)
+        return
+      }
+
+      const dbWorkoutIds = new Set(dbWorkouts?.map((w: any) => w.id) || [])
+      const staleWorkouts = workouts.filter(workout => !dbWorkoutIds.has(workout.id))
+
+      if (staleWorkouts.length > 0) {
+        console.log('🧹 cleanupStaleData: Found stale workouts, removing:', staleWorkouts.length)
+        
+        // Remove stale workouts from state
+        setWorkouts(prev => prev.filter(workout => dbWorkoutIds.has(workout.id)))
+        
+        // Update cache
+        const updatedWorkouts = workouts.filter(workout => dbWorkoutIds.has(workout.id))
+        localStorage.setItem(`workouts_${user.id}`, JSON.stringify(updatedWorkouts))
+        
+        console.log('✅ cleanupStaleData: Cleaned up stale data')
+      }
+    } catch (error) {
+      console.warn('⚠️ cleanupStaleData: Error during cleanup:', error)
+    }
+  }, [user?.id, workouts])
+
+  // Check database health and performance
+  const checkDatabaseHealth = useCallback(async () => {
+    if (!user?.id) return
+
+    console.log('🏥 checkDatabaseHealth: Checking database performance...')
+    
+    try {
+      const startTime = Date.now()
+      
+      // Simple health check query
+      const { data, error } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', user.id)
+        .limit(1)
+        .single()
+
+      const responseTime = Date.now() - startTime
+      
+      if (error) {
+        console.warn('⚠️ checkDatabaseHealth: Database health check failed:', error.message)
+        return
+      }
+
+      if (responseTime > 5000) {
+        console.warn(`⚠️ checkDatabaseHealth: Slow database response (${responseTime}ms)`)
+      } else {
+        console.log(`✅ checkDatabaseHealth: Database healthy (${responseTime}ms)`)
+      }
+      
+    } catch (error) {
+      console.warn('⚠️ checkDatabaseHealth: Health check error:', error)
+    }
+  }, [user?.id])
   
   const updateTeams = useCallback((newTeams: TeamData[]) => {
     setTeams(newTeams)
@@ -300,6 +519,12 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false)
   const [lastRefreshTime, setLastRefreshTime] = useState<number>(0)
   
+  // Refs to prevent race conditions and duplicate requests
+  const isInitializing = useRef(false)
+  const refreshPromise = useRef<Promise<void> | null>(null)
+  const lastDataFetch = useRef<number>(0)
+  const DATA_FETCH_THROTTLE = 1000 // 1 second minimum between data fetches
+  
   // FAILSAFE: Never let loading states run forever
   useEffect(() => {
     const failsafeTimeout = setTimeout(() => {
@@ -318,38 +543,70 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(failsafeTimeout)
   }, [isLoadingWorkouts, isLoadingTeams, isLoadingTeamMembers, isLoadingChats])
   
-  // Simple rule: Always show cached data first, then refresh in background
+  // Restore data from localStorage on mount
   useEffect(() => {
-    if (user?.id) {
-      // Check if we already have data loaded (prevent re-loading on tab switch)
-      const hasDataLoaded = workouts.length > 0 || teams.length > 0 || teamMembers.length > 0 || chats.length > 0
-      
-      if (hasDataLoaded) {
-        console.log('Data already loaded, skipping fetch')
-        return
+    if (!user?.id || hasLoadedFromStorage) return
+
+    console.log('🔄 Restoring data from localStorage for user:', user.id)
+    
+    try {
+      // Restore workouts
+      const cachedWorkouts = localStorage.getItem(`workouts_${user.id}`)
+      if (cachedWorkouts) {
+        const parsedWorkouts = JSON.parse(cachedWorkouts)
+        setWorkouts(parsedWorkouts)
+        console.log('✅ Restored workouts from cache:', parsedWorkouts.length)
       }
-      
-      // Always try to load from cache first
-      const hasAnyCachedData = localStorage.getItem(`workouts_${user.id}`) || 
-                               localStorage.getItem(`teams_${user.id}`) || 
-                               localStorage.getItem(`teamMembers_${user.id}`) || 
-                               localStorage.getItem(`chats_${user.id}`)
-      
-      if (hasAnyCachedData) {
-        console.log('Found cached data, loading instantly')
-        // Load from cache immediately (no loading state)
-        // Data will be restored by the localStorage effect below
-      } else {
-        console.log('No cached data, fetching from server')
-        // Only show loading if no cached data exists
-        refreshAll(true)
+
+      // Restore teams
+      const cachedTeams = localStorage.getItem(`teams_${user.id}`)
+      if (cachedTeams) {
+        const parsedTeams = JSON.parse(cachedTeams)
+        setTeams(parsedTeams)
+        console.log('✅ Restored teams from cache:', parsedTeams.length)
       }
-    } else {
+
+      // Restore team members
+      const cachedTeamMembers = localStorage.getItem(`teamMembers_${user.id}`)
+      if (cachedTeamMembers) {
+        const parsedTeamMembers = JSON.parse(cachedTeamMembers)
+        setTeamMembers(parsedTeamMembers)
+        console.log('✅ Restored team members from cache:', parsedTeamMembers.length)
+      }
+
+      // Restore chats
+      const cachedChats = localStorage.getItem(`chats_${user.id}`)
+      if (cachedChats) {
+        const parsedChats = JSON.parse(cachedChats)
+        setChats(parsedChats)
+        console.log('✅ Restored chats from cache:', parsedChats.length)
+      }
+
+      setHasLoadedFromStorage(true)
+      console.log('✅ All cached data restored successfully')
+    } catch (error) {
+      console.error('❌ Error restoring cached data:', error)
+      setHasLoadedFromStorage(true) // Still mark as loaded to prevent infinite retries
+    }
+  }, [user?.id, hasLoadedFromStorage])
+
+  // Main data loading effect
+  useEffect(() => {
+    if (!user?.id) {
       // Clear data when user logs out
       clearAllData()
       setHasLoadedFromStorage(false)
+      return
     }
-  }, [user?.id]) // Removed dependencies that cause unnecessary re-runs
+
+    // Only fetch data if we haven't loaded from storage yet
+    if (!hasLoadedFromStorage) {
+      console.log('⏳ No cached data found, fetching from server')
+      optimizedRefreshAll(true)
+    } else {
+      console.log('📱 Using cached data, skipping initial fetch')
+    }
+  }, [user?.id, hasLoadedFromStorage, optimizedRefreshAll])
   
   // Persist data to localStorage for tab switching
   useEffect(() => {
@@ -420,43 +677,46 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.id, refreshAll])
   
-  // Background refresh every 5 minutes (only if user is active)
+  // Smart background refresh - only when user is active and data is stale
   useEffect(() => {
     if (!user?.id || !hasLoadedFromStorage) return
     
-    const now = Date.now()
-    const fiveMinutes = 5 * 60 * 1000
-    
-    // Only refresh if it's been more than 5 minutes since last refresh
-    if (now - lastRefreshTime > fiveMinutes) {
-      console.log('Background refresh triggered')
-      setLastRefreshTime(now)
-      refreshAll(false) // Don't show loading states for background refresh
-    }
-    
-    // Set up interval for future refreshes
-    const interval = setInterval(() => {
-      const currentTime = Date.now()
-      if (currentTime - lastRefreshTime > fiveMinutes) {
-        console.log('Scheduled background refresh triggered')
-        setLastRefreshTime(currentTime)
-        refreshAll(false) // Don't show loading states for background refresh
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const now = Date.now()
+        const fiveMinutes = 5 * 60 * 1000
+        
+        // Only refresh if it's been more than 5 minutes since last refresh
+        if (now - lastRefreshTime > fiveMinutes) {
+          console.log('👁️ Tab visible - background refresh triggered')
+          setLastRefreshTime(now)
+          optimizedRefreshAll(false) // Silent background refresh
+        }
       }
-    }, fiveMinutes)
+    }
+
+    // Listen for tab visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange)
     
-    return () => clearInterval(interval)
-  }, [user?.id, hasLoadedFromStorage, lastRefreshTime, refreshAll])
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [user?.id, hasLoadedFromStorage, lastRefreshTime, optimizedRefreshAll])
   
   // Force refresh with cache clear
   const forceRefreshAll = useCallback(async () => {
     console.log('🔄 forceRefreshAll: Starting forced refresh with cache clear')
     clearAllData()
     
-    // Wait a moment for state to clear
+    // Reset initialization state to allow fresh fetch
+    isInitializing.current = false
+    refreshPromise.current = null
+    
+    // Wait a moment for state to clear, then fetch fresh data
     setTimeout(() => {
-      refreshAll(true)
+      optimizedRefreshAll(true)
     }, 100)
-  }, [clearAllData, refreshAll])
+  }, [clearAllData, optimizedRefreshAll])
   
   const value: AppStateContextType = {
     // Data states
@@ -487,6 +747,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     
     // Data updates
     updateWorkouts,
+    removeWorkout,
+    cleanupStaleData,
     updateTeams,
     updateTeamMembers,
     updateChats,

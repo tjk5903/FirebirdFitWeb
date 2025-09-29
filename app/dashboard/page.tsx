@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { isCoachOrAssistant } from '@/lib/utils'
 import CoachDashboard from '@/components/dashboard/CoachDashboard'
 import AthleteDashboard from '@/components/dashboard/AthleteDashboard'
-import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
 export default function DashboardPage() {
   const { user } = useAuth()

@@ -3,11 +3,27 @@
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Dumbbell, Calendar, MessageSquare } from 'lucide-react'
+import { useEffect } from 'react'
 
 export default function MainNavigation() {
   const { user } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+  
+  // Clean up extra attributes added by browser extensions
+  useEffect(() => {
+    const cleanupExtraAttributes = () => {
+      const buttons = document.querySelectorAll('button[fdprocessedid]')
+      buttons.forEach(button => {
+        button.removeAttribute('fdprocessedid')
+      })
+    }
+    
+    // Clean up after hydration
+    const timeoutId = setTimeout(cleanupExtraAttributes, 100)
+    
+    return () => clearTimeout(timeoutId)
+  }, [])
   
   // Determine active tab based on current pathname
   const getActiveTab = () => {

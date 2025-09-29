@@ -3,6 +3,7 @@ class LoadingManager {
   private loadingStates = new Set<string>()
   private timeouts = new Map<string, NodeJS.Timeout>()
   private navigationLoading = false
+  private subscribers = new Set<(key: string, isLoading: boolean) => void>()
 
   // Start loading with automatic timeout
   startLoading(key: string, timeoutMs: number = 10000) {
@@ -21,6 +22,9 @@ class LoadingManager {
     }, timeoutMs)
     
     this.timeouts.set(key, timeout)
+    
+    // Notify subscribers
+    this.notifySubscribers(key, true)
   }
 
   // Stop loading
@@ -32,6 +36,9 @@ class LoadingManager {
       clearTimeout(timeout)
       this.timeouts.delete(key)
     }
+    
+    // Notify subscribers
+    this.notifySubscribers(key, false)
   }
 
   // Check if loading
@@ -59,6 +66,32 @@ class LoadingManager {
     this.timeouts.forEach(timeout => clearTimeout(timeout))
     this.timeouts.clear()
     this.navigationLoading = false
+  }
+
+  // Subscribe to loading state changes
+  subscribe(callback: (key: string, isLoading: boolean) => void) {
+    this.subscribers.add(callback)
+    
+    // Return unsubscribe function
+    return () => {
+      this.subscribers.delete(callback)
+    }
+  }
+
+  // Unsubscribe from loading state changes
+  unsubscribe(callback: (key: string, isLoading: boolean) => void) {
+    this.subscribers.delete(callback)
+  }
+
+  // Notify all subscribers
+  private notifySubscribers(key: string, isLoading: boolean) {
+    this.subscribers.forEach(callback => {
+      try {
+        callback(key, isLoading)
+      } catch (error) {
+        console.error('Error in loading state subscriber:', error)
+      }
+    })
   }
 }
 

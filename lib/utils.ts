@@ -6,6 +6,70 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Database query utility with retry logic and better error handling
+async function queryWithRetry<T>(
+  queryFn: () => Promise<T>,
+  operationName: string,
+  maxRetries: number = 2,
+  timeoutMs: number = 5000  // Reduced to 5 seconds for better UX
+): Promise<T> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`🔄 ${operationName}: Attempt ${attempt}/${maxRetries}`)
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error(`Query timeout after ${timeoutMs/1000} seconds`)), timeoutMs)
+      )
+      
+      const result = await Promise.race([queryFn(), timeoutPromise]) as T
+      console.log(`✅ ${operationName}: Success on attempt ${attempt}`)
+      return result
+      
+    } catch (error: any) {
+      console.warn(`⚠️ ${operationName}: Attempt ${attempt} failed:`, error.message)
+      
+      if (attempt === maxRetries) {
+        console.error(`❌ ${operationName}: All attempts failed`)
+        throw error
+      }
+      
+      // Wait before retry (exponential backoff)
+      const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 5000)
+      console.log(`⏳ ${operationName}: Waiting ${waitTime}ms before retry...`)
+      await new Promise(resolve => setTimeout(resolve, waitTime))
+    }
+  }
+  
+  throw new Error(`${operationName}: Max retries exceeded`)
+}
+
+// Safe database query wrapper that handles timeouts gracefully
+async function safeQuery<T>(
+  queryFn: () => Promise<T>,
+  operationName: string,
+  fallbackValue: T,
+  timeoutMs: number = 3000  // Reduced to 3 seconds for better UX
+): Promise<T> {
+  try {
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error(`Query timeout after ${timeoutMs/1000} seconds`)), timeoutMs)
+    )
+    
+    const result = await Promise.race([queryFn(), timeoutPromise]) as T
+    console.log(`✅ ${operationName}: Query successful`)
+    return result
+    
+  } catch (error: any) {
+    if (error.message.includes('Query timeout')) {
+      console.warn(`⏰ ${operationName}: Query timed out, using fallback value`)
+      return fallbackValue
+    }
+    
+    console.error(`❌ ${operationName}: Query failed:`, error.message)
+    return fallbackValue
+  }
+}
+
 export type UserRole = 'coach' | 'athlete' | 'assistant_coach'
 
 // Permission helper functions
@@ -40,6 +104,7 @@ export const isCoachOrAssistant = (userRole: UserRole): boolean => {
 export interface User {
   id: string
   name: string
+  full_name?: string
   email: string
   role: UserRole
   avatar?: string
@@ -641,41 +706,50 @@ type ChatMemberResult = {
 // Fetch all members of a chat
 export async function getChatMembers(chatId: string): Promise<ChatMemberDisplay[]> {
   try {
-    const { data: members, error } = await supabase
+    // First get chat members
+    const { data: members, error: membersError } = await supabase
       .from('chat_members')
-      .select(`
-        id,
-        chat_id,
-        user_id,
-        role,
-        users!chat_members_user_id_fkey (
-          id,
-          full_name,
-          email,
-          role,
-          avatar
-        )
-      `)
-      .eq('chat_id', chatId) as { data: ChatMemberResult[] | null, error: any }
+      .select('id, chat_id, user_id, role')
+      .eq('chat_id', chatId)
 
-    if (error) {
-      console.error('Error fetching chat members:', error)
-      throw error
+    if (membersError) {
+      console.error('Error fetching chat members:', membersError)
+      throw membersError
     }
 
-    if (!members) {
+    if (!members || members.length === 0) {
       return []
     }
 
+    // Get user IDs from members
+    const userIds = members.map(member => member.user_id)
+
+    // Fetch user details separately
+    const { data: users, error: usersError } = await supabase
+      .from('users')
+      .select('id, full_name, email, role, avatar')
+      .in('id', userIds)
+
+    if (usersError) {
+      console.error('Error fetching users:', usersError)
+      throw usersError
+    }
+
+    // Create a map of users by ID for quick lookup
+    const usersMap = new Map(users?.map(user => [user.id, user]) || [])
+
     // Transform to display format
-    const memberDisplay: ChatMemberDisplay[] = members.map(member => ({
-      id: member.user_id,
-      name: member.users?.full_name || 'Unknown User',
-      email: member.users?.email || '',
-      role: member.users?.role || 'athlete',
-      avatar: member.users?.avatar || undefined,
-      isAdmin: member.role === 'admin'
-    }))
+    const memberDisplay: ChatMemberDisplay[] = members.map(member => {
+      const user = usersMap.get(member.user_id)
+      return {
+        id: member.user_id,
+        name: user?.full_name || 'Unknown User',
+        email: user?.email || '',
+        role: user?.role || 'athlete',
+        avatar: user?.avatar || undefined,
+        isAdmin: member.role === 'admin'
+      }
+    })
 
     return memberDisplay
 
@@ -697,24 +771,31 @@ type PermissionCheckResult = {
 // Check if user can manage chat members (coach and assistant coach)
 export async function canManageChatMembers(chatId: string, userId: string): Promise<boolean> {
   try {
-    const { data: member, error } = await supabase
+    // First get the chat member role
+    const { data: member, error: memberError } = await supabase
       .from('chat_members')
-      .select(`
-        role,
-        users!chat_members_user_id_fkey (
-          role
-        )
-      `)
+      .select('role')
       .eq('chat_id', chatId)
       .eq('user_id', userId)
-      .single() as { data: PermissionCheckResult | null, error: any }
+      .single()
 
-    if (error || !member) {
+    if (memberError || !member) {
+      return false
+    }
+
+    // Get the user's role
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', userId)
+      .single()
+
+    if (userError || !user) {
       return false
     }
 
     // Allow both coaches and assistant coaches to manage chat members
-    return (member.users?.role === 'coach' || member.users?.role === 'assistant_coach')
+    return (user.role === 'coach' || user.role === 'assistant_coach')
 
   } catch (error) {
     console.error('Error checking member management permissions:', error)
@@ -1278,10 +1359,21 @@ export async function getUserTeams(userId: string): Promise<Array<{ id: string, 
       .eq('user_id', userId)
 
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Query timeout after 10 seconds')), 10000)
+      setTimeout(() => reject(new Error('Query timeout after 30 seconds')), 30000) // Increased to 30 seconds
     )
 
-    const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any
+    let data, error
+    try {
+      const result = await Promise.race([queryPromise, timeoutPromise]) as any
+      data = result.data
+      error = result.error
+    } catch (timeoutError: any) {
+      if (timeoutError.message === 'Query timeout after 30 seconds') {
+        console.warn('⏰ getUserTeams: Query timed out, returning empty array')
+        return []
+      }
+      throw timeoutError
+    }
 
     console.log('🔍 getUserTeams: Supabase call completed!')
     console.log('🔍 getUserTeams: Raw database response:')
@@ -1592,6 +1684,24 @@ export async function deleteWorkout(workoutId: string): Promise<{ success: boole
     }
 
     console.log('✅ deleteWorkout: Successfully deleted workout')
+    
+    // Clear workout from localStorage cache to prevent stale data
+    try {
+      const userId = (await supabase.auth.getUser()).data.user?.id
+      if (userId) {
+        const cachedWorkouts = localStorage.getItem(`workouts_${userId}`)
+        if (cachedWorkouts) {
+          const workouts = JSON.parse(cachedWorkouts)
+          const updatedWorkouts = workouts.filter((w: any) => w.id !== workoutId)
+          localStorage.setItem(`workouts_${userId}`, JSON.stringify(updatedWorkouts))
+          console.log('🗑️ deleteWorkout: Cleared workout from cache')
+        }
+      }
+    } catch (cacheError) {
+      console.warn('⚠️ deleteWorkout: Failed to clear cache:', cacheError)
+      // Don't fail the deletion if cache clearing fails
+    }
+    
     return { success: true }
   } catch (error) {
     console.error('💥 deleteWorkout: Error in deleteWorkout:', error)
@@ -1842,6 +1952,11 @@ export async function getWorkoutExercises(workoutId: string): Promise<Array<{
       .single()
 
     if (error) {
+      // Handle specific error cases
+      if (error.code === 'PGRST116') {
+        console.warn('⚠️ Workout not found (may have been deleted):', workoutId)
+        return [] // Return empty array instead of throwing error
+      }
       console.error('Error fetching workout:', error)
       throw error
     }
@@ -1865,7 +1980,8 @@ export async function getWorkoutExercises(workoutId: string): Promise<Array<{
     return exercises
   } catch (error) {
     console.error('Error in getWorkoutExercises:', error)
-    throw error
+    // Return empty array instead of throwing to prevent app crashes
+    return []
   }
 }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { User, UserRole, upsertUser } from '@/lib/utils'
 import { loadingManager } from '@/lib/loadingManager'
@@ -24,6 +24,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isHydrated, setIsHydrated] = useState(false)
   const [isLoading, setIsLoading] = useState(false) // Never show loading states
   const [error, setError] = useState<string | null>(null)
+  
+  // Refs to prevent race conditions and duplicate requests
+  const isInitializing = useRef(false)
+  const authCheckPromise = useRef<Promise<void> | null>(null)
+  const lastAuthCheck = useRef<number>(0)
+  const AUTH_CHECK_THROTTLE = 2000 // 2 seconds minimum between auth checks
 
   const clearError = () => setError(null)
 
@@ -59,6 +65,291 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return '/dashboard'
   }
 
+  // Optimized user session handler with better error handling
+  const handleUserSession = useCallback(async (supabaseUser: any, shouldRedirect: boolean = false) => {
+    try {
+      console.log('🔐 Handling user session for:', supabaseUser.email)
+      
+      // Get user profile from database with reasonable timeout
+      console.log('🔍 Fetching user profile for ID:', supabaseUser.id)
+      const profilePromise = supabase
+        .from('users')
+        .select('id, email, full_name, role, avatar, created_at, updated_at')
+        .eq('id', supabaseUser.id)
+        .single()
+
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000) // Increased to 10 seconds
+      )
+
+      let profile: any = null
+      let profileError: any = null
+
+      try {
+        const startTime = Date.now()
+        const result = await Promise.race([
+          profilePromise,
+          timeoutPromise
+        ]) as any
+        const fetchTime = Date.now() - startTime
+        console.log(`📊 Profile fetch completed in ${fetchTime}ms`)
+        
+        profile = result.data
+        profileError = result.error
+      } catch (timeoutError: any) {
+        if (timeoutError.message === 'Profile fetch timeout') {
+          console.warn('⏰ Profile fetch timed out, using auth metadata as fallback')
+          profileError = { code: 'TIMEOUT', message: 'Profile fetch timeout' }
+          
+          // Try to fetch profile in background for next time
+          setTimeout(async () => {
+            try {
+              const { data: backgroundProfile } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', supabaseUser.id)
+                .single()
+              
+              if (backgroundProfile) {
+                console.log('🔄 Background profile fetch successful, will use on next login')
+              }
+            } catch (bgError) {
+              console.warn('⚠️ Background profile fetch failed:', bgError)
+            }
+          }, 2000) // Wait 2 seconds before retry
+        } else {
+          throw timeoutError
+        }
+      }
+
+      let finalRole: UserRole
+      let userName = ''
+
+      if (profileError && profileError.code === 'PGRST116') {
+        // First-time user
+        console.log('👤 First-time user, creating database record')
+        finalRole = (supabaseUser.user_metadata?.role as UserRole) || 'athlete'
+        userName = supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || ''
+        
+        // Create user in database (non-blocking)
+        supabase
+          .from('users')
+          .insert({
+            id: supabaseUser.id,
+            email: supabaseUser.email,
+            full_name: userName,
+            role: finalRole,
+          })
+          .then(({ error }) => {
+            if (error && error.code !== 'PGRST301') {
+              console.log('⚠️ Profile creation failed (non-critical):', error.code)
+            }
+          })
+
+      } else if (profile) {
+        // Existing user
+        console.log('👤 Existing user found, using database role')
+        finalRole = profile.role as UserRole
+        userName = profile.full_name || ''
+
+        // Sync auth metadata in background (non-blocking)
+        const authRole = supabaseUser.user_metadata?.role
+        if (authRole !== finalRole) {
+          supabase.auth.updateUser({
+            data: { role: finalRole }
+          }).catch(() => {}) // Silent fail
+        }
+      } else {
+        // Database error or timeout fallback
+        if (profileError?.code === 'TIMEOUT') {
+          console.log('⏰ Database timeout, using auth metadata as fallback')
+        } else {
+          console.log('⚠️ Database error, using auth metadata as fallback')
+          console.log('Database error details:', profileError)
+          console.log('Error code:', profileError?.code)
+          console.log('Error message:', profileError?.message)
+          console.log('Error details:', profileError?.details)
+        }
+        finalRole = (supabaseUser.user_metadata?.role as UserRole) || 'athlete'
+        userName = supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || ''
+        
+        // Try to get the user's actual name from database as fallback
+        try {
+          const { data: fallbackProfile } = await supabase
+            .from('users')
+            .select('full_name')
+            .eq('id', supabaseUser.id)
+            .single()
+          
+          if (fallbackProfile?.full_name) {
+            userName = fallbackProfile.full_name
+            console.log('✅ Got user name from fallback query:', userName)
+          }
+        } catch (fallbackError) {
+          console.log('⚠️ Fallback query also failed:', fallbackError)
+        }
+      }
+
+      // Create user object
+      const userData = {
+        id: supabaseUser.id,
+        name: userName || supabaseUser.email,
+        full_name: userName || supabaseUser.email, // Add full_name for compatibility
+        email: supabaseUser.email,
+        role: finalRole,
+        avatar: profile?.avatar || ''
+      }
+
+      setUser(userData)
+      setError(null)
+      
+      // Cache user data for instant loading
+      try {
+        localStorage.setItem('cached_user', JSON.stringify(userData))
+        localStorage.setItem('cached_user_timestamp', Date.now().toString())
+      } catch (e) {
+        console.warn('Failed to cache user data:', e)
+      }
+      
+      console.log(`✅ User session created with role: ${finalRole}`)
+      
+      // Handle redirect if needed
+      if (shouldRedirect && typeof window !== 'undefined') {
+        const baseUrl = getBaseUrl()
+        const currentPath = window.location.pathname
+        
+        if (currentPath === '/' || currentPath === '/login') {
+          const dashboardUrl = `${baseUrl}/dashboard`
+          console.log('🔄 Redirecting to:', dashboardUrl)
+          window.location.href = dashboardUrl
+        }
+      }
+
+    } catch (error: any) {
+      console.error('❌ Error handling user session:', error)
+      
+      // Only sign out for actual security issues
+      if (error?.message?.includes('JWT') || error?.code === 'PGRST301') {
+        console.log('🔒 Security issue detected, signing out user')
+        try {
+          await supabase.auth.signOut()
+        } catch (signOutError) {
+          console.error('Error signing out:', signOutError)
+        }
+        setUser(null)
+        localStorage.removeItem('cached_user')
+        localStorage.removeItem('cached_user_timestamp')
+      } else {
+        console.log('⚠️ Non-security error, keeping user logged in')
+        // For non-security errors, try to use cached data
+        try {
+          const cachedUser = localStorage.getItem('cached_user')
+          if (cachedUser) {
+            const parsedUser = JSON.parse(cachedUser)
+            setUser(parsedUser)
+            console.log('🔄 Using cached user data as fallback')
+          }
+        } catch (e) {
+          console.warn('Failed to restore cached user:', e)
+        }
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // Optimized session check with deduplication and throttling
+  const checkSession = useCallback(async () => {
+    const now = Date.now()
+    
+    // Throttle auth checks to prevent excessive calls
+    if (now - lastAuthCheck.current < AUTH_CHECK_THROTTLE) {
+      console.log('⏱️ Auth check throttled')
+      return
+    }
+    
+    // Prevent multiple simultaneous auth checks
+    if (authCheckPromise.current) {
+      console.log('🔄 Auth check already in progress, waiting...')
+      return authCheckPromise.current
+    }
+
+    lastAuthCheck.current = now
+    isInitializing.current = true
+
+    authCheckPromise.current = (async () => {
+      try {
+        console.log('🔍 Checking session...')
+        loadingManager.startLoading('auth-session', 2000)
+        
+        // Check for cached user first with timestamp validation
+        const cachedUser = localStorage.getItem('cached_user')
+        const cachedTimestamp = localStorage.getItem('cached_user_timestamp')
+        const isCacheValid = cachedTimestamp && (now - parseInt(cachedTimestamp)) < 300000 // 5 minutes
+
+        if (cachedUser && isCacheValid) {
+          try {
+            const parsedUser = JSON.parse(cachedUser)
+            console.log('📱 Using cached user:', parsedUser.email)
+            setUser(parsedUser)
+            loadingManager.stopLoading('auth-session')
+            return
+          } catch (e) {
+            console.warn('Invalid cached user data, clearing cache')
+            localStorage.removeItem('cached_user')
+            localStorage.removeItem('cached_user_timestamp')
+          }
+        }
+
+        // Get session from Supabase
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (sessionError) {
+          console.error('Session error:', sessionError)
+          throw sessionError
+        }
+
+        if (session?.user) {
+          console.log('✅ Valid session found for:', session.user.email)
+          await handleUserSession(session.user, false)
+        } else {
+          console.log('❌ No session found')
+          setUser(null)
+          localStorage.removeItem('cached_user')
+          localStorage.removeItem('cached_user_timestamp')
+        }
+
+      } catch (error: any) {
+        console.error('❌ Session check failed:', error)
+        
+        // Only clear user for actual auth errors, not network errors
+        if (error?.message?.includes('JWT') || error?.code === 'PGRST301') {
+          setUser(null)
+          localStorage.removeItem('cached_user')
+          localStorage.removeItem('cached_user_timestamp')
+        } else {
+          // For network errors, try to use cached data
+          try {
+            const cachedUser = localStorage.getItem('cached_user')
+            if (cachedUser) {
+              const parsedUser = JSON.parse(cachedUser)
+              setUser(parsedUser)
+              console.log('🔄 Using cached user data due to network error')
+            }
+          } catch (e) {
+            console.warn('Failed to restore cached user:', e)
+          }
+        }
+      } finally {
+        loadingManager.stopLoading('auth-session')
+        isInitializing.current = false
+        authCheckPromise.current = null
+      }
+    })()
+
+    return authCheckPromise.current
+  }, [handleUserSession])
+
   // Hydration effect - restore user from localStorage after mount
   useEffect(() => {
     setIsHydrated(true)
@@ -66,14 +357,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Restore user from localStorage immediately after hydration
     try {
       const cachedUser = localStorage.getItem('cached_user')
-      if (cachedUser) {
+      const cachedTimestamp = localStorage.getItem('cached_user_timestamp')
+      const now = Date.now()
+      const isCacheValid = cachedTimestamp && (now - parseInt(cachedTimestamp)) < 300000 // 5 minutes
+
+      if (cachedUser && isCacheValid) {
         const parsedUser = JSON.parse(cachedUser)
-        console.log('Restoring cached user after hydration:', parsedUser.email)
+        console.log('⚡ Restoring cached user after hydration:', parsedUser.email)
         setUser(parsedUser)
       }
     } catch (e) {
       console.error('Error restoring cached user:', e)
       localStorage.removeItem('cached_user')
+      localStorage.removeItem('cached_user_timestamp')
     }
   }, [])
 
@@ -180,126 +476,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    const handleUserSession = async (supabaseUser: any, shouldRedirect: boolean = false) => {
-      try {
-        console.log('Handling user session for:', supabaseUser.email)
-        
-        // Database-first approach: Check database for the true role
-        const { data: profile, error: profileError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', supabaseUser.id)
-          .single()
-
-        let finalRole: UserRole
-        let userName = ''
-
-        if (profileError && profileError.code === 'PGRST116') {
-          // User doesn't exist in database - first time sign-in
-          console.log('First-time user, creating database record')
-          
-          // Use role from auth metadata (from magic link signup)
-          finalRole = (supabaseUser.user_metadata?.role as UserRole) || 'athlete'
-          userName = supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || ''
-          
-          // Create user in database
-          const { error: insertError } = await supabase
-            .from('users')
-            .insert({
-              id: supabaseUser.id,
-              email: supabaseUser.email,
-              full_name: userName,
-              role: finalRole,
-            })
-
-          if (insertError && insertError.code !== 'PGRST301') {
-            // Non-auth error creating profile - continue with basic info
-            console.log('Profile creation failed (non-critical):', insertError.code)
-            setError('Could not save your profile, but you can continue using the app.')
-          }
-
-        } else if (profile) {
-          // User exists in database - use database role as source of truth
-          console.log('Existing user found, using database role')
-          finalRole = profile.role as UserRole
-          userName = profile.full_name || ''
-
-          // Check if auth metadata needs updating
-          const authRole = supabaseUser.user_metadata?.role
-          if (authRole !== finalRole) {
-            console.log(`Role mismatch: auth=${authRole}, db=${finalRole}. Updating auth metadata.`)
-            
-            // Update auth metadata to match database (background, non-blocking)
-            supabase.auth.updateUser({
-              data: { role: finalRole }
-            }).then(({ error }) => {
-              if (error) {
-                console.log('Auth metadata update failed (non-critical):', error.message)
-              } else {
-                console.log('Auth metadata synced with database role')
-              }
-            })
-          }
-
-        } else {
-          // Database error that's not "user not found"
-          console.log('Database query error, using auth metadata as fallback')
-          finalRole = (supabaseUser.user_metadata?.role as UserRole) || 'athlete'
-          userName = supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || ''
-          setError('Could not load your full profile. Using basic information.')
-        }
-
-        // Create user object with correct role from database
-        setError(null) // Clear any previous errors (unless set above)
-        const userData = {
-          id: supabaseUser.id,
-          name: userName,
-          email: supabaseUser.email,
-          role: finalRole,
-        }
-        setUser(userData)
-        
-        // Cache user data for instant loading on refresh
-        localStorage.setItem('cached_user', JSON.stringify(userData))
-        
-        console.log(`User session created with role: ${finalRole}`)
-        
-        // Redirect to appropriate dashboard if requested (for session restoration)
-        if (shouldRedirect && typeof window !== 'undefined') {
-          const baseUrl = getBaseUrl()
-          const currentPath = window.location.pathname
-          
-          // Only redirect if we're on the home page or login page
-          if (currentPath === '/' || currentPath === '/login') {
-            const dashboardUrl = `${baseUrl}/dashboard`
-            console.log('Session restoration redirecting to:', dashboardUrl)
-            window.location.href = dashboardUrl
-          }
-        }
-      } catch (error: any) {
-        console.error('Error handling user session:', error)
-        // Only sign out for actual security issues
-        if (error?.message?.includes('JWT') || error?.code === 'PGRST301') {
-          console.log('Security issue detected, signing out user')
-          try {
-            await supabase.auth.signOut()
-          } catch (signOutError) {
-            console.error('Error signing out:', signOutError)
-          }
-          setUser(null)
-        } else {
-          console.log('Non-security error, keeping user logged in')
-          // For non-security errors, just log and continue
-        }
-      } finally {
-        // Always clear loading state when session handling is complete
-        setIsLoading(false)
-      }
-    }
-
-    getSession()
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // Initial session check
+    checkSession().then(() => {
+      if (!mounted) return
+      
+      // Set up auth state change listener
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event, session?.user?.email)
       
       if (event === 'SIGNED_IN' && session?.user) {
@@ -329,23 +511,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Handle visibility change to prevent unnecessary re-authentication
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && user) {
-        // Tab became visible and user is logged in - just refresh session silently
-        supabase.auth.getSession().then(({ data: { session } }) => {
-          if (session?.user && mounted) {
-            console.log('Tab visible - session still valid')
-          } else if (mounted) {
-            console.log('Session expired on tab focus, clearing user')
-            setUser(null)
-            localStorage.removeItem('cached_user')
-          }
-        }).catch(error => {
-          console.log('Session check on visibility change failed:', error)
-          if (mounted) {
-            setUser(null)
-            localStorage.removeItem('cached_user')
-          }
-        })
+      if (document.visibilityState === 'visible' && user && !isInitializing.current) {
+        // Only check session if it's been more than 5 minutes
+        const now = Date.now()
+        const cachedTimestamp = localStorage.getItem('cached_user_timestamp')
+        const lastCheck = cachedTimestamp ? parseInt(cachedTimestamp) : 0
+        
+        if (now - lastCheck > 300000) { // 5 minutes
+          console.log('👁️ Tab visible - validating session')
+          checkSession().catch(() => {}) // Silent fail for background check
+        }
       }
     }
 
@@ -356,7 +531,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription.unsubscribe()
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [isHydrated, user]) // Run when hydrated and when user changes
+    }) // Close checkSession().then()
+  }, [isHydrated]) // Run only when hydrated - removed user dependency to prevent race conditions
 
   // Sign in with magic link (unified auth method)
   const signInWithMagicLink = async (email: string, role: UserRole) => {
@@ -416,6 +592,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // Clear user state immediately
       setUser(null)
+      localStorage.removeItem('cached_user')
+      localStorage.removeItem('cached_user_timestamp')
       
       // Sign out from Supabase
       const { error } = await supabase.auth.signOut()
