@@ -81,15 +81,25 @@ export default function ProfilePage() {
       }, 5000) // 5 second timeout
       
       try {
+        console.log('🔍 Profile: Loading teams for user:', user.id)
         const teams = await getUserTeams(user.id)
         clearTimeout(timeout)
+        console.log('✅ Profile: Teams loaded successfully:', teams)
         setUserTeams(teams)
         setTeamsError('') // Clear any previous errors
       } catch (error) {
-        console.error('Error loading user teams:', error)
+        console.error('🚨 Profile: Error loading user teams:', error)
         clearTimeout(timeout)
         setUserTeams([]) // Set empty array on error
-        setTeamsError('Failed to load teams. Please try again.')
+        
+        // Show detailed error message
+        let errorMessage = 'Failed to load teams. Please try again.'
+        if (error instanceof Error) {
+          errorMessage = error.message || errorMessage
+        }
+        
+        console.log('🚨 Profile: Setting error message:', errorMessage)
+        setTeamsError(errorMessage)
       } finally {
         setIsLoadingTeams(false)
       }
@@ -119,13 +129,33 @@ export default function ProfilePage() {
     
     setIsLoadingTeams(true)
     setTeamsError('')
+    
+    // Clear cache before refreshing
     try {
+      localStorage.removeItem(`teams_${user.id}`)
+      console.log('🗑️ Profile: Cleared teams cache for user:', user.id)
+    } catch (cacheError) {
+      console.warn('⚠️ Profile: Failed to clear teams cache:', cacheError)
+    }
+    
+    try {
+      console.log('🔄 Profile: Refreshing teams for user:', user.id)
       const teams = await getUserTeams(user.id)
+      console.log('✅ Profile: Teams refreshed successfully:', teams)
       setUserTeams(teams)
+      setTeamsError('')
     } catch (error) {
-      console.error('Error refreshing teams:', error)
+      console.error('🚨 Profile: Error refreshing teams:', error)
       setUserTeams([])
-      setTeamsError('Failed to refresh teams. Please try again.')
+      
+      // Show detailed error message
+      let errorMessage = 'Failed to refresh teams. Please try again.'
+      if (error instanceof Error) {
+        errorMessage = error.message || errorMessage
+      }
+      
+      console.log('🚨 Profile: Setting refresh error message:', errorMessage)
+      setTeamsError(errorMessage)
     } finally {
       setIsLoadingTeams(false)
     }

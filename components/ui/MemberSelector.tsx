@@ -62,6 +62,7 @@ export default function MemberSelector({
   )
 
   // Group members by role
+  const coaches = filteredMembers.filter(member => member.role === 'coach')
   const assistantCoaches = filteredMembers.filter(member => member.role === 'assistant_coach')
   const athletes = filteredMembers.filter(member => member.role === 'athlete')
 
@@ -136,6 +137,49 @@ export default function MemberSelector({
         </div>
       ) : (
         <div className="space-y-4 max-h-60 overflow-y-auto">
+          {/* Coaches Section */}
+          {coaches.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h5 className="text-xs font-medium text-gray-700 uppercase tracking-wide">
+                  Coaches ({coaches.length})
+                </h5>
+                <button
+                  onClick={() => handleSelectAll('coach')}
+                  className="text-xs text-green-600 hover:text-green-800 font-medium"
+                >
+                  {coaches.every(member => selectedMembers.includes(member.id)) ? 'Deselect All' : 'Select All'}
+                </button>
+              </div>
+              <div className="space-y-2">
+                {coaches.map((member) => (
+                  <label key={member.id} className="flex items-center space-x-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={selectedMembers.includes(member.id)}
+                      onChange={() => onMemberToggle(member.id)}
+                      className="h-4 w-4 text-green-500 rounded focus:ring-green-500"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-medium text-gray-900 truncate">
+                          {member.name}
+                        </span>
+                        <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                          Coach
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 truncate">{member.email}</p>
+                    </div>
+                    {selectedMembers.includes(member.id) && (
+                      <UserCheck className="h-4 w-4 text-green-500" />
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Assistant Coaches Section */}
           {assistantCoaches.length > 0 && (
             <div>

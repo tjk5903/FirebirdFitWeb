@@ -618,7 +618,7 @@ export interface ChatMemberDisplay {
   id: string
   name: string
   email: string
-  role: 'coach' | 'athlete'
+  role: 'coach' | 'assistant_coach' | 'athlete'
   avatar?: string
   isAdmin: boolean
 }
@@ -633,7 +633,7 @@ type ChatMemberResult = {
     id: string
     full_name: string
     email: string
-    role: 'coach' | 'athlete'
+    role: 'coach' | 'assistant_coach' | 'athlete'
     avatar?: string
   } | null
 }
@@ -689,12 +689,12 @@ export async function getChatMembers(chatId: string): Promise<ChatMemberDisplay[
 type PermissionCheckResult = {
   role: 'admin' | 'member'
   users: {
-    role: 'coach' | 'athlete'
+    role: 'coach' | 'assistant_coach' | 'athlete'
   } | null
 }
 
 
-// Check if user can manage chat members (coach and admin)
+// Check if user can manage chat members (coach and assistant coach)
 export async function canManageChatMembers(chatId: string, userId: string): Promise<boolean> {
   try {
     const { data: member, error } = await supabase
@@ -713,7 +713,8 @@ export async function canManageChatMembers(chatId: string, userId: string): Prom
       return false
     }
 
-    return member.users?.role === 'coach' && member.role === 'admin'
+    // Allow both coaches and assistant coaches to manage chat members
+    return (member.users?.role === 'coach' || member.users?.role === 'assistant_coach')
 
   } catch (error) {
     console.error('Error checking member management permissions:', error)
