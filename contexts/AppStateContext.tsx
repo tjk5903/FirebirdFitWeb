@@ -125,7 +125,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       const fetchedWorkouts = await Promise.race([
         getUserWorkouts(user.id),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Workouts fetch timeout')), 3000)  // Reduced to 3 seconds
+          setTimeout(() => reject(new Error('Workouts fetch timeout')), 8000)  // Increased to 8 seconds for production
         )
       ]) as any
       
@@ -175,7 +175,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       const fetchedTeams = await Promise.race([
         getUserTeams(user.id),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Teams fetch timeout')), 3000)  // Reduced to 3 seconds
+          setTimeout(() => reject(new Error('Teams fetch timeout')), 8000)  // Increased to 8 seconds for production
         )
       ]) as any
       

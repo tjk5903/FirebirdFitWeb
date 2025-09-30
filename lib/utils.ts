@@ -36,7 +36,7 @@ async function queryWithRetry<T>(
   queryFn: () => Promise<T>,
   operationName: string,
   maxRetries: number = 3,
-  timeoutMs: number = 5000
+  timeoutMs: number = 10000
 ): Promise<T> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -81,7 +81,7 @@ async function safeQuery<T>(
   queryFn: () => Promise<T>,
   operationName: string,
   fallbackValue: T,
-  timeoutMs: number = 3000  // Reduced to 3 seconds for better UX
+  timeoutMs: number = 8000  // Increased to 8 seconds for production
 ): Promise<T> {
   try {
     const timeoutPromise = new Promise((_, reject) => 

@@ -96,6 +96,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         profile = result.data
         profileError = result.error
+        
+        // Log detailed error information for debugging
+        if (profileError) {
+          console.error('❌ Profile fetch error details:', {
+            code: profileError.code,
+            message: profileError.message,
+            details: profileError.details,
+            hint: profileError.hint
+          })
+        }
       } catch (timeoutError: any) {
         if (timeoutError.message === 'Profile fetch timeout') {
           console.warn('⏰ Profile fetch timed out, using auth metadata as fallback')
@@ -175,18 +185,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Try to get the user's actual name from database as fallback
         try {
-          const { data: fallbackProfile } = await supabase
+          console.log('🔄 Attempting fallback query for user name...')
+          const { data: fallbackProfile, error: fallbackError } = await supabase
             .from('users')
-            .select('full_name')
+            .select('full_name, role')
             .eq('id', supabaseUser.id)
             .single()
           
-          if (fallbackProfile?.full_name) {
+          if (fallbackError) {
+            console.warn('⚠️ Fallback query failed:', fallbackError)
+          } else if (fallbackProfile?.full_name) {
             userName = fallbackProfile.full_name
-            console.log('✅ Got user name from fallback query:', userName)
+            console.log('✅ Fallback query successful, using database name:', userName)
+          }
+          
+          // Also try to get role if we don't have it
+          if (fallbackProfile?.role && !finalRole) {
+            finalRole = fallbackProfile.role as UserRole
+            console.log('✅ Fallback query got role:', finalRole)
           }
         } catch (fallbackError) {
-          console.log('⚠️ Fallback query also failed:', fallbackError)
+          console.warn('⚠️ Fallback query also failed:', fallbackError)
         }
       }
 
