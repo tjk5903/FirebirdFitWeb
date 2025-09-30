@@ -36,7 +36,7 @@ async function queryWithRetry<T>(
   queryFn: () => Promise<T>,
   operationName: string,
   maxRetries: number = 3,
-  timeoutMs: number = 15000
+  timeoutMs: number = 30000
 ): Promise<T> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -1671,8 +1671,8 @@ export async function getUserTeams(userId: string): Promise<Array<{ id: string, 
     console.log('🔍 getUserTeams: Starting team lookup for user:', userId)
     console.log('🔍 getUserTeams: About to call Supabase...')
     
-    // Add timeout to prevent hanging
-    const queryPromise = supabase
+    // Query without timeout - let indexes do their work
+    const { data, error } = await supabase
       .from('team_members')
       .select(`
         team_id,
@@ -1684,23 +1684,6 @@ export async function getUserTeams(userId: string): Promise<Array<{ id: string, 
         )
       `)
       .eq('user_id', userId)
-
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Query timeout after 30 seconds')), 30000) // Increased to 30 seconds
-    )
-
-    let data, error
-    try {
-      const result = await Promise.race([queryPromise, timeoutPromise]) as any
-      data = result.data
-      error = result.error
-    } catch (timeoutError: any) {
-      if (timeoutError.message === 'Query timeout after 30 seconds') {
-        console.warn('⏰ getUserTeams: Query timed out, returning empty array')
-        return []
-      }
-      throw timeoutError
-    }
 
     console.log('🔍 getUserTeams: Supabase call completed!')
     console.log('🔍 getUserTeams: Raw database response:')
