@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { createTeam, joinTeam, getUserTeams, updateTeamName, updateUserProfile, UserRole, canCreateTeams, canJoinTeams } from '@/lib/utils'
+import { createTeam, joinTeam, leaveTeam, deleteTeam, getUserTeams, updateTeamName, updateUserProfile, getTeamMembersForTeam, removeTeamMember, UserRole, canCreateTeams, canJoinTeams } from '@/lib/utils'
 import { 
   ArrowLeft, 
   User, 
@@ -48,6 +48,21 @@ export default function ProfilePage() {
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const [profileSaveError, setProfileSaveError] = useState('')
   const [profileSaveSuccess, setProfileSaveSuccess] = useState('')
+  const [isLeavingTeam, setIsLeavingTeam] = useState(false)
+  const [leaveTeamError, setLeaveTeamError] = useState('')
+  const [leaveTeamSuccess, setLeaveTeamSuccess] = useState('')
+  const [showLeaveTeamConfirm, setShowLeaveTeamConfirm] = useState(false)
+  const [isDeletingTeam, setIsDeletingTeam] = useState(false)
+  const [deleteTeamError, setDeleteTeamError] = useState('')
+  const [deleteTeamSuccess, setDeleteTeamSuccess] = useState('')
+  const [showDeleteTeamConfirm, setShowDeleteTeamConfirm] = useState(false)
+  const [teamMembers, setTeamMembers] = useState<any[]>([])
+  const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false)
+  const [teamMembersError, setTeamMembersError] = useState('')
+  const [showTeamMembers, setShowTeamMembers] = useState(false)
+  const [isRemovingMember, setIsRemovingMember] = useState(false)
+  const [memberToRemove, setMemberToRemove] = useState<any>(null)
+  const [showRemoveMemberConfirm, setShowRemoveMemberConfirm] = useState(false)
   const [profileData, setProfileData] = useState({
     name: '',
     email: '',
@@ -273,6 +288,124 @@ export default function ProfilePage() {
       setJoinTeamError(err.message || 'Failed to join team. Please try again.')
     } finally {
       setIsJoiningTeam(false)
+    }
+  }
+
+  const handleLeaveTeam = async () => {
+    if (!user || isLeavingTeam) return
+
+    setIsLeavingTeam(true)
+    setLeaveTeamError('')
+    setLeaveTeamSuccess('')
+
+    try {
+      const result = await leaveTeam(user.id)
+      
+      if (result.success) {
+        setLeaveTeamSuccess('Successfully left the team!')
+        setShowLeaveTeamConfirm(false)
+        
+        // Refresh user teams after leaving
+        const teams = await getUserTeams(user.id)
+        setUserTeams(teams)
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => setLeaveTeamSuccess(''), 3000)
+      } else {
+        setLeaveTeamError(result.error || 'Failed to leave team. Please try again.')
+      }
+    } catch (err: any) {
+      console.error('Leave team error:', err)
+      setLeaveTeamError(err.message || 'Failed to leave team. Please try again.')
+    } finally {
+      setIsLeavingTeam(false)
+    }
+  }
+
+  const handleDeleteTeam = async () => {
+    if (!user || isDeletingTeam) return
+
+    setIsDeletingTeam(true)
+    setDeleteTeamError('')
+    setDeleteTeamSuccess('')
+
+    try {
+      const result = await deleteTeam(user.id)
+      
+      if (result.success) {
+        setDeleteTeamSuccess('Team deleted successfully!')
+        setShowDeleteTeamConfirm(false)
+        
+        // Refresh user teams after deletion
+        const teams = await getUserTeams(user.id)
+        setUserTeams(teams)
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => setDeleteTeamSuccess(''), 3000)
+      } else {
+        setDeleteTeamError(result.error || 'Failed to delete team. Please try again.')
+      }
+    } catch (err: any) {
+      console.error('Delete team error:', err)
+      setDeleteTeamError(err.message || 'Failed to delete team. Please try again.')
+    } finally {
+      setIsDeletingTeam(false)
+    }
+  }
+
+  const handleLoadTeamMembers = async (teamId: string) => {
+    if (!user || isLoadingTeamMembers) return
+
+    setIsLoadingTeamMembers(true)
+    setTeamMembersError('')
+    setTeamMembers([])
+
+    try {
+      const result = await getTeamMembersForTeam(teamId, user.id)
+      
+      if (result.success) {
+        setTeamMembers(result.members || [])
+        setShowTeamMembers(true)
+      } else {
+        setTeamMembersError(result.error || 'Failed to load team members. Please try again.')
+      }
+    } catch (err: any) {
+      console.error('Load team members error:', err)
+      setTeamMembersError(err.message || 'Failed to load team members. Please try again.')
+    } finally {
+      setIsLoadingTeamMembers(false)
+    }
+  }
+
+  const handleRemoveMember = async () => {
+    if (!user || !memberToRemove || isRemovingMember) return
+
+    setIsRemovingMember(true)
+    setTeamMembersError('')
+
+    try {
+      // Find the team ID from the current user's teams
+      const currentTeam = userTeams.find(team => team.role === 'coach')
+      if (!currentTeam) {
+        setTeamMembersError('No team found')
+        return
+      }
+
+      const result = await removeTeamMember(currentTeam.id, memberToRemove.id, user.id)
+      
+      if (result.success) {
+        // Remove member from local state
+        setTeamMembers(prev => prev.filter(member => member.id !== memberToRemove.id))
+        setShowRemoveMemberConfirm(false)
+        setMemberToRemove(null)
+      } else {
+        setTeamMembersError(result.error || 'Failed to remove member. Please try again.')
+      }
+    } catch (err: any) {
+      console.error('Remove member error:', err)
+      setTeamMembersError(err.message || 'Failed to remove member. Please try again.')
+    } finally {
+      setIsRemovingMember(false)
     }
   }
 
@@ -794,6 +927,22 @@ export default function ProfilePage() {
                          <div className="text-right">
                            <p className="text-xs text-gray-500 font-medium mb-1">Join Code</p>
                            <p className="text-lg font-bold text-gray-900 tracking-wider">{team.joinCode}</p>
+                           {/* Action Buttons based on role */}
+                           {team.role === 'coach' ? (
+                             <button
+                               onClick={() => setShowDeleteTeamConfirm(true)}
+                               className="mt-2 px-3 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-all duration-200"
+                             >
+                               Delete Team
+                             </button>
+                           ) : (
+                             <button
+                               onClick={() => setShowLeaveTeamConfirm(true)}
+                               className="mt-2 px-3 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-all duration-200"
+                             >
+                               Leave Team
+                             </button>
+                           )}
                          </div>
                        </div>
                      ))}
@@ -813,7 +962,136 @@ export default function ProfilePage() {
                    </div>
                  )}
                </div>
+
+               {/* Leave Team Success/Error Messages */}
+               {leaveTeamSuccess && (
+                 <div className="flex items-center space-x-2 p-3 bg-green-50 border border-green-200 rounded-xl mb-4">
+                   <CheckCircle className="h-5 w-5 text-green-500" />
+                   <span className="text-green-700 text-sm">{leaveTeamSuccess}</span>
+                 </div>
+               )}
+               
+               {leaveTeamError && (
+                 <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-xl mb-4">
+                   <AlertCircle className="h-5 w-5 text-red-500" />
+                   <span className="text-red-700 text-sm">{leaveTeamError}</span>
+                 </div>
+               )}
+
+               {/* Delete Team Success/Error Messages */}
+               {deleteTeamSuccess && (
+                 <div className="flex items-center space-x-2 p-3 bg-green-50 border border-green-200 rounded-xl mb-4">
+                   <CheckCircle className="h-5 w-5 text-green-500" />
+                   <span className="text-green-700 text-sm">{deleteTeamSuccess}</span>
+                 </div>
+               )}
+               
+               {deleteTeamError && (
+                 <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-xl mb-4">
+                   <AlertCircle className="h-5 w-5 text-red-500" />
+                   <span className="text-red-700 text-sm">{deleteTeamError}</span>
+                 </div>
+               )}
              </div>
+
+             {/* Team Members Section - For Coaches */}
+             {canCreateTeams(user?.role) && userTeams.length > 0 && (
+               <div className="card-elevated hover-lift mt-6">
+                 <div className="flex items-center justify-between mb-6">
+                   <h3 className="text-lg sm:text-xl font-bold text-gray-900">Team Members</h3>
+                   {!showTeamMembers ? (
+                     <button
+                       onClick={() => {
+                         const currentTeam = userTeams.find(team => team.role === 'coach')
+                         if (currentTeam) {
+                           handleLoadTeamMembers(currentTeam.id)
+                         }
+                       }}
+                       disabled={isLoadingTeamMembers}
+                       className="flex items-center space-x-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl transition-all duration-200 disabled:opacity-50"
+                     >
+                       <Users className="h-4 w-4" />
+                       <span>{isLoadingTeamMembers ? 'Loading...' : 'View Members'}</span>
+                     </button>
+                   ) : (
+                     <button
+                       onClick={() => setShowTeamMembers(false)}
+                       className="flex items-center space-x-2 px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-xl transition-all duration-200"
+                     >
+                       <X className="h-4 w-4" />
+                       <span>Hide Members</span>
+                     </button>
+                   )}
+                 </div>
+
+                 {showTeamMembers && (
+                   <div className="space-y-4">
+                     {teamMembersError && (
+                       <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-xl">
+                         <AlertCircle className="h-5 w-5 text-red-500" />
+                         <span className="text-red-700 text-sm">{teamMembersError}</span>
+                       </div>
+                     )}
+
+                     {isLoadingTeamMembers ? (
+                       <div className="flex items-center justify-center py-8">
+                         <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-3"></div>
+                         <span className="text-gray-600">Loading team members...</span>
+                       </div>
+                     ) : teamMembers.length > 0 ? (
+                       <div className="space-y-3">
+                         {teamMembers.map((member) => (
+                           <div key={member.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border-2 border-gray-100 hover:border-blue-200 transition-all duration-200">
+                             <div className="flex items-center space-x-4">
+                               <div className="h-12 w-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                                 <User className="h-6 w-6 text-white" />
+                               </div>
+                               <div className="flex-1">
+                                 <h4 className="font-semibold text-gray-900">{member.name}</h4>
+                                 <p className="text-sm text-gray-600">{member.email}</p>
+                                 <div className="flex items-center space-x-2 mt-1">
+                                   <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                                     member.role === 'coach' 
+                                       ? 'bg-green-100 text-green-800' 
+                                       : member.role === 'assistant_coach'
+                                       ? 'bg-blue-100 text-blue-800'
+                                       : 'bg-gray-100 text-gray-800'
+                                   }`}>
+                                     {member.role === 'assistant_coach' ? 'Assistant Coach' : member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                                   </span>
+                                   <span className="text-xs text-gray-500">
+                                     Joined {new Date(member.joinedAt).toLocaleDateString()}
+                                   </span>
+                                 </div>
+                               </div>
+                             </div>
+                             {member.role !== 'coach' && (
+                               <button
+                                 onClick={() => {
+                                   setMemberToRemove(member)
+                                   setShowRemoveMemberConfirm(true)
+                                 }}
+                                 className="px-3 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-all duration-200"
+                               >
+                                 Remove
+                               </button>
+                             )}
+                           </div>
+                         ))}
+                       </div>
+                     ) : (
+                       <div className="text-center py-8">
+                         <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                           <Users className="h-8 w-8 text-gray-400" />
+                         </div>
+                         <h4 className="text-lg font-semibold text-gray-900 mb-2">No Members Yet</h4>
+                         <p className="text-gray-600">Share your join code with athletes and assistant coaches to add them to your team.</p>
+                       </div>
+                     )}
+                   </div>
+                 )}
+               </div>
+             )}
           </div>
 
           {/* Settings & Actions */}
@@ -865,6 +1143,125 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Leave Team Confirmation Modal */}
+      {showLeaveTeamConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="h-10 w-10 bg-red-100 rounded-xl flex items-center justify-center">
+                <AlertCircle className="h-5 w-5 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Leave Team</h3>
+            </div>
+            
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to leave this team? You'll need a new join code to rejoin later.
+            </p>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowLeaveTeamConfirm(false)}
+                className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-all duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLeaveTeam}
+                disabled={isLeavingTeam}
+                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLeavingTeam ? 'Leaving...' : 'Leave Team'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Team Confirmation Modal */}
+      {showDeleteTeamConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="h-10 w-10 bg-red-100 rounded-xl flex items-center justify-center">
+                <AlertCircle className="h-5 w-5 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Delete Team</h3>
+            </div>
+            
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+              <p className="text-red-800 font-semibold mb-2">⚠️ Warning: This action cannot be undone!</p>
+              <p className="text-red-700 text-sm">
+                Deleting this team will permanently remove:
+              </p>
+              <ul className="text-red-700 text-sm mt-2 ml-4 list-disc">
+                <li>All team members</li>
+                <li>All team workouts and events</li>
+                <li>All team chats and messages</li>
+                <li>The team join code</li>
+              </ul>
+            </div>
+            
+            <p className="text-gray-600 mb-6">
+              Are you absolutely sure you want to delete this team? This action is permanent and cannot be reversed.
+            </p>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowDeleteTeamConfirm(false)}
+                className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-all duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteTeam}
+                disabled={isDeletingTeam}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeletingTeam ? 'Deleting...' : 'Delete Team'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Member Confirmation Modal */}
+      {showRemoveMemberConfirm && memberToRemove && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="h-10 w-10 bg-red-100 rounded-xl flex items-center justify-center">
+                <AlertCircle className="h-5 w-5 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Remove Team Member</h3>
+            </div>
+            
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to remove <strong>{memberToRemove.name}</strong> from your team? 
+              They will need a new join code to rejoin.
+            </p>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowRemoveMemberConfirm(false)
+                  setMemberToRemove(null)
+                }}
+                className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-all duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRemoveMember}
+                disabled={isRemovingMember}
+                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isRemovingMember ? 'Removing...' : 'Remove Member'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 } 

@@ -6,12 +6,37 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Database query utility with retry logic and better error handling
+// Helper function to determine if an error should not be retried
+// Note: To prevent race conditions, ensure the team_members table has a unique constraint on user_id
+// This prevents users from being in multiple teams simultaneously
+function isNonRetryableError(error: any): boolean {
+  const errorMessage = error?.message?.toLowerCase() || ''
+  const errorCode = error?.code || ''
+  
+  // Don't retry authentication/authorization errors
+  if (errorCode === 'PGRST301' || errorMessage.includes('unauthorized') || errorMessage.includes('forbidden')) {
+    return true
+  }
+  
+  // Don't retry validation errors
+  if (errorCode === 'PGRST116' || errorMessage.includes('not found') || errorMessage.includes('invalid')) {
+    return true
+  }
+  
+  // Don't retry constraint violations (including race conditions)
+  if (errorCode === '23505' || errorMessage.includes('duplicate') || errorMessage.includes('already exists') || errorMessage.includes('unique constraint')) {
+    return true
+  }
+  
+  return false
+}
+
+// Enhanced database query utility with retry logic and better error handling
 async function queryWithRetry<T>(
   queryFn: () => Promise<T>,
   operationName: string,
-  maxRetries: number = 2,
-  timeoutMs: number = 5000  // Reduced to 5 seconds for better UX
+  maxRetries: number = 3,
+  timeoutMs: number = 5000
 ): Promise<T> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -28,14 +53,22 @@ async function queryWithRetry<T>(
     } catch (error: any) {
       console.warn(`⚠️ ${operationName}: Attempt ${attempt} failed:`, error.message)
       
+      // Don't retry for certain types of errors
+      if (isNonRetryableError(error)) {
+        console.log(`🚫 ${operationName}: Non-retryable error, stopping attempts`)
+        throw error
+      }
+      
       if (attempt === maxRetries) {
         console.error(`❌ ${operationName}: All attempts failed`)
         throw error
       }
       
-      // Wait before retry (exponential backoff)
-      const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 5000)
-      console.log(`⏳ ${operationName}: Waiting ${waitTime}ms before retry...`)
+      // Wait before retry (exponential backoff with jitter)
+      const baseWaitTime = 1000 * Math.pow(2, attempt - 1)
+      const jitter = Math.random() * 1000 // Add randomness to prevent thundering herd
+      const waitTime = Math.min(baseWaitTime + jitter, 5000)
+      console.log(`⏳ ${operationName}: Waiting ${Math.round(waitTime)}ms before retry...`)
       await new Promise(resolve => setTimeout(resolve, waitTime))
     }
   }
@@ -1228,6 +1261,11 @@ export async function createTeam(coachId: string, coachName: string): Promise<{ 
         .from('teams')
         .delete()
         .eq('id', team.id)
+      
+      // Handle race condition - coach might have joined another team between our checks
+      if (memberError.code === '23505') { // Unique constraint violation
+        throw new Error('You have already joined a team. Please refresh the page to see your current team membership.')
+      }
       throw memberError
     }
 
@@ -1243,7 +1281,7 @@ export async function createTeam(coachId: string, coachName: string): Promise<{ 
 
 // Join a team using a join code
 export async function joinTeam(userId: string, joinCode: string): Promise<{ teamId: string, teamName: string }> {
-  try {
+  return await queryWithRetry(async () => {
     console.log('🚀 JOIN TEAM DEBUG - Starting join team process')
     console.log('   - User ID:', userId)
     console.log('   - Join Code:', joinCode)
@@ -1264,7 +1302,7 @@ export async function joinTeam(userId: string, joinCode: string): Promise<{ team
     console.log('🔍 Existing teams check result:', { existingTeams, error: existingTeamsError })
 
     if (existingTeams && existingTeams.length > 0) {
-      throw new Error('You are already part of a team')
+      throw new Error('You are already part of a team. Please leave your current team first before joining a new one.')
     }
 
     // Get user's role to assign correct team member role
@@ -1296,7 +1334,7 @@ export async function joinTeam(userId: string, joinCode: string): Promise<{ team
       if (teamError.code === 'PGRST116') {
         // No team found with this join code
         console.log('No team found with join code:', joinCode)
-        throw new Error('Invalid code')
+        throw new Error('Invalid join code. Please check the code and try again.')
       }
       throw teamError
     }
@@ -1325,6 +1363,10 @@ export async function joinTeam(userId: string, joinCode: string): Promise<{ team
       })
 
     if (insertError) {
+      // Handle race condition - user might have joined another team between our checks
+      if (insertError.code === '23505') { // Unique constraint violation
+        throw new Error('You have already joined a team. Please refresh the page to see your current team membership.')
+      }
       throw insertError
     }
 
@@ -1332,11 +1374,296 @@ export async function joinTeam(userId: string, joinCode: string): Promise<{ team
       teamId: team.id,
       teamName: team.name
     }
-  } catch (error) {
-    console.error('Error joining team:', error)
-    throw error
-  }
+  }, 'Join Team', 3, 5000)
 } 
+
+// Leave a team
+export async function leaveTeam(userId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const result = await queryWithRetry(async () => {
+      console.log('🚪 LEAVE TEAM DEBUG - Starting leave team process')
+      console.log('   - User ID:', userId)
+      
+      // First, check if user is part of any team
+      const { data: teamMembership, error: membershipError } = await supabase
+        .from('team_members')
+        .select('id, team_id, role')
+        .eq('user_id', userId)
+        .single()
+
+      if (membershipError) {
+        if (membershipError.code === 'PGRST116') {
+          // No team membership found
+          throw new Error('You are not currently part of any team')
+        }
+        console.error('Error checking team membership:', membershipError)
+        throw membershipError
+      }
+
+      console.log('🔍 Team membership found:', teamMembership)
+
+      // Check if user is the coach of the team
+      const { data: team, error: teamError } = await supabase
+        .from('teams')
+        .select('coach_id')
+        .eq('id', teamMembership.team_id)
+        .single()
+
+      if (teamError) {
+        console.error('Error fetching team details:', teamError)
+        throw teamError
+      }
+
+      // If user is the coach, they can't leave (they need to delete the team instead)
+      if (team.coach_id === userId) {
+        throw new Error('As the team coach, you cannot leave the team. You can delete the team instead if you want to disband it.')
+      }
+
+      // Remove user from team
+      const { error: deleteError } = await supabase
+        .from('team_members')
+        .delete()
+        .eq('id', teamMembership.id)
+
+      if (deleteError) {
+        console.error('Error removing user from team:', deleteError)
+        throw deleteError
+      }
+
+      console.log('✅ Successfully left team')
+      return { success: true }
+    }, 'Leave Team', 3, 5000)
+
+    return result
+  } catch (error) {
+    console.error('Error leaving team:', error)
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to leave team. Please try again.' 
+    }
+  }
+}
+
+// Delete a team (coaches only)
+export async function deleteTeam(userId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const result = await queryWithRetry(async () => {
+      console.log('🗑️ DELETE TEAM DEBUG - Starting delete team process')
+      console.log('   - User ID:', userId)
+      
+      // First, check if user is a coach of any team
+      const { data: teamMembership, error: membershipError } = await supabase
+        .from('team_members')
+        .select('id, team_id, role')
+        .eq('user_id', userId)
+        .eq('role', 'coach')
+        .single()
+
+      if (membershipError) {
+        if (membershipError.code === 'PGRST116') {
+          // No team membership found or not a coach
+          throw new Error('You are not a coach of any team')
+        }
+        console.error('Error checking team membership:', membershipError)
+        throw membershipError
+      }
+
+      console.log('🔍 Team membership found:', teamMembership)
+
+      // Verify the user is actually the coach of this team
+      const { data: team, error: teamError } = await supabase
+        .from('teams')
+        .select('id, name, coach_id')
+        .eq('id', teamMembership.team_id)
+        .single()
+
+      if (teamError) {
+        console.error('Error fetching team details:', teamError)
+        throw teamError
+      }
+
+      if (team.coach_id !== userId) {
+        throw new Error('You are not authorized to delete this team')
+      }
+
+      console.log('🔍 Team to delete:', team)
+
+      // Delete all team members first (cascade should handle this, but being explicit)
+      const { error: membersDeleteError } = await supabase
+        .from('team_members')
+        .delete()
+        .eq('team_id', team.id)
+
+      if (membersDeleteError) {
+        console.error('Error deleting team members:', membersDeleteError)
+        // Don't throw here - continue with team deletion
+      }
+
+      // Delete the team itself
+      const { error: teamDeleteError } = await supabase
+        .from('teams')
+        .delete()
+        .eq('id', team.id)
+
+      if (teamDeleteError) {
+        console.error('Error deleting team:', teamDeleteError)
+        throw teamDeleteError
+      }
+
+      console.log('✅ Successfully deleted team:', team.name)
+      return { success: true }
+    }, 'Delete Team', 3, 5000)
+
+    return result
+  } catch (error) {
+    console.error('Error deleting team:', error)
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to delete team. Please try again.' 
+    }
+  }
+}
+
+// Get team members for a specific team (coaches only)
+export async function getTeamMembersForTeam(teamId: string, userId: string): Promise<{ success: boolean; members?: any[]; error?: string }> {
+  try {
+    console.log('👥 GET TEAM MEMBERS DEBUG - Starting team members fetch')
+    console.log('   - Team ID:', teamId)
+    console.log('   - User ID:', userId)
+    
+    // First, verify the user is a coach of this team
+    const { data: teamMembership, error: membershipError } = await supabase
+      .from('team_members')
+      .select('role')
+      .eq('team_id', teamId)
+      .eq('user_id', userId)
+      .eq('role', 'coach')
+      .single()
+
+    if (membershipError) {
+      if (membershipError.code === 'PGRST116') {
+        return { success: false, error: 'You are not a coach of this team' }
+      }
+      console.error('Error checking team membership:', membershipError)
+      throw membershipError
+    }
+
+    // Get all team members with their user details
+    const { data: members, error: membersError } = await supabase
+      .from('team_members')
+      .select(`
+        id,
+        role,
+        joined_at,
+        users!team_members_user_id_fkey (
+          id,
+          full_name,
+          email,
+          avatar
+        )
+      `)
+      .eq('team_id', teamId)
+      .order('joined_at', { ascending: true })
+
+    if (membersError) {
+      console.error('Error fetching team members:', membersError)
+      throw membersError
+    }
+
+    // Transform the data for easier use
+    const transformedMembers = members?.map((member: any) => ({
+      id: member.id,
+      userId: member.users?.id,
+      name: member.users?.full_name || 'Unknown User',
+      email: member.users?.email,
+      avatar: member.users?.avatar,
+      role: member.role,
+      joinedAt: member.joined_at
+    })) || []
+
+    console.log('✅ Successfully fetched team members:', transformedMembers.length)
+    return { success: true, members: transformedMembers }
+
+  } catch (error) {
+    console.error('Error getting team members:', error)
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to fetch team members. Please try again.' 
+    }
+  }
+}
+
+// Remove a member from a team (coaches only)
+export async function removeTeamMember(teamId: string, memberId: string, userId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const result = await queryWithRetry(async () => {
+      console.log('🗑️ REMOVE TEAM MEMBER DEBUG - Starting member removal')
+      console.log('   - Team ID:', teamId)
+      console.log('   - Member ID:', memberId)
+      console.log('   - User ID:', userId)
+      
+      // First, verify the user is a coach of this team
+      const { data: teamMembership, error: membershipError } = await supabase
+        .from('team_members')
+        .select('role')
+        .eq('team_id', teamId)
+        .eq('user_id', userId)
+        .eq('role', 'coach')
+        .single()
+
+      if (membershipError) {
+        if (membershipError.code === 'PGRST116') {
+          throw new Error('You are not a coach of this team')
+        }
+        console.error('Error checking team membership:', membershipError)
+        throw membershipError
+      }
+
+      // Get the member to be removed to check if they're the coach
+      const { data: memberToRemove, error: memberError } = await supabase
+        .from('team_members')
+        .select('role, user_id')
+        .eq('id', memberId)
+        .eq('team_id', teamId)
+        .single()
+
+      if (memberError) {
+        if (memberError.code === 'PGRST116') {
+          throw new Error('Member not found in this team')
+        }
+        console.error('Error fetching member to remove:', memberError)
+        throw memberError
+      }
+
+      // Prevent removing the coach
+      if (memberToRemove.role === 'coach') {
+        throw new Error('Cannot remove the team coach. Coaches must delete the team instead.')
+      }
+
+      // Remove the member
+      const { error: deleteError } = await supabase
+        .from('team_members')
+        .delete()
+        .eq('id', memberId)
+
+      if (deleteError) {
+        console.error('Error removing team member:', deleteError)
+        throw deleteError
+      }
+
+      console.log('✅ Successfully removed team member')
+      return { success: true }
+    }, 'Remove Team Member', 3, 5000)
+
+    return result
+  } catch (error) {
+    console.error('Error removing team member:', error)
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to remove team member. Please try again.' 
+    }
+  }
+}
 
 // Get teams that the current user belongs to
 export async function getUserTeams(userId: string): Promise<Array<{ id: string, name: string, joinCode: string, role: string }>> {
