@@ -42,11 +42,7 @@ async function queryWithRetry<T>(
     try {
       console.log(`🔄 ${operationName}: Attempt ${attempt}/${maxRetries}`)
       
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error(`Query timeout after ${timeoutMs/1000} seconds`)), timeoutMs)
-      )
-      
-      const result = await Promise.race([queryFn(), timeoutPromise]) as T
+      const result = await queryFn() as T
       console.log(`✅ ${operationName}: Success on attempt ${attempt}`)
       return result
       
@@ -84,11 +80,7 @@ async function safeQuery<T>(
   timeoutMs: number = 12000  // Increased to 12 seconds for production
 ): Promise<T> {
   try {
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error(`Query timeout after ${timeoutMs/1000} seconds`)), timeoutMs)
-    )
-    
-    const result = await Promise.race([queryFn(), timeoutPromise]) as T
+    const result = await queryFn() as T
     console.log(`✅ ${operationName}: Query successful`)
     return result
     

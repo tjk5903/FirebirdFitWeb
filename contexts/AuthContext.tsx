@@ -78,19 +78,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq('id', supabaseUser.id)
         .single()
 
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000) // Increased to 10 seconds
-      )
-
       let profile: any = null
       let profileError: any = null
 
       try {
         const startTime = Date.now()
-        const result = await Promise.race([
-          profilePromise,
-          timeoutPromise
-        ]) as any
+        const result = await profilePromise as any
         const fetchTime = Date.now() - startTime
         console.log(`📊 Profile fetch completed in ${fetchTime}ms`)
         
@@ -106,30 +99,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             hint: profileError.hint
           })
         }
-      } catch (timeoutError: any) {
-        if (timeoutError.message === 'Profile fetch timeout') {
-          console.warn('⏰ Profile fetch timed out, using auth metadata as fallback')
-          profileError = { code: 'TIMEOUT', message: 'Profile fetch timeout' }
-          
-          // Try to fetch profile in background for next time
-          setTimeout(async () => {
-            try {
-              const { data: backgroundProfile } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', supabaseUser.id)
-                .single()
-              
-              if (backgroundProfile) {
-                console.log('🔄 Background profile fetch successful, will use on next login')
-              }
-            } catch (bgError) {
-              console.warn('⚠️ Background profile fetch failed:', bgError)
-            }
-          }, 2000) // Wait 2 seconds before retry
-        } else {
-          throw timeoutError
-        }
+      } catch (error: any) {
+        console.warn('⚠️ Profile fetch failed, using auth metadata as fallback:', error)
+        profileError = error
       }
 
       let finalRole: UserRole
@@ -170,16 +142,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }).catch(() => {}) // Silent fail
         }
       } else {
-        // Database error or timeout fallback
-        if (profileError?.code === 'TIMEOUT') {
-          console.log('⏰ Database timeout, using auth metadata as fallback')
-        } else {
-          console.log('⚠️ Database error, using auth metadata as fallback')
-          console.log('Database error details:', profileError)
-          console.log('Error code:', profileError?.code)
-          console.log('Error message:', profileError?.message)
-          console.log('Error details:', profileError?.details)
-        }
+        // Database error fallback
+        console.log('⚠️ Database error, using auth metadata as fallback')
+        console.log('Database error details:', profileError)
+        console.log('Error code:', profileError?.code)
+        console.log('Error message:', profileError?.message)
+        console.log('Error details:', profileError?.details)
         finalRole = (supabaseUser.user_metadata?.role as UserRole) || 'athlete'
         userName = supabaseUser.user_metadata?.full_name || supabaseUser.user_metadata?.name || ''
         
