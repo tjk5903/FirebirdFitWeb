@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('🔍 Fetching user profile for ID:', supabaseUser.id)
       const profilePromise = supabase
         .from('users')
-        .select('id, email, full_name, role, avatar, created_at, updated_at')
+        .select('id, email, full_name, role, avatar, created_at')
         .eq('id', supabaseUser.id)
         .single()
 
