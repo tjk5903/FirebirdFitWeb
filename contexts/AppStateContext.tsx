@@ -121,13 +121,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }
     
     try {
-      // Use a more resilient approach for workouts
-      const fetchedWorkouts = await Promise.race([
-        getUserWorkouts(user.id),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Workouts fetch timeout')), 15000)  // Increased to 15 seconds for production
-        )
-      ]) as any
+      // Use a more resilient approach for workouts - no timeout with indexes
+      const fetchedWorkouts = await getUserWorkouts(user.id) as any
       
       setWorkouts(fetchedWorkouts || [])
       console.log('✅ Workouts loaded successfully:', fetchedWorkouts?.length || 0)
@@ -171,13 +166,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('📞 refreshTeams: Calling getUserTeams...')
       
-      // Use a more resilient approach for teams
-      const fetchedTeams = await Promise.race([
-        getUserTeams(user.id),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Teams fetch timeout')), 15000)  // Increased to 15 seconds for production
-        )
-      ]) as any
+      // Use a more resilient approach for teams - no timeout with indexes
+      const fetchedTeams = await getUserTeams(user.id) as any
       
       console.log('✅ refreshTeams: Received teams:', fetchedTeams)
       setTeams(fetchedTeams || [])

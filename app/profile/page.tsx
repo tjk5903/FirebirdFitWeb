@@ -89,22 +89,14 @@ export default function ProfilePage() {
       
       setIsLoadingTeams(true)
       
-      // Add timeout to prevent infinite loading
-      const timeout = setTimeout(() => {
-        console.warn('Teams loading timeout - stopping loading state')
-        setIsLoadingTeams(false)
-      }, 5000) // 5 second timeout
-      
       try {
         console.log('🔍 Profile: Loading teams for user:', user.id)
         const teams = await getUserTeams(user.id)
-        clearTimeout(timeout)
         console.log('✅ Profile: Teams loaded successfully:', teams)
         setUserTeams(teams)
         setTeamsError('') // Clear any previous errors
       } catch (error) {
         console.error('🚨 Profile: Error loading user teams:', error)
-        clearTimeout(timeout)
         setUserTeams([]) // Set empty array on error
         
         // Show detailed error message
