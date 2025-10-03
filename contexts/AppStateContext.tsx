@@ -309,47 +309,27 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           console.log('⚡ Fast refresh: Using cached data, updating in background')
           
           // Start background refresh without loading states
-          Promise.allSettled([
+          Promise.all([
             refreshWorkouts(false),
             refreshTeams(false), 
             refreshTeamMembers(false),
             refreshChats(false)
-          ]).then((results) => {
+          ]).then(() => {
             console.log('🔄 Background refresh completed')
-            
-            // Log any failures but continue with successful data
-            results.forEach((result, index) => {
-              const dataTypes = ['workouts', 'teams', 'teamMembers', 'chats']
-              if (result.status === 'rejected') {
-                console.warn(`⚠️ Background refresh failed for ${dataTypes[index]}:`, result.reason)
-              }
-            })
-            
             cleanupStaleData().catch(() => {})
             checkDatabaseHealth().catch(() => {})
+          }).catch(error => {
+            console.warn('⚠️ Background refresh failed:', error)
           })
           
         } else {
           console.log('⏳ Fresh load: Showing loading states for new data')
-          
-          // Use Promise.allSettled to prevent cascading failures
-          // This ensures that if one data source fails, others still load
-          const results = await Promise.allSettled([
+          await Promise.all([
             refreshWorkouts(true),
             refreshTeams(true), 
             refreshTeamMembers(true),
             refreshChats(true)
           ])
-          
-          // Log any failures but don't let them crash the app
-          results.forEach((result, index) => {
-            const dataTypes = ['workouts', 'teams', 'teamMembers', 'chats']
-            if (result.status === 'rejected') {
-              console.warn(`⚠️ Failed to load ${dataTypes[index]}:`, result.reason)
-            } else {
-              console.log(`✅ Successfully loaded ${dataTypes[index]}`)
-            }
-          })
           
           // Clean up after fresh load
           cleanupStaleData().catch(() => {})

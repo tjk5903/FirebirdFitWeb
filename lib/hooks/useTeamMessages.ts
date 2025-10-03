@@ -41,6 +41,40 @@ export function useTeamMessages(userId: string | undefined) {
     fetchMessages()
   }, [userId])
 
+  // Refresh messages when component mounts (with small delay)
+  useEffect(() => {
+    if (userId) {
+      const timer = setTimeout(() => {
+        const fetchMessages = async () => {
+          try {
+            setIsLoadingMessages(true)
+            const chats = await getUserChats(userId)
+            
+            const transformedMessages = chats.map((chat: ChatData) => ({
+              id: chat.id,
+              name: chat.name,
+              lastMessage: chat.lastMessage || 'No messages yet',
+              time: chat.lastMessageTime ? formatTimeAgo(chat.lastMessageTime) : 'Just now',
+              unread: chat.unread,
+              avatar: generateAvatar(chat.name),
+              memberCount: chat.memberCount,
+              conversationId: chat.id
+            }))
+            
+            setTeamMessages(transformedMessages || [])
+          } catch (error) {
+            console.error('Error refreshing team messages:', error)
+          } finally {
+            setIsLoadingMessages(false)
+          }
+        }
+        fetchMessages()
+      }, 1000) // 1 second delay to ensure fresh data
+      
+      return () => clearTimeout(timer)
+    }
+  }, []) // Only run on component mount
+
   const refetch = () => {
     if (userId) {
       const fetchMessages = async () => {

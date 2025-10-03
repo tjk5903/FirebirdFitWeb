@@ -82,19 +82,19 @@ export default function ProfilePage() {
     }
   }, [user])
 
-  // Load user's teams when user loads or page is visited
+  // Load user's teams when user loads
   useEffect(() => {
     const loadUserTeams = async () => {
-      if (!user) return
+      if (!user || userTeams.length > 0) return // Don't reload if already loaded
       
       setIsLoadingTeams(true)
-      setTeamsError('') // Clear any previous errors
       
       try {
         console.log('🔍 Profile: Loading teams for user:', user.id)
         const teams = await getUserTeams(user.id)
         console.log('✅ Profile: Teams loaded successfully:', teams)
         setUserTeams(teams)
+        setTeamsError('') // Clear any previous errors
       } catch (error) {
         console.error('🚨 Profile: Error loading user teams:', error)
         setUserTeams([]) // Set empty array on error
@@ -113,7 +113,7 @@ export default function ProfilePage() {
     }
 
     loadUserTeams()
-  }, [user?.id]) // Refresh teams every time user navigates to profile
+  }, [user?.id]) // Only depend on user ID, not the whole user object
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoaded(true), 100)

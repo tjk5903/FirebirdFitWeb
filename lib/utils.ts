@@ -396,7 +396,7 @@ type MessageResult = {
 
 // Fetch messages for a selected chat
 export async function getChatMessages(chatId: string): Promise<MessageData[]> {
-  return queryWithRetry(async () => {
+  try {
     // Fetch messages with sender information using a JOIN
     const { data: messages, error: messagesError } = await supabase
       .from('messages')
@@ -444,7 +444,11 @@ export async function getChatMessages(chatId: string): Promise<MessageData[]> {
     })
 
     return transformedMessages
-  }, `getChatMessages(${chatId})`)
+
+  } catch (error) {
+    console.error('Error in getChatMessages:', error)
+    throw error
+  }
 }
 
 // Send a new message to a chat
@@ -1655,7 +1659,7 @@ export async function removeTeamMember(teamId: string, memberId: string, userId:
 
 // Get teams that the current user belongs to
 export async function getUserTeams(userId: string): Promise<Array<{ id: string, name: string, joinCode: string, role: string }>> {
-  return queryWithRetry(async () => {
+  try {
     console.log('🔍 getUserTeams: Starting team lookup for user:', userId)
     console.log('🔍 getUserTeams: About to call Supabase...')
     
@@ -1702,7 +1706,10 @@ export async function getUserTeams(userId: string): Promise<Array<{ id: string, 
 
     console.log('✅ getUserTeams: Successfully transformed teams:', transformedTeams)
     return transformedTeams
-  }, `getUserTeams(${userId})`)
+  } catch (error) {
+    console.error('🚨 getUserTeams: Caught error:', error)
+    throw error
+  }
 } 
 
 
