@@ -53,14 +53,25 @@ export default function AthleteDashboard() {
   const [isLoaded, setIsLoaded] = useState(false)
 
   // Use custom hooks for team messages and workouts
-  const { teamMessages, isLoadingMessages } = useTeamMessages(user?.id)
-  const { workouts, isLoadingWorkouts } = useUserWorkouts(user?.id)
+  const { teamMessages, isLoadingMessages, refetch: refetchMessages } = useTeamMessages(user?.id)
+  const { workouts, isLoadingWorkouts, refetch: refetchWorkouts } = useUserWorkouts(user?.id)
 
   useEffect(() => {
     // Simulate loading animation
     const timer = setTimeout(() => setIsLoaded(true), 100)
     return () => clearTimeout(timer)
   }, [])
+
+  // Refetch data when dashboard loads to ensure fresh data
+  useEffect(() => {
+    if (user?.id && refetchMessages && refetchWorkouts) {
+      const timer = setTimeout(() => {
+        refetchMessages()
+        refetchWorkouts()
+      }, 500) // Small delay to let component settle
+      return () => clearTimeout(timer)
+    }
+  }, [user?.id, refetchMessages, refetchWorkouts])
 
   // Messages are now loaded via the useTeamMessages hook
 

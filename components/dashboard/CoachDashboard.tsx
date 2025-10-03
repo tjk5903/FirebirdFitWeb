@@ -125,13 +125,23 @@ export default function CoachDashboard() {
   const [isCreatingChat, setIsCreatingChat] = useState(false)
 
   // Use custom hook for team messages
-  const { teamMessages, isLoadingMessages } = useTeamMessages(user?.id)
+  const { teamMessages, isLoadingMessages, refetch: refetchMessages } = useTeamMessages(user?.id)
 
   useEffect(() => {
     // Simulate loading animation
     const timer = setTimeout(() => setIsLoaded(true), 100)
     return () => clearTimeout(timer)
   }, [])
+
+  // Refetch messages when dashboard loads to ensure fresh data
+  useEffect(() => {
+    if (user?.id && refetchMessages) {
+      const timer = setTimeout(() => {
+        refetchMessages()
+      }, 500) // Small delay to let component settle
+      return () => clearTimeout(timer)
+    }
+  }, [user?.id, refetchMessages])
 
   // Messages are now loaded via the useTeamMessages hook
 
