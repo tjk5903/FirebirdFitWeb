@@ -69,11 +69,11 @@ export function useTeamMessages(userId: string | undefined) {
           }
         }
         fetchMessages()
-      }, 2000) // 2 second delay after refresh to let everything settle
+      }, 500) // Back to 500ms delay
       
       return () => clearTimeout(timer)
     }
-  }, [userId]) // Run when userId changes (including after refresh)
+  }, []) // Back to only running on mount
 
   const refetch = () => {
     if (userId) {
