@@ -767,12 +767,12 @@ export async function getChatMembers(chatId: string): Promise<ChatMemberDisplay[
     const memberDisplay: ChatMemberDisplay[] = members.map(member => {
       const user = usersMap.get(member.user_id)
       return {
-        id: member.user_id,
+      id: member.user_id,
         name: user?.full_name || 'Unknown User',
         email: user?.email || '',
         role: user?.role || 'athlete',
         avatar: user?.avatar || undefined,
-        isAdmin: member.role === 'admin'
+      isAdmin: member.role === 'admin'
       }
     })
 
@@ -1655,7 +1655,7 @@ export async function removeTeamMember(teamId: string, memberId: string, userId:
       error: error instanceof Error ? error.message : 'Failed to remove team member. Please try again.' 
     }
   }
-}
+} 
 
 // Get teams that the current user belongs to
 export async function getUserTeams(userId: string): Promise<Array<{ id: string, name: string, joinCode: string, role: string }>> {
