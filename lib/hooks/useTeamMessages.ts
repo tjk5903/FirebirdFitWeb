@@ -69,11 +69,11 @@ export function useTeamMessages(userId: string | undefined) {
           }
         }
         fetchMessages()
-      }, 1000) // 1 second delay to ensure fresh data
+      }, 2000) // 2 second delay after refresh to let everything settle
       
       return () => clearTimeout(timer)
     }
-  }, []) // Only run on component mount
+  }, [userId]) // Run when userId changes (including after refresh)
 
   const refetch = () => {
     if (userId) {
