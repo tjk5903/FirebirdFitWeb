@@ -44,6 +44,15 @@ export function useTeamMessages(userId: string | undefined) {
   // Refresh messages when component mounts (with small delay)
   useEffect(() => {
     if (userId) {
+      // Clear any stale cache that might be causing issues
+      try {
+        localStorage.removeItem(`chats_${userId}`)
+        localStorage.removeItem(`teams_${userId}`)
+        localStorage.removeItem(`workouts_${userId}`)
+      } catch (e) {
+        // Ignore cache clearing errors
+      }
+      
       const timer = setTimeout(() => {
         const fetchMessages = async () => {
           try {
@@ -69,11 +78,11 @@ export function useTeamMessages(userId: string | undefined) {
           }
         }
         fetchMessages()
-      }, 500) // Back to 500ms delay
+      }, 500)
       
       return () => clearTimeout(timer)
     }
-  }, []) // Back to only running on mount
+  }, []) // Only run on mount
 
   const refetch = () => {
     if (userId) {
