@@ -309,7 +309,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           console.log('⚡ Fast refresh: Using cached data, updating in background')
           
           // Start background refresh without loading states
-          Promise.all([
+          Promise.allSettled([
             refreshWorkouts(false),
             refreshTeams(false), 
             refreshTeamMembers(false),
@@ -318,8 +318,6 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
             console.log('🔄 Background refresh completed')
             cleanupStaleData().catch(() => {})
             checkDatabaseHealth().catch(() => {})
-          }).catch(error => {
-            console.warn('⚠️ Background refresh failed:', error)
           })
           
         } else {
