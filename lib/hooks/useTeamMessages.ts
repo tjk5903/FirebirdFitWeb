@@ -41,5 +41,36 @@ export function useTeamMessages(userId: string | undefined) {
     fetchMessages()
   }, [userId])
 
-  return { teamMessages, isLoadingMessages }
+  const refetch = () => {
+    if (userId) {
+      const fetchMessages = async () => {
+        try {
+          setIsLoadingMessages(true)
+          const chats = await getUserChats(userId)
+          
+          // Transform ChatData to match the expected format for the dashboard
+          const transformedMessages = chats.map((chat: ChatData) => ({
+            id: chat.id,
+            name: chat.name,
+            lastMessage: chat.lastMessage || 'No messages yet',
+            time: chat.lastMessageTime ? formatTimeAgo(chat.lastMessageTime) : 'Just now',
+            unread: chat.unread,
+            avatar: generateAvatar(chat.name),
+            memberCount: chat.memberCount,
+            conversationId: chat.id
+          }))
+          
+          setTeamMessages(transformedMessages || [])
+        } catch (error) {
+          console.error('Error fetching team messages:', error)
+          setTeamMessages([])
+        } finally {
+          setIsLoadingMessages(false)
+        }
+      }
+      fetchMessages()
+    }
+  }
+
+  return { teamMessages, isLoadingMessages, refetch }
 }

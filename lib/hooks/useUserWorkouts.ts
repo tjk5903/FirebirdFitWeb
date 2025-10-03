@@ -41,7 +41,7 @@ export function useUserWorkouts(userId: string | undefined) {
     fetchWorkouts()
   }, [userId])
 
-  return { workouts, isLoadingWorkouts, error, refetch: () => {
+  const refetch = () => {
     if (userId) {
       const fetchWorkouts = async () => {
         try {
@@ -59,5 +59,7 @@ export function useUserWorkouts(userId: string | undefined) {
       }
       fetchWorkouts()
     }
-  }}
+  }
+
+  return { workouts, isLoadingWorkouts, error, refetch }
 }
