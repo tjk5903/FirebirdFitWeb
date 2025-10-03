@@ -324,7 +324,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
           
         } else {
           console.log('⏳ Fresh load: Showing loading states for new data')
-          await Promise.all([
+          await Promise.allSettled([
             refreshWorkouts(true),
             refreshTeams(true), 
             refreshTeamMembers(true),
