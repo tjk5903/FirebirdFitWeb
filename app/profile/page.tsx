@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { DashboardErrorBoundary } from '@/components/ui/DashboardErrorBoundary'
+import { SmartLoadingMessage, EmptyState } from '@/components/ui/LoadingStates'
 import { createTeam, joinTeam, leaveTeam, deleteTeam, getUserTeams, updateTeamName, updateUserProfile, getTeamMembersForTeam, removeTeamMember, UserRole, canCreateTeams, canJoinTeams } from '@/lib/utils'
 import { 
   ArrowLeft, 
@@ -803,9 +805,10 @@ export default function ProfilePage() {
              )}
 
              {/* My Teams Section - For All Users */}
-             <div className="card-elevated hover-lift mt-6">
-               <div className="flex items-center justify-between mb-6">
-                 <h3 className="text-lg sm:text-xl font-bold text-gray-900">My Teams</h3>
+             <DashboardErrorBoundary componentName="My Teams">
+               <div className="card-elevated hover-lift mt-6">
+                 <div className="flex items-center justify-between mb-6">
+                   <h3 className="text-lg sm:text-xl font-bold text-gray-900">My Teams</h3>
                  {canCreateTeams(user?.role) && userTeams.length > 0 && (
                    <div className="flex items-center space-x-2">
                      {!isEditingTeams ? (
@@ -868,10 +871,11 @@ export default function ProfilePage() {
 
                <div className="space-y-4">
                  {isLoadingTeams ? (
-                   <div className="flex items-center justify-center py-8">
-                     <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-3"></div>
-                     <span className="text-gray-600">Loading teams...</span>
-                   </div>
+                   <SmartLoadingMessage 
+                     type="teams" 
+                     isInitial={userTeams.length === 0}
+                     hasData={userTeams.length > 0}
+                   />
                  ) : teamsError ? (
                    <div className="flex flex-col items-center justify-center py-8">
                      <div className="h-16 w-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1084,6 +1088,7 @@ export default function ProfilePage() {
                  )}
                </div>
              )}
+             </DashboardErrorBoundary>
           </div>
 
           {/* Settings & Actions */}

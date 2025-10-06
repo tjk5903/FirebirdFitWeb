@@ -72,6 +72,9 @@ interface AppStateContextType {
   
   // Clear all data (on logout)
   clearAllData: () => void
+  
+  // Smart cache invalidation
+  invalidateCache: (dataTypes?: string[]) => void
 }
 
 const AppStateContext = createContext<AppStateContextType | undefined>(undefined)
@@ -107,6 +110,25 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [isRequestingTeams, setIsRequestingTeams] = useState(false)
   const [isRequestingTeamMembers, setIsRequestingTeamMembers] = useState(false)
   const [isRequestingChats, setIsRequestingChats] = useState(false)
+
+  // Loading timeout failsafe - prevents stuck loading states
+  useEffect(() => {
+    const loadingFailsafe = setTimeout(() => {
+      if (isLoadingWorkouts || isLoadingTeams || isLoadingChats || isLoadingTeamMembers) {
+        console.log('🛡️ FAILSAFE: Force clearing stuck loading states after 10 seconds')
+        setIsLoadingWorkouts(false)
+        setIsLoadingTeams(false)
+        setIsLoadingChats(false)
+        setIsLoadingTeamMembers(false)
+        setIsRequestingWorkouts(false)
+        setIsRequestingTeams(false)
+        setIsRequestingChats(false)
+        setIsRequestingTeamMembers(false)
+      }
+    }, 10000) // 10 second failsafe
+
+    return () => clearTimeout(loadingFailsafe)
+  }, [isLoadingWorkouts, isLoadingTeams, isLoadingChats, isLoadingTeamMembers])
   
   // Data fetching functions with improved error handling
   const refreshWorkouts = useCallback(async (showLoading = true) => {
@@ -502,6 +524,20 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       }
     }
   }, [user?.id])
+
+  // Smart cache invalidation after data changes
+  const invalidateCache = useCallback((dataTypes: string[] = ['workouts', 'teams', 'chats', 'teamMembers']) => {
+    if (user?.id) {
+      try {
+        dataTypes.forEach(type => {
+          localStorage.removeItem(`${type}_${user.id}`)
+        })
+        console.log('🔄 invalidateCache: Cleared cache for:', dataTypes.join(', '))
+      } catch (error) {
+        console.warn('Failed to invalidate cache:', error)
+      }
+    }
+  }, [user?.id])
   
   // Track if data has been loaded from localStorage
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false)
@@ -742,7 +778,10 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     updateChats,
     
     // Clear all data
-    clearAllData
+    clearAllData,
+    
+    // Cache management
+    invalidateCache
   }
   
   return (

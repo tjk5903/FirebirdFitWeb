@@ -337,9 +337,11 @@ export default function MessagesPage() {
     setIsDeletingChat(true)
 
     try {
+      console.log('🗑️ Messages: Starting chat deletion for:', chatToDelete.name)
       const result = await deleteChat(chatToDelete.id, user.id)
       
       if (result.success) {
+        console.log('✅ Messages: Chat deletion successful, updating UI')
         // Clear selected chat if it was the deleted one
         if (selectedChatId === chatToDelete.id) {
           setSelectedChatId(null)
@@ -353,8 +355,16 @@ export default function MessagesPage() {
           subscriptionRef.current = null
         }
         
-        // Refresh chats from AppState to ensure consistency
+        // Immediately update local UI by removing the deleted chat
+        console.log('🔄 Messages: Chats before deletion:', chats.length)
+        const updatedChats = chats.filter(chat => chat.id !== chatToDelete.id)
+        console.log('🔄 Messages: Chats after filtering:', updatedChats.length)
+        updateChats(updatedChats)
+        
+        // Also refresh chats from AppState to ensure consistency
+        console.log('🔄 Messages: Calling refreshChats...')
         await refreshChats()
+        console.log('✅ Messages: RefreshChats completed')
         
         // Close modal and reset
         setShowDeleteModal(false)
@@ -363,10 +373,12 @@ export default function MessagesPage() {
         setSuccessMessage('Chat deleted successfully!')
         setShowSuccessModal(true)
       } else {
+        console.error('❌ Messages: Chat deletion failed:', result.error)
         setSuccessMessage(result.error || 'Failed to delete chat')
         setShowSuccessModal(true)
       }
     } catch (error) {
+      console.error('🚨 Messages: Exception during chat deletion:', error)
       console.error('Failed to delete chat:', error)
       setSuccessMessage('Failed to delete chat. Please try again.')
       setShowSuccessModal(true)

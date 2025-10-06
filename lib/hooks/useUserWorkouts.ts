@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { getUserWorkouts } from '@/lib/utils'
 
 interface Workout {
@@ -41,7 +41,7 @@ export function useUserWorkouts(userId: string | undefined) {
     fetchWorkouts()
   }, [userId])
 
-  const refetch = () => {
+  const refetch = useCallback(() => {
     if (userId) {
       const fetchWorkouts = async () => {
         try {
@@ -59,7 +59,15 @@ export function useUserWorkouts(userId: string | undefined) {
       }
       fetchWorkouts()
     }
-  }
+  }, [userId])
 
-  return { workouts, isLoadingWorkouts, error, refetch }
+  // Memoize the return object to prevent unnecessary re-renders
+  const memoizedReturn = useMemo(() => ({
+    workouts,
+    isLoadingWorkouts,
+    error,
+    refetch
+  }), [workouts, isLoadingWorkouts, error, refetch])
+
+  return memoizedReturn
 }

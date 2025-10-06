@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { TeamStats, createWorkout, createEvent, createChat, getTeamMembers } from '@/lib/utils'
@@ -30,6 +30,8 @@ import {
   Zap
 } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
+import { SmartLoadingMessage, EmptyState } from '@/components/ui/LoadingStates'
+import { MemoizedMessageItem, MemoizedQuickAction } from '@/components/ui/MemoizedComponents'
 import MemberSelector from '@/components/ui/MemberSelector'
 
 const mockTeamStats: TeamStats = {
@@ -79,7 +81,7 @@ const exerciseLibrary = [
   { name: 'Butterfly Kicks', category: 'core', muscle: 'Core, Abs' }
 ]
 
-export default function CoachDashboard() {
+const CoachDashboard = React.memo(function CoachDashboard() {
   const { user, logout } = useAuth()
   const router = useRouter()
   
@@ -477,10 +479,11 @@ export default function CoachDashboard() {
             
             <div className="space-y-2 sm:space-y-3">
               {isLoadingMessages ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-3"></div>
-                  <span className="text-gray-600">Loading messages...</span>
-                </div>
+                <SmartLoadingMessage 
+                  type="messages" 
+                  isInitial={teamMessages.length === 0}
+                  hasData={teamMessages.length > 0}
+                />
               ) : teamMessages.length > 0 ? (
                 teamMessages.slice(0, 3).map((message, index) => (
                   <div 
@@ -519,11 +522,11 @@ export default function CoachDashboard() {
                   </div>
                 ))
               ) : (
-                <div className="text-center py-8">
-                  <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-600 text-sm">No messages yet</p>
-                  <p className="text-gray-500 text-xs mt-1">Team conversations will appear here</p>
-                </div>
+                <EmptyState 
+                  type="messages"
+                  actionText="Start Conversation"
+                  onAction={() => router.push('/messages')}
+                />
               )}
             </div>
           </div>
@@ -1039,4 +1042,6 @@ export default function CoachDashboard() {
       </div>
     </div>
   )
-} 
+})
+
+export default CoachDashboard 

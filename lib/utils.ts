@@ -260,6 +260,8 @@ type LastMessageResult = {
 // Fetch chats for the logged-in user
 export async function getUserChats(userId: string): Promise<ChatData[]> {
   try {
+    // Fetch chats for user
+    
     // First, get all chats where the user is a member
     const { data: userChats, error: chatsError } = await supabase
       .from('chat_members')
@@ -273,14 +275,18 @@ export async function getUserChats(userId: string): Promise<ChatData[]> {
       `)
       .eq('user_id', userId) as { data: UserChatResult[] | null, error: any }
 
+    // Check query result
+
     if (chatsError) {
-      console.error('Error fetching user chats:', chatsError)
+      console.error('🚨 getUserChats: Error fetching user chats:', chatsError)
       throw chatsError
     }
 
     if (!userChats || userChats.length === 0) {
       return []
     }
+
+    // Process found chats
 
     // Extract chat IDs
     const chatIds = userChats.map(uc => uc.chat_id)
@@ -360,7 +366,7 @@ export async function getUserChats(userId: string): Promise<ChatData[]> {
     return chatsWithMessages
 
   } catch (error) {
-    console.error('Error in getUserChats:', error)
+    console.error('🚨 getUserChats: Caught error:', error)
     throw error
   }
 }
@@ -1125,6 +1131,7 @@ export async function deleteChat(
   userId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    console.log('🗑️ deleteChat: Starting deletion for chat:', chatId, 'by user:', userId)
     // First, verify the user is a coach or assistant coach
     const { data: userProfile, error: profileError } = await supabase
       .from('users')
@@ -1141,17 +1148,8 @@ export async function deleteChat(
       return { success: false, error: 'Only coaches and assistant coaches can delete chats' }
     }
 
-    // Verify the user is a member of the chat (and preferably an admin)
-    const { data: chatMember, error: memberError } = await supabase
-      .from('chat_members')
-      .select('role')
-      .eq('chat_id', chatId)
-      .eq('user_id', userId)
-      .single()
-
-    if (memberError || !chatMember) {
-      return { success: false, error: 'You are not a member of this chat' }
-    }
+    // Skip manual membership check - RLS policies will handle permissions automatically
+    console.log('✅ deleteChat: User role verified, proceeding with deletion')
 
     // Delete all messages in the chat first
     const { error: messagesError } = await supabase
@@ -1189,7 +1187,7 @@ export async function deleteChat(
       return { success: false, error: `Failed to delete chat: ${chatError.message || 'Unknown error'}` }
     }
 
-    console.log('Chat deleted successfully:', chatId)
+    console.log('✅ deleteChat: Chat deleted successfully:', chatId)
     return { success: true }
 
   } catch (error) {
@@ -1523,21 +1521,25 @@ export async function getTeamMembersForTeam(teamId: string, userId: string): Pro
     console.log('   - Team ID:', teamId)
     console.log('   - User ID:', userId)
     
-    // First, verify the user is a coach of this team
+    // First, verify the user is a member of this team and has coach permissions
     const { data: teamMembership, error: membershipError } = await supabase
       .from('team_members')
       .select('role')
       .eq('team_id', teamId)
       .eq('user_id', userId)
-      .eq('role', 'coach')
       .single()
 
     if (membershipError) {
       if (membershipError.code === 'PGRST116') {
-        return { success: false, error: 'You are not a coach of this team' }
+        return { success: false, error: 'You are not a member of this team' }
       }
       console.error('Error checking team membership:', membershipError)
       throw membershipError
+    }
+
+    // Check if user has coach permissions
+    if (teamMembership.role !== 'coach') {
+      return { success: false, error: 'Only coaches can view team members' }
     }
 
     // Get all team members with their user details

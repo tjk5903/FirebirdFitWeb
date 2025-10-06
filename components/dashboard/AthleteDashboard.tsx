@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { AthleteStats } from '@/lib/utils'
@@ -27,6 +27,9 @@ import {
   Dumbbell
 } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
+import { SmartLoadingMessage, EmptyState } from '@/components/ui/LoadingStates'
+import { MemoizedQuickAction } from '@/components/ui/MemoizedComponents'
+import { DashboardErrorBoundary } from '@/components/ui/DashboardErrorBoundary'
 
 const mockAthleteStats: AthleteStats = {
   totalWorkouts: 45,
@@ -46,7 +49,7 @@ const mockQuickActions = [
   { id: 3, title: 'Team Chat', icon: MessageSquare, color: 'bg-purple-500', description: 'Send message', href: '/messages' },
 ]
 
-export default function AthleteDashboard() {
+const AthleteDashboard = React.memo(function AthleteDashboard() {
   const { user, logout } = useAuth()
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('')
@@ -155,17 +158,19 @@ export default function AthleteDashboard() {
         {/* Messages & Quick Actions */}
         <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8 mb-4 sm:mb-6 md:mb-8 transition-all duration-500 delay-400 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
           {/* Messages */}
-          <div className="md:col-span-2 lg:col-span-2 card-elevated mobile-card hover-lift cursor-pointer transition-all duration-300 hover:scale-[1.01] md:hover:scale-[1.02] hover:shadow-2xl touch-manipulation active:scale-[0.99]" onClick={() => router.push('/messages')}>
-            <div className="flex items-center justify-between mb-3 sm:mb-4 md:mb-6">
-              <h3 className="mobile-heading font-bold text-gray-900">Messages</h3>
-            </div>
+          <DashboardErrorBoundary componentName="Messages">
+            <div className="md:col-span-2 lg:col-span-2 card-elevated mobile-card hover-lift cursor-pointer transition-all duration-300 hover:scale-[1.01] md:hover:scale-[1.02] hover:shadow-2xl touch-manipulation active:scale-[0.99]" onClick={() => router.push('/messages')}>
+              <div className="flex items-center justify-between mb-3 sm:mb-4 md:mb-6">
+                <h3 className="mobile-heading font-bold text-gray-900">Messages</h3>
+              </div>
             
             <div className="space-y-2 sm:space-y-3">
               {isLoadingMessages ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-3"></div>
-                  <span className="text-gray-600">Loading messages...</span>
-                </div>
+                <SmartLoadingMessage 
+                  type="messages" 
+                  isInitial={teamMessages.length === 0}
+                  hasData={teamMessages.length > 0}
+                />
               ) : teamMessages.length > 0 ? (
                 teamMessages.slice(0, 3).map((message, index) => (
                   <div 
@@ -204,34 +209,27 @@ export default function AthleteDashboard() {
                   </div>
                 ))
               ) : (
-                <div className="text-center py-8">
-                  <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-600 text-sm">No messages yet</p>
-                  <p className="text-gray-500 text-xs mt-1">Team conversations will appear here</p>
-                </div>
+                <EmptyState 
+                  type="messages"
+                  actionText="View Messages"
+                  onAction={() => router.push('/messages')}
+                />
               )}
             </div>
           </div>
+          </DashboardErrorBoundary>
 
           {/* Quick Actions */}
           <div className="card-elevated mobile-card hover-lift">
             <h3 className="mobile-heading font-bold text-gray-900 mb-3 sm:mb-4 md:mb-6">Quick Actions</h3>
             <div className="space-y-2 sm:space-y-3">
               {mockQuickActions.map((action, index) => (
-                <button 
-                  key={action.id} 
+                <MemoizedQuickAction
+                  key={action.id}
+                  action={action}
+                  index={index}
                   onClick={() => router.push(action.href)}
-                  className="w-full flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 rounded-xl bg-gray-50 hover:bg-gray-100 active:bg-gray-200 transition-all duration-200 group focus-ring touch-manipulation"
-                  style={{ animationDelay: `${index * 100}ms` }}
-                >
-                  <div className={`h-10 w-10 sm:h-12 sm:w-12 ${action.color} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200`}>
-                    <action.icon className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
-                  </div>
-                  <div className="text-left">
-                    <h4 className="font-semibold text-gray-900 mobile-text">{action.title}</h4>
-                    <p className="text-sm text-gray-600 hidden sm:block">{action.description}</p>
-                  </div>
-                </button>
+                />
               ))}
             </div>
           </div>
@@ -246,15 +244,11 @@ export default function AthleteDashboard() {
              </div>
             
             {isLoadingWorkouts ? (
-              <div className="relative p-6 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl shadow-lg animate-pulse">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="h-12 w-12 bg-gray-300 rounded-xl"></div>
-                    <div className="h-6 w-32 bg-gray-300 rounded"></div>
-                  </div>
-                  <div className="h-10 w-16 bg-gray-300 rounded-xl"></div>
-                </div>
-              </div>
+              <SmartLoadingMessage 
+                type="workouts" 
+                isInitial={workouts.length === 0}
+                hasData={workouts.length > 0}
+              />
             ) : workouts.length > 0 ? (
               <div className="relative p-6 bg-gradient-to-br from-royal-blue via-blue-600 to-dark-blue rounded-2xl text-white shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
                 {/* Background Pattern */}
@@ -288,21 +282,13 @@ export default function AthleteDashboard() {
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/30 to-transparent transform -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
               </div>
             ) : (
-              <div className="relative p-6 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl shadow-lg border-2 border-dashed border-gray-300">
-                <div className="text-center">
-                  <div className="h-12 w-12 bg-gray-200 rounded-xl flex items-center justify-center mx-auto mb-3">
-                    <Dumbbell className="h-6 w-6 text-gray-400" />
-                  </div>
-                  <h4 className="font-semibold text-gray-900 mb-2">No Workouts Yet</h4>
-                  <p className="text-sm text-gray-600 mb-4">Your coach hasn't assigned any workouts yet.</p>
-                  <button 
-                    onClick={() => router.push('/workouts')}
-                    className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-xl font-semibold transition-all duration-300 hover:scale-105 hover:shadow-lg touch-manipulation"
-                  >
-                    View All Workouts
-                  </button>
-                </div>
-              </div>
+              <EmptyState 
+                type="workouts"
+                title="No Workouts Yet"
+                description="Your coach hasn't assigned any workouts yet."
+                actionText="View All Workouts"
+                onAction={() => router.push('/workouts')}
+              />
             )}
           </div>
 
@@ -325,4 +311,6 @@ export default function AthleteDashboard() {
       </div>
     </div>
   )
-} 
+})
+
+export default AthleteDashboard 
