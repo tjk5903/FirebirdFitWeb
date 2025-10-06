@@ -1905,6 +1905,18 @@ export async function createEvent(
     }
 
     console.log('🔧 createEvent: Success! Event ID:', newEvent.id)
+    
+    // Clear cache to ensure fresh data on next load
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user?.id) {
+        localStorage.removeItem(`chats_${user.id}`)
+        console.log('🗑️ createEvent: Cleared chat cache for fresh data')
+      }
+    } catch (cacheError) {
+      console.warn('⚠️ createEvent: Failed to clear cache:', cacheError)
+    }
+    
     return { success: true, eventId: newEvent.id }
   } catch (error) {
     console.error('Error in createEvent:', error)
@@ -1960,6 +1972,17 @@ export async function deleteEvent(eventId: string): Promise<{ success: boolean; 
     if (deleteError) {
       console.error('Error deleting event:', deleteError)
       return { success: false, error: 'Failed to delete event' }
+    }
+
+    // Clear cache to ensure fresh data on next load
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user?.id) {
+        localStorage.removeItem(`chats_${user.id}`)
+        console.log('🗑️ deleteEvent: Cleared chat cache for fresh data')
+      }
+    } catch (cacheError) {
+      console.warn('⚠️ deleteEvent: Failed to clear cache:', cacheError)
     }
 
     return { success: true }
