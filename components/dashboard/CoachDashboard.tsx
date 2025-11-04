@@ -103,6 +103,8 @@ const CoachDashboard = React.memo(function CoachDashboard() {
   const [workoutDescription, setWorkoutDescription] = useState('')
   const [exercises, setExercises] = useState<any[]>([])
   const [selectedExercise, setSelectedExercise] = useState('')
+  const [customExerciseName, setCustomExerciseName] = useState('')
+  const [useCustomExercise, setUseCustomExercise] = useState(false)
   const [exerciseSets, setExerciseSets] = useState('3')
   const [exerciseReps, setExerciseReps] = useState('10')
   const [exerciseRest, setExerciseRest] = useState('60')
@@ -273,18 +275,21 @@ const CoachDashboard = React.memo(function CoachDashboard() {
   }
 
   const addExercise = () => {
-    if (selectedExercise && exerciseSets && exerciseReps) {
-      const exercise = exerciseLibrary.find(ex => ex.name === selectedExercise)
+    const exerciseName = useCustomExercise ? customExerciseName.trim() : selectedExercise
+    
+    if (exerciseName && exerciseSets && exerciseReps) {
+      const exercise = exerciseLibrary.find(ex => ex.name === exerciseName)
       const newExercise = {
-        name: selectedExercise,
-        category: exercise?.category || 'strength',
-        muscle: exercise?.muscle || 'Full Body',
+        name: exerciseName,
+        category: exercise?.category || 'custom',
+        muscle: exercise?.muscle || 'Custom Exercise',
         sets: parseInt(exerciseSets),
         reps: parseInt(exerciseReps),
         rest: parseInt(exerciseRest)
       }
       setExercises([...exercises, newExercise])
       setSelectedExercise('')
+      setCustomExerciseName('')
       setExerciseSets('3')
       setExerciseReps('10')
       setExerciseRest('60')
@@ -695,18 +700,54 @@ const CoachDashboard = React.memo(function CoachDashboard() {
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Exercise</label>
-                          <select
-                            value={selectedExercise}
-                            onChange={(e) => setSelectedExercise(e.target.value)}
-                            className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-sm"
-                          >
-                            <option value="">Select exercise...</option>
-                            {exerciseLibrary.map((exercise) => (
-                              <option key={exercise.name} value={exercise.name}>
-                                {exercise.name}
-                              </option>
-                            ))}
-                          </select>
+                          
+                          {/* Toggle between library and custom */}
+                          <div className="flex items-center space-x-3 mb-2">
+                            <label className="flex items-center">
+                              <input
+                                type="radio"
+                                name="exerciseType"
+                                checked={!useCustomExercise}
+                                onChange={() => setUseCustomExercise(false)}
+                                className="mr-1 text-xs"
+                              />
+                              <span className="text-xs text-gray-600">Library</span>
+                            </label>
+                            <label className="flex items-center">
+                              <input
+                                type="radio"
+                                name="exerciseType"
+                                checked={useCustomExercise}
+                                onChange={() => setUseCustomExercise(true)}
+                                className="mr-1 text-xs"
+                              />
+                              <span className="text-xs text-gray-600">Custom</span>
+                            </label>
+                          </div>
+
+                          {/* Conditional input */}
+                          {useCustomExercise ? (
+                            <input
+                              type="text"
+                              value={customExerciseName}
+                              onChange={(e) => setCustomExerciseName(e.target.value)}
+                              placeholder="Enter exercise name..."
+                              className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-sm"
+                            />
+                          ) : (
+                            <select
+                              value={selectedExercise}
+                              onChange={(e) => setSelectedExercise(e.target.value)}
+                              className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-sm"
+                            >
+                              <option value="">Select exercise...</option>
+                              {exerciseLibrary.map((exercise) => (
+                                <option key={exercise.name} value={exercise.name}>
+                                  {exercise.name}
+                                </option>
+                              ))}
+                            </select>
+                          )}
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Sets</label>
@@ -734,7 +775,7 @@ const CoachDashboard = React.memo(function CoachDashboard() {
                           <button
                             type="button"
                             onClick={addExercise}
-                            disabled={!selectedExercise}
+                            disabled={(!useCustomExercise && !selectedExercise) || (useCustomExercise && !customExerciseName.trim())}
                             className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             Add
