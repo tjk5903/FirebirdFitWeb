@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { TeamStats, createWorkout, createEvent, createChat, getTeamMembers } from '@/lib/utils'
 import { useTeamMessages } from '@/lib/hooks/useTeamMessages'
+import NotificationCenter from '@/components/ui/NotificationCenter'
+import PushNotificationSetup from '@/components/ui/PushNotificationSetup'
 import { 
   Users, 
   Activity, 
@@ -387,6 +389,7 @@ const CoachDashboard = React.memo(function CoachDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      <PushNotificationSetup />
       {/* Header */}
       <header className="glass-effect border-b border-white/20 shadow-sm sticky top-0 z-50 backdrop-blur-md">
         <div className="container-responsive">
@@ -435,6 +438,7 @@ const CoachDashboard = React.memo(function CoachDashboard() {
             </div>
             
             <div className="flex items-center space-x-2 sm:space-x-4">
+              <NotificationCenter />
               <button 
                 onClick={() => router.push('/profile')}
                 className="flex items-center space-x-2 sm:space-x-3 bg-white rounded-xl px-2 sm:px-3 py-2 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105 cursor-pointer"
