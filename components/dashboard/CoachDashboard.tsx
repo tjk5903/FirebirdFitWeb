@@ -3,10 +3,12 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { useAppState } from '@/contexts/AppStateContext'
 import { TeamStats, createWorkout, createEvent, createChat, getTeamMembers } from '@/lib/utils'
 import { useTeamMessages } from '@/lib/hooks/useTeamMessages'
 import NotificationCenter from '@/components/ui/NotificationCenter'
 import PushNotificationSetup from '@/components/ui/PushNotificationSetup'
+import TeamPerformanceCard from '@/components/ui/TeamPerformanceCard'
 import { 
   Users, 
   Activity, 
@@ -85,7 +87,11 @@ const exerciseLibrary = [
 
 const CoachDashboard = React.memo(function CoachDashboard() {
   const { user, logout } = useAuth()
+  const { teams } = useAppState()
   const router = useRouter()
+  
+  // Get the first team (coaches typically manage one team at a time)
+  const selectedTeam = teams?.[0]
   
   // Refs for modal click-outside detection
   const createWorkoutModalRef = useRef<HTMLDivElement>(null)
@@ -589,37 +595,7 @@ const CoachDashboard = React.memo(function CoachDashboard() {
           </div>
 
           {/* Team Performance */}
-          <div className="card-elevated hover-lift">
-            <div className="flex items-center justify-between mb-4 sm:mb-6">
-              <h3 className="text-lg sm:text-xl font-bold text-gray-900">Team Performance</h3>
-              <Award className="h-5 w-5 sm:h-6 sm:w-6 text-gold" />
-            </div>
-            
-            <div className="space-y-3 sm:space-y-4">
-              <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold gradient-text mb-1">92%</div>
-                <p className="text-xs sm:text-sm text-gray-600">Overall Performance</p>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs sm:text-sm font-medium text-gray-700">Attendance</span>
-                  <span className="text-xs sm:text-sm font-semibold text-green-600">95%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-1.5">
-                  <div className="bg-green-500 h-1.5 rounded-full transition-all duration-1000" style={{ width: '95%' }}></div>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-xs sm:text-sm font-medium text-gray-700">Completion</span>
-                  <span className="text-xs sm:text-sm font-semibold text-blue-600">88%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-1.5">
-                  <div className="bg-blue-500 h-1.5 rounded-full transition-all duration-1000" style={{ width: '88%' }}></div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <TeamPerformanceCard teamId={selectedTeam?.id || ''} />
         </div>
 
         {/* Create Workout Modal */}

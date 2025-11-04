@@ -2067,6 +2067,117 @@ export async function updateUserProfile(
 }
 
 
+// Get uncompleted workouts for a user (for "Next Workout" section)
+export async function getUncompletedUserWorkouts(userId: string): Promise<Array<{
+  id: string
+  team_id: string
+  title: string
+  description: string | null
+  assigned_to: string | null // Single UUID for now
+  date_assigned: string
+  created_at: string
+}>> {
+  try {
+    console.log('Fetching uncompleted workouts for user:', userId)
+    
+    // First, get the user's teams
+    const userTeams = await getUserTeams(userId)
+    const teamIds = userTeams.map(team => team.id)
+    
+    console.log('User teams:', userTeams)
+    console.log('Team IDs:', teamIds)
+
+    // If user has no teams, only fetch workouts directly assigned to them
+    if (teamIds.length === 0) {
+      console.log('No teams found, fetching workouts assigned to user only')
+      const { data: workouts, error } = await supabase
+        .from('workouts')
+        .select(`
+          id,
+          team_id,
+          title,
+          description,
+          assigned_to,
+          date_assigned,
+          created_at
+        `)
+        .eq('assigned_to', userId)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching workouts:', error)
+        throw error
+      }
+
+      // Filter out completed workouts
+      const uncompletedWorkouts = []
+      if (workouts) {
+        for (const workout of workouts) {
+          const { data: completion } = await supabase
+            .from('workout_completions')
+            .select('id')
+            .eq('workout_id', workout.id)
+            .eq('user_id', userId)
+            .single()
+          
+          if (!completion) {
+            uncompletedWorkouts.push(workout)
+          }
+        }
+      }
+
+      console.log('Uncompleted workouts fetched (no teams):', uncompletedWorkouts)
+      return uncompletedWorkouts
+    }
+
+    // Fetch workouts that either:
+    // 1. Belong to a team the user is on (team_id)
+    // 2. Are directly assigned to the user (assigned_to)
+    console.log('Fetching workouts for teams and user assignments')
+    const { data: workouts, error } = await supabase
+      .from('workouts')
+      .select(`
+        id,
+        team_id,
+        title,
+        description,
+        assigned_to,
+        date_assigned,
+        created_at
+      `)
+      .or(`team_id.in.(${teamIds.map(id => `"${id}"`).join(',')}),assigned_to.eq.${userId}`)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching workouts:', error)
+      throw error
+    }
+
+    // Filter out completed workouts
+    const uncompletedWorkouts = []
+    if (workouts) {
+      for (const workout of workouts) {
+        const { data: completion } = await supabase
+          .from('workout_completions')
+          .select('id')
+          .eq('workout_id', workout.id)
+          .eq('user_id', userId)
+          .single()
+        
+        if (!completion) {
+          uncompletedWorkouts.push(workout)
+        }
+      }
+    }
+
+    console.log('Uncompleted workouts fetched:', uncompletedWorkouts)
+    return uncompletedWorkouts
+  } catch (error) {
+    console.error('Error in getUncompletedUserWorkouts:', error)
+    throw error
+  }
+}
+
 // Get workouts for a user (either assigned to them or to their team)
 export async function getUserWorkouts(userId: string): Promise<Array<{
   id: string

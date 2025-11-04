@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppState } from '@/contexts/AppStateContext'
 import { createWorkout, formatDate, getWorkoutExercises, deleteWorkout as deleteWorkoutFromDB, isCoachOrAssistant } from '@/lib/utils'
+import WorkoutCompletionButton from '@/components/ui/WorkoutCompletionButton'
 import { 
   Plus, 
   Search, 
@@ -583,7 +584,17 @@ export default function WorkoutsPage() {
                   )}
                 </div>
 
-                 
+                {/* Workout Completion Button */}
+                <div className="mb-3">
+                  <WorkoutCompletionButton 
+                    workoutId={workout.id}
+                    size="sm"
+                    onCompletionChange={(completed) => {
+                      console.log('Workout completion changed:', completed)
+                      // Could refresh workout stats here if needed
+                    }}
+                  />
+                </div>
 
                 {/* Action Buttons */}
                 <div className="flex items-center justify-between pt-3 border-t border-gray-100">

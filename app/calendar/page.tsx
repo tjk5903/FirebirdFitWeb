@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { getTeamEvents, createEvent, updateEvent, deleteEvent, isCoachOrAssistant } from '@/lib/utils'
 import { Calendar, Plus, Edit, Trash2, Clock, MapPin, Users, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 import MainNavigation from '@/components/navigation/MainNavigation'
+import AttendanceButtons from '@/components/ui/AttendanceButtons'
 
 // Event types configuration
 const eventTypes = [
@@ -536,6 +537,16 @@ export default function CalendarPage() {
                       {event.description && (
                         <p className="text-xs sm:text-sm text-gray-600 mt-2 sm:mt-3 overflow-hidden" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{event.description}</p>
                       )}
+
+                      {/* Quick Attendance Buttons */}
+                      <div className="mt-3 pt-3 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
+                        <AttendanceButtons 
+                          eventId={event.id}
+                          onAttendanceChange={(status) => {
+                            console.log('Quick attendance changed to:', status)
+                          }}
+                        />
+                      </div>
                     </div>
                     
                     {isCoach && (
@@ -782,6 +793,18 @@ export default function CalendarPage() {
                   <p className="text-sm text-gray-700 leading-relaxed">{selectedEvent.description}</p>
                 </div>
               )}
+
+              {/* Attendance Section */}
+              <div className="bg-blue-50 p-4 rounded-2xl">
+                <h4 className="text-sm font-semibold text-gray-900 mb-3">Will you attend this event?</h4>
+                <AttendanceButtons 
+                  eventId={selectedEvent.id}
+                  onAttendanceChange={(status) => {
+                    console.log('Attendance changed to:', status)
+                    // Could refresh attendance count here if needed
+                  }}
+                />
+              </div>
             </div>
 
             <div className="p-6 border-t border-gray-200">
