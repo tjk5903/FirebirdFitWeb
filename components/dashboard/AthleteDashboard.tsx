@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { AthleteStats } from '@/lib/utils'
+import { AthleteStats, getPersonalizedWelcome } from '@/lib/utils'
 import { useTeamMessages } from '@/lib/hooks/useTeamMessages'
 import { useUserWorkouts } from '@/lib/hooks/useUserWorkouts'
 import { getUncompletedUserWorkouts } from '@/lib/utils'
@@ -180,7 +180,7 @@ const AthleteDashboard = React.memo(function AthleteDashboard() {
       <div className="container-responsive py-4 sm:py-6 md:py-8">
         {/* Welcome Section */}
         <div className={`mb-4 sm:mb-6 md:mb-8 transition-all duration-500 delay-200 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-2 px-1">Welcome back, Athlete!</h2>
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-2 px-1">{getPersonalizedWelcome(user)}</h2>
         </div>
 
         {/* Messages & Quick Actions */}

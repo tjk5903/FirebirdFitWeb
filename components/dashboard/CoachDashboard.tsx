@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppState } from '@/contexts/AppStateContext'
-import { TeamStats, createWorkout, createEvent, createChat, getTeamMembers } from '@/lib/utils'
+import { TeamStats, createWorkout, createEvent, createChat, getTeamMembers, getPersonalizedWelcome } from '@/lib/utils'
 import { useTeamMessages } from '@/lib/hooks/useTeamMessages'
 import NotificationCenter from '@/components/ui/NotificationCenter'
 import PushNotificationSetup from '@/components/ui/PushNotificationSetup'
@@ -481,7 +481,7 @@ const CoachDashboard = React.memo(function CoachDashboard() {
       <div className="container-responsive py-4 sm:py-6 md:py-8">
         {/* Welcome Section */}
         <div className={`mb-4 sm:mb-6 md:mb-8 transition-all duration-500 delay-200 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-2 px-1">Welcome back, Coach!</h2>
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-2 px-1">{getPersonalizedWelcome(user)}</h2>
         </div>
 
         {/* Communication & Quick Actions */}

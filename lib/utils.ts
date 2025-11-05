@@ -135,6 +135,33 @@ export interface User {
   avatar?: string
 }
 
+/**
+ * Get personalized welcome message for user
+ * Returns "Welcome back, [Name]!" if user has a name, otherwise falls back to role
+ */
+export function getPersonalizedWelcome(user: User | null): string {
+  if (!user) return 'Welcome back!'
+  
+  // Try to get display name from full_name or name field
+  const displayName = user.full_name?.trim() || user.name?.trim()
+  
+  if (displayName) {
+    // Extract first name if it's a full name
+    const firstName = displayName.split(' ')[0]
+    return `Welcome back, ${firstName}!`
+  }
+  
+  // Fallback to role-based welcome
+  const roleMap = {
+    'coach': 'Coach',
+    'assistant_coach': 'Coach',
+    'athlete': 'Athlete'
+  }
+  
+  const roleTitle = roleMap[user.role] || 'User'
+  return `Welcome back, ${roleTitle}!`
+}
+
 export interface TeamStats {
   totalAthletes: number
   activeAthletes: number
