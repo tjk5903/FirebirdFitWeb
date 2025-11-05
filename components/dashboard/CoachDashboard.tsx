@@ -465,13 +465,27 @@ const CoachDashboard = React.memo(function CoachDashboard() {
                 {/* Dropdown Menu */}
                 {showMobileMenu && (
                   <>
-                    <div className="absolute right-0 top-full mt-2 w-48 bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/50 py-2 z-50">
+                    {/* Click outside to close menu - invisible overlay */}
+                    <div 
+                      className="fixed inset-0 z-40 bg-transparent" 
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setShowMobileMenu(false)
+                      }}
+                    ></div>
+                    
+                    {/* Dropdown content with animation */}
+                    <div 
+                      className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50 animate-in slide-in-from-top-2 duration-200"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <button
                         onClick={() => {
                           router.push('/profile')
                           setShowMobileMenu(false)
                         }}
-                        className="w-full px-4 py-3 text-left hover:bg-gray-50/80 flex items-center space-x-3 transition-colors duration-200"
+                        className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors duration-200 rounded-lg mx-1"
                       >
                         <Users className="h-4 w-4 text-gray-500" />
                         <span className="text-sm font-medium text-gray-700">Profile</span>
@@ -481,17 +495,12 @@ const CoachDashboard = React.memo(function CoachDashboard() {
                           handleLogout()
                           setShowMobileMenu(false)
                         }}
-                        className="w-full px-4 py-3 text-left hover:bg-red-50/80 flex items-center space-x-3 transition-colors duration-200 text-red-600"
+                        className="w-full px-4 py-3 text-left hover:bg-red-50 flex items-center space-x-3 transition-colors duration-200 text-red-600 rounded-lg mx-1"
                       >
                         <LogOut className="h-4 w-4 text-red-500" />
                         <span className="text-sm font-medium">Logout</span>
                       </button>
                     </div>
-                    {/* Click outside to close menu */}
-                    <div 
-                      className="fixed inset-0 z-40" 
-                      onClick={() => setShowMobileMenu(false)}
-                    ></div>
                   </>
                 )}
               </div>
