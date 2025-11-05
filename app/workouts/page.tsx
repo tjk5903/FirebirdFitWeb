@@ -100,42 +100,44 @@ function WorkoutExercises({ workoutId }: { workoutId: string }) {
 
   return (
     <div>
-      <h4 className="font-semibold text-gray-900 mb-4">Exercises</h4>
       {exercises.length > 0 ? (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {exercises.map((exercise, index) => (
-            <div key={exercise.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-              <div className="flex items-center space-x-3">
-                <div className="h-8 w-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-                  <Dumbbell className="h-4 w-4 text-white" />
+            <div key={exercise.id} className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200 hover:shadow-sm transition-shadow">
+              <div className="flex items-start justify-between">
+                <div className="flex items-start space-x-3 flex-1">
+                  <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <Dumbbell className="h-5 w-5 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h5 className="font-bold text-gray-900 text-base mb-1">{exercise.exercise_name}</h5>
+                    {exercise.notes && (
+                      <p className="text-sm text-gray-600 leading-relaxed">{exercise.notes}</p>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <h5 className="font-semibold text-gray-900">{exercise.exercise_name}</h5>
-                  {exercise.notes && (
-                    <p className="text-sm text-gray-500">{exercise.notes}</p>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="text-center">
-                  <p className="text-sm font-semibold text-gray-900">{exercise.sets}</p>
-                  <p className="text-xs text-gray-500">Sets</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-semibold text-gray-900">{exercise.reps}</p>
-                  <p className="text-xs text-gray-500">Reps</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-semibold text-gray-900">{exercise.rest_seconds}s</p>
-                  <p className="text-xs text-gray-500">Rest</p>
+                <div className="flex items-center space-x-6 ml-4">
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-gray-900">{exercise.sets}</p>
+                    <p className="text-xs text-gray-500 font-medium">Sets</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-gray-900">{exercise.reps}</p>
+                    <p className="text-xs text-gray-500 font-medium">Reps</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-blue-600">{exercise.rest_seconds}s</p>
+                    <p className="text-xs text-gray-500 font-medium">Rest</p>
+                  </div>
                 </div>
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <div className="p-4 bg-gray-50 rounded-xl text-center">
-          <p className="text-gray-500">No exercises added to this workout</p>
+        <div className="p-6 bg-gray-50 rounded-xl text-center">
+          <Dumbbell className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500 font-medium">No exercises added to this workout</p>
         </div>
       )}
     </div>
@@ -891,10 +893,10 @@ export default function WorkoutsPage() {
           </div>
         )}
 
-        {/* Workout Details Modal */}
+        {/* Workout Details Modal - Enhanced for Desktop */}
         {showWorkoutDetails && selectedWorkout && (
-          <div className="fixed inset-0 z-50 flex justify-center animate-fade-in">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl flex flex-col animate-scale-in" style={{ marginTop: '8rem', marginBottom: '1rem', maxHeight: 'calc(100vh - 9rem)' }}>
+        <div className="fixed inset-0 z-50 flex justify-center animate-fade-in" style={{ paddingTop: '7rem' }}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl lg:max-w-5xl flex flex-col animate-scale-in" style={{ maxHeight: 'calc(100vh + 12rem)', margin: '0 1rem 0.125rem 1rem' }}>
               {/* Modal Header */}
               <div className="flex items-center justify-between p-6 border-b border-gray-200">
                 <div className="flex items-center space-x-3">
@@ -914,49 +916,51 @@ export default function WorkoutsPage() {
                 </button>
               </div>
 
-              {/* Modal Content */}
-              <div className="flex-1 overflow-y-auto p-6">
-                <div className="space-y-6">
-                  {/* Workout Info */}
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-2">Description</h4>
-                    <p className="text-gray-600">{selectedWorkout.description || 'No description available'}</p>
-                  </div>
+              {/* Modal Content - Two Column Layout */}
+              <div className="flex-1 p-6 pb-0 min-h-0">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
+                  {/* Left Column - Workout Info & Details */}
+                  <div className="space-y-6">
+                    {/* Workout Info */}
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-3 text-lg">Description</h4>
+                      <p className="text-gray-600 leading-relaxed">{selectedWorkout.description || 'No description available'}</p>
+                    </div>
 
-                  {/* Exercises */}
-                  <WorkoutExercises workoutId={selectedWorkout.id} />
-
-                  {/* Workout Details */}
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-4">Workout Details</h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                        <span className="text-sm font-medium text-gray-700">Assigned Date</span>
-                        <span className="text-xs font-bold text-gray-500 bg-white px-2 py-1 rounded-full">
-                          {formatDate(selectedWorkout.date_assigned)}
-                        </span>
-                      </div>
-                      {selectedWorkout.assigned_to && (
-                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                          <span className="text-sm font-medium text-gray-700">Assigned To</span>
-                          <span className="text-xs font-bold text-gray-500 bg-white px-2 py-1 rounded-full">
-                            Individual athlete
+                    {/* Workout Details */}
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-4 text-lg">Workout Details</h4>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                          <span className="text-sm font-medium text-gray-700">Assigned Date</span>
+                          <span className="text-sm font-bold text-gray-900 bg-white px-3 py-1.5 rounded-full">
+                            {formatDate(selectedWorkout.date_assigned)}
                           </span>
                         </div>
-                      )}
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                        <span className="text-sm font-medium text-gray-700">Created</span>
-                        <span className="text-xs font-bold text-gray-500 bg-white px-2 py-1 rounded-full">
-                          {formatDate(selectedWorkout.created_at)}
-                        </span>
+                        {selectedWorkout.assigned_to && (
+                          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                            <span className="text-sm font-medium text-gray-700">Assigned To</span>
+                            <span className="text-sm font-bold text-gray-900 bg-white px-3 py-1.5 rounded-full">
+                              Individual athlete
+                            </span>
+                          </div>
+                        )}
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column - Exercises (Scrollable) */}
+                  <div className="flex flex-col min-h-0">
+                    <h4 className="font-semibold text-gray-900 mb-4 text-lg">Exercises</h4>
+                    <div className="flex-1 overflow-y-auto">
+                      <WorkoutExercises workoutId={selectedWorkout.id} />
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Modal Footer */}
-              <div className="p-6 border-t border-gray-200">
+              <div className="px-6 py-4 mt-4 border-t border-gray-200 bg-gray-50 rounded-b-3xl">
                                   <div className="flex items-center justify-between">
                     <button
                       onClick={() => setShowWorkoutDetails(false)}
