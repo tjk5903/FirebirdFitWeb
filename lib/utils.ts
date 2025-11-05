@@ -510,15 +510,9 @@ export async function sendChatMessage(
         id,
         message,
         created_at,
-        sender_id,
-        users!messages_sender_id_fkey (
-          id,
-          full_name,
-          avatar,
-          role
-        )
+        sender_id
       `)
-      .single() as { data: MessageResult | null, error: any }
+      .single() as { data: any, error: any }
 
     if (insertError) {
       console.error('Error sending message:', insertError)
@@ -532,20 +526,30 @@ export async function sendChatMessage(
       throw new Error('Failed to create message')
     }
 
+    // Fetch user info separately to avoid foreign key issues
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id, full_name, avatar, role')
+      .eq('id', senderId)
+      .single()
+
+    if (userError) {
+      console.warn('Could not fetch user data:', userError)
+    }
+
     // Transform the data to match our MessageData interface
-    const sender = newMessage.users
     const transformedMessage: MessageData = {
       id: newMessage.id,
       message: newMessage.message,
       created_at: newMessage.created_at,
       chat_id: chatId,
       sender: {
-        id: sender?.id || newMessage.sender_id,
-        name: sender?.full_name || 'Unknown User',
-        avatar: sender?.avatar || undefined,
-        role: sender?.role || 'athlete'
+        id: senderId,
+        name: userData?.full_name || 'Unknown User',
+        avatar: userData?.avatar || undefined,
+        role: userData?.role || 'athlete'
       },
-      isCoach: sender?.role === 'coach'
+      isCoach: userData?.role === 'coach'
     }
 
     return transformedMessage
@@ -2506,6 +2510,46 @@ export async function getTeamMembers(userId: string): Promise<Array<{
     return formattedMembers
   } catch (error) {
     console.error('Error in getTeamMembers:', error)
+    throw error
+  }
+}
+
+export async function updateWorkout(workoutId: string, workoutData: any, exercisesData: any[]) {
+  try {
+    console.log('updateWorkout called with:', { workoutId, workoutData, exercisesData })
+    
+    // Convert exercises to the format expected by the database (JSON array)
+    const exercisesForDB = exercisesData.map(exercise => ({
+      name: exercise.exercise_name,
+      sets: exercise.sets,
+      reps: exercise.reps,
+      rest_seconds: exercise.rest_seconds,
+      notes: exercise.notes || null
+    }))
+
+    console.log('Exercises formatted for DB:', exercisesForDB)
+    
+    // Update workout details and exercises in one operation
+    console.log('Updating workout with exercises...')
+    const { error: workoutError } = await supabase
+      .from('workouts')
+      .update({
+        title: workoutData.title,
+        description: workoutData.description,
+        exercises: exercisesForDB
+      })
+      .eq('id', workoutId)
+
+    if (workoutError) {
+      console.error('Workout update error:', workoutError)
+      throw workoutError
+    }
+    console.log('Workout and exercises updated successfully')
+
+    console.log('updateWorkout completed successfully')
+    return { success: true }
+  } catch (error) {
+    console.error('Error in updateWorkout:', error)
     throw error
   }
 } 

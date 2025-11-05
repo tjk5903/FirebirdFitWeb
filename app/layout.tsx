@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { AppStateProvider } from '@/contexts/AppStateContext'
+import { ToastProvider } from '@/contexts/ToastContext'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { GlobalLoadingManager } from '@/components/ui/GlobalLoadingManager'
 import HydrationFix from '@/components/ui/HydrationFix'
@@ -25,12 +26,14 @@ export default function RootLayout({
         <ErrorBoundary>
           <AuthProvider>
             <AppStateProvider>
-              <GlobalLoadingManager>
-                <HydrationFix />
-                <div className="min-h-screen bg-soft-white">
-                  {children}
-                </div>
-              </GlobalLoadingManager>
+              <ToastProvider>
+                <GlobalLoadingManager>
+                  <HydrationFix />
+                  <div className="min-h-screen bg-soft-white">
+                    {children}
+                  </div>
+                </GlobalLoadingManager>
+              </ToastProvider>
             </AppStateProvider>
           </AuthProvider>
         </ErrorBoundary>

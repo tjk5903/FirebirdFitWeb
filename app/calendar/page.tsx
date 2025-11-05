@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@/contexts/ToastContext'
 import { getTeamEvents, createEvent, updateEvent, deleteEvent, isCoachOrAssistant } from '@/lib/utils'
 import { Calendar, Plus, Edit, Trash2, Clock, MapPin, Users, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 import MainNavigation from '@/components/navigation/MainNavigation'
@@ -18,6 +19,7 @@ const eventTypes = [
 
 export default function CalendarPage() {
   const { user } = useAuth()
+  const { showToast } = useToast()
   const router = useRouter()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showCreateEvent, setShowCreateEvent] = useState(false)
@@ -165,7 +167,7 @@ export default function CalendarPage() {
         time: eventForm.time,
         user: !!user
       })
-      alert('Please fill in all required fields (Title, Date, Time)')
+      showToast('Please fill in all required fields (Title, Date, Time)', 'warning')
       return
     }
 
@@ -222,14 +224,15 @@ export default function CalendarPage() {
           attendees: ''
         })
         
+        showToast(`Event ${editingEvent ? 'updated' : 'created'} successfully!`, 'success')
         console.log('✅ Event created successfully!')
       } else {
         console.error('❌ Calendar: Failed to create event:', result.error)
-        alert(`Failed to ${editingEvent ? 'update' : 'create'} event: ${result.error}`)
+        showToast(`Failed to ${editingEvent ? 'update' : 'create'} event: ${result.error}`, 'error')
       }
     } catch (error) {
       console.error('💥 Calendar: Error creating/updating event:', error)
-      alert(`An error occurred while ${editingEvent ? 'updating' : 'creating'} the event: ${error}`)
+      showToast(`An error occurred while ${editingEvent ? 'updating' : 'creating'} the event`, 'error')
     } finally {
       setIsCreatingEvent(false)
     }
@@ -266,17 +269,18 @@ export default function CalendarPage() {
       const result = await deleteEvent(eventId)
       
       if (result.success) {
+        showToast('Event deleted successfully!', 'success')
         // Refresh events
         if (user) {
           const teamEvents = await getTeamEvents(user.id)
           setEvents(teamEvents)
         }
       } else {
-        alert(`Failed to delete event: ${result.error}`)
+        showToast(`Failed to delete event: ${result.error}`, 'error')
       }
     } catch (error) {
       console.error('Error deleting event:', error)
-      alert('An error occurred while deleting the event')
+      showToast('An error occurred while deleting the event', 'error')
     }
   }
 

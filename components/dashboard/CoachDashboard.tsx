@@ -89,7 +89,7 @@ const exerciseLibrary = [
 
 const CoachDashboard = React.memo(function CoachDashboard() {
   const { user, logout } = useAuth()
-  const { teams } = useAppState()
+  const { teams, workouts, updateWorkouts, refreshWorkouts, chats, updateChats, refreshChats } = useAppState()
   const router = useRouter()
   
   // Get the first team (coaches typically manage one team at a time)
@@ -279,7 +279,32 @@ const CoachDashboard = React.memo(function CoachDashboard() {
       console.log('Create workout result:', result)
       
       if (result.success) {
-        console.log('Workout created successfully')
+        console.log('Workout created successfully, updating local state...')
+        
+        // Create the new workout object for immediate UI update
+        const newWorkout = {
+          id: result.workoutId || '',
+          title: workoutName,
+          description: workoutDescription,
+          date_assigned: new Date().toISOString(),
+          assigned_to: null,
+          team_id: teams?.[0]?.id || '',
+          exercises: formattedExercises.map(exercise => ({
+            name: exercise.name,
+            sets: exercise.sets,
+            reps: exercise.reps,
+            rest_seconds: exercise.rest_seconds,
+            notes: exercise.notes || null
+          })),
+          created_at: new Date().toISOString()
+        }
+        
+        // Update local state immediately
+        const updatedWorkouts = [...workouts, newWorkout]
+        updateWorkouts(updatedWorkouts)
+        
+        // Refresh from server as backup
+        refreshWorkouts()
         
         // Reset form and close modal
         setWorkoutName('')
@@ -399,13 +424,32 @@ const CoachDashboard = React.memo(function CoachDashboard() {
       const result = await createChat(user.id, newChatName.trim(), selectedMembers)
       
       if (result.success) {
+        console.log('Chat created successfully, updating local state...')
+        
+        // Create the new chat object for immediate UI update
+        const newChat = {
+          id: result.chatId || '',
+          name: newChatName.trim(),
+          lastMessage: null,
+          lastMessageTime: null,
+          unread: false,
+          memberCount: selectedMembers.length + 1 // +1 for the creator
+        }
+        
+        // Update local state immediately
+        const updatedChats = [...chats, newChat]
+        updateChats(updatedChats)
+        
+        // Refresh from server as backup
+        refreshChats()
+        
         // Close modal and reset form
         setShowCreateChat(false)
         setNewChatName('')
         setSelectedMembers([])
         showSuccessWithFadeOut()
         
-        console.log('Group chat created successfully')
+        console.log('Chat creation process completed successfully')
       } else {
         console.error('Failed to create group chat:', result.error)
       }

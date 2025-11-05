@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { useToast } from '@/contexts/ToastContext'
 import { useAppState } from '@/contexts/AppStateContext'
 import { LoadingCard, ErrorMessage } from '@/components/ui/LoadingSpinner'
 import { 
@@ -33,6 +34,7 @@ import MemberSelector from '@/components/ui/MemberSelector'
 
 export default function MessagesPage() {
   const { user } = useAuth()
+  const { showToast } = useToast()
   const { 
     chats, 
     isLoadingChats, 
@@ -223,8 +225,7 @@ export default function MessagesPage() {
 
     } catch (error) {
       console.error('Failed to send message:', error)
-      setSuccessMessage('Failed to send message. Please try again.')
-      setShowSuccessModal(true)
+      showToast('Failed to send message. Please try again.', 'error')
     } finally {
       setIsSendingMessage(false)
     }
@@ -242,7 +243,7 @@ export default function MessagesPage() {
         chatName: newChatName.trim(),
         userId: user?.id
       })
-      alert('Please enter a chat name')
+      showToast('Please enter a chat name', 'warning')
       return
     }
 
@@ -266,17 +267,14 @@ export default function MessagesPage() {
         setNewChatName('')
         setSelectedMembersToAdd([])
         
-        setSuccessMessage(`Chat "${newChatName}" created successfully!`)
-        setShowSuccessModal(true)
+        showToast(`Chat "${newChatName}" created successfully!`, 'success')
       } else {
         console.error('❌ handleCreateChat: Chat creation failed:', result.error)
-        setSuccessMessage(result.error || 'Failed to create chat. Please try again.')
-        setShowSuccessModal(true)
+        showToast(result.error || 'Failed to create chat. Please try again.', 'error')
       }
     } catch (error) {
       console.error('💥 handleCreateChat: Error creating chat:', error)
-      setSuccessMessage('Failed to create chat. Please try again.')
-      setShowSuccessModal(true)
+      showToast('Failed to create chat. Please try again.', 'error')
     } finally {
       console.log('🏁 handleCreateChat: Setting isCreatingChat to false')
       setIsCreatingChat(false)
@@ -313,16 +311,13 @@ export default function MessagesPage() {
         setChatToAddMembers(null)
         setSelectedMembersToAdd([])
         
-        setSuccessMessage(`Successfully added ${selectedMembersToAdd.length} member${selectedMembersToAdd.length !== 1 ? 's' : ''} to the chat!`)
-        setShowSuccessModal(true)
+        showToast(`Successfully added ${selectedMembersToAdd.length} member${selectedMembersToAdd.length !== 1 ? 's' : ''} to the chat!`, 'success')
       } else {
-        setSuccessMessage(result.error || 'Failed to add members to chat.')
-        setShowSuccessModal(true)
+        showToast(result.error || 'Failed to add members to chat.', 'error')
       }
     } catch (error) {
       console.error('Error adding members to chat:', error)
-      setSuccessMessage('Failed to add members to chat. Please try again.')
-      setShowSuccessModal(true)
+      showToast('Failed to add members to chat. Please try again.', 'error')
     } finally {
       setIsAddingMembers(false)
     }
@@ -370,18 +365,15 @@ export default function MessagesPage() {
         setShowDeleteModal(false)
         setChatToDelete(null)
         
-        setSuccessMessage('Chat deleted successfully!')
-        setShowSuccessModal(true)
+        showToast('Chat deleted successfully!', 'success')
       } else {
         console.error('❌ Messages: Chat deletion failed:', result.error)
-        setSuccessMessage(result.error || 'Failed to delete chat')
-        setShowSuccessModal(true)
+        showToast(result.error || 'Failed to delete chat', 'error')
       }
     } catch (error) {
       console.error('🚨 Messages: Exception during chat deletion:', error)
       console.error('Failed to delete chat:', error)
-      setSuccessMessage('Failed to delete chat. Please try again.')
-      setShowSuccessModal(true)
+      showToast('Failed to delete chat. Please try again.', 'error')
     } finally {
       setIsDeletingChat(false)
     }

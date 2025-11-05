@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppState } from '@/contexts/AppStateContext'
-import { createWorkout, formatDate, getWorkoutExercises, deleteWorkout as deleteWorkoutFromDB, isCoachOrAssistant } from '@/lib/utils'
+import { useToast } from '@/contexts/ToastContext'
+import { createWorkout, formatDate, getWorkoutExercises, deleteWorkout as deleteWorkoutFromDB, isCoachOrAssistant, updateWorkout } from '@/lib/utils'
 import WorkoutCompletionButton from '@/components/ui/WorkoutCompletionButton'
 import { 
   Plus, 
@@ -222,6 +223,7 @@ export default function WorkoutsPage() {
   const { 
     workouts, 
     teamMembers, 
+    teams,
     isLoadingWorkouts, 
     isLoadingTeamMembers, 
     workoutsError,
@@ -231,6 +233,7 @@ export default function WorkoutsPage() {
     updateWorkouts,
     removeWorkout
   } = useAppState()
+  const { showToast } = useToast()
   const router = useRouter()
   const [filteredWorkouts, setFilteredWorkouts] = useState<any[]>([])
   const [searchTerm, setSearchTerm] = useState('')
@@ -241,6 +244,10 @@ export default function WorkoutsPage() {
   const [isLoaded, setIsLoaded] = useState(false)
   const [isCreatingWorkout, setIsCreatingWorkout] = useState(false)
   const [selectedMembers, setSelectedMembers] = useState<string[]>([])
+  const [isEditingWorkout, setIsEditingWorkout] = useState(false)
+  const [editWorkoutData, setEditWorkoutData] = useState<any>(null)
+  const [editWorkoutExercises, setEditWorkoutExercises] = useState<any[]>([])
+  const [isLoadingEditExercises, setIsLoadingEditExercises] = useState(false)
   
   // Custom modal states
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -302,12 +309,12 @@ export default function WorkoutsPage() {
     }
     
     if (!workoutName.trim()) {
-      alert('Please enter a workout name')
+      showToast('Please enter a workout name', 'warning')
       return
     }
-    
+
     if (!user?.id) {
-      alert('User not authenticated')
+      showToast('User not authenticated', 'error')
       return
     }
     
@@ -340,9 +347,36 @@ export default function WorkoutsPage() {
       console.log('Create workout result:', result)
       
       if (result.success) {
-        console.log('Workout created successfully, refreshing workout list...')
-        // Refresh the workout list using AppState
-        await refreshWorkouts()
+        console.log('Workout created successfully, updating local state...')
+        
+        // Create the new workout object for immediate UI update
+        const newWorkout = {
+          id: result.workoutId || '', // Ensure id is always a string
+          title: workoutName,
+          description: workoutDescription,
+          date_assigned: new Date().toISOString(),
+          assigned_to: selectedMembers.length > 0 ? selectedMembers[0] : null,
+          team_id: teams?.[0]?.id || '', // Get team_id from AppState teams
+          exercises: exercises.map(exercise => ({
+            name: exercise.name,
+            sets: exercise.sets,
+            reps: exercise.reps,
+            rest_seconds: exercise.rest_seconds,
+            notes: exercise.notes || null
+          })),
+          created_at: new Date().toISOString()
+        }
+        
+        // Update local state immediately
+        const updatedWorkouts = [...workouts, newWorkout]
+        updateWorkouts(updatedWorkouts)
+        
+        // Also update filtered workouts immediately
+        const updatedFilteredWorkouts = [...filteredWorkouts, newWorkout]
+        setFilteredWorkouts(updatedFilteredWorkouts)
+        
+        // Refresh from server as backup
+        refreshWorkouts()
         
         // Reset form and close modal
         setWorkoutName('')
@@ -352,16 +386,15 @@ export default function WorkoutsPage() {
         setSelectedMembers([])
         setShowCreateWorkout(false)
         
+        showToast('Workout created successfully!', 'success')
         console.log('Workout creation process completed successfully')
       } else {
         console.error('Failed to create workout:', result.error)
-        setSuccessMessage(`Failed to create workout: ${result.error}`)
-        setShowSuccessModal(true)
+        showToast(`Failed to create workout: ${result.error}`, 'error')
       }
     } catch (error) {
       console.error('Error creating workout:', error)
-      setSuccessMessage('An error occurred while creating the workout')
-      setShowSuccessModal(true)
+      showToast('An error occurred while creating the workout', 'error')
     } finally {
       console.log('Setting isCreatingWorkout to false')
       setIsCreatingWorkout(false)
@@ -424,17 +457,14 @@ export default function WorkoutsPage() {
         // Remove from local state and cache only if database deletion succeeded
         removeWorkout(workoutToDelete.id)
         console.log('✅ Workout deleted successfully')
-        setSuccessMessage('Workout deleted successfully!')
-        setShowSuccessModal(true)
+        showToast('Workout deleted successfully!', 'success')
       } else {
         console.error('❌ Failed to delete workout:', result.error)
-        setSuccessMessage(`Failed to delete workout: ${result.error}`)
-        setShowSuccessModal(true)
+        showToast(`Failed to delete workout: ${result.error}`, 'error')
       }
     } catch (error) {
       console.error('💥 Error deleting workout:', error)
-      setSuccessMessage('An error occurred while deleting the workout')
-      setShowSuccessModal(true)
+      showToast('An error occurred while deleting the workout', 'error')
     } finally {
       setShowDeleteModal(false)
       setWorkoutToDelete(null)
@@ -608,9 +638,27 @@ export default function WorkoutsPage() {
                   {isCoach && (
                     <div className="flex items-center space-x-1">
                       <button
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           e.stopPropagation()
-                          // Edit workout logic
+                          // Open edit modal directly
+                          setEditWorkoutData({
+                            id: workout.id,
+                            title: workout.title,
+                            description: workout.description || ''
+                          })
+                          
+                          // Load existing exercises
+                          setIsLoadingEditExercises(true)
+                          try {
+                            const exercises = await getWorkoutExercises(workout.id)
+                            setEditWorkoutExercises(exercises)
+                          } catch (error) {
+                            console.error('Error loading exercises:', error)
+                            setEditWorkoutExercises([])
+                          }
+                          setIsLoadingEditExercises(false)
+                          
+                          setIsEditingWorkout(true)
                         }}
                         className="p-1 sm:p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
                       >
@@ -893,6 +941,287 @@ export default function WorkoutsPage() {
           </div>
         )}
 
+        {/* Edit Workout Modal */}
+        {isEditingWorkout && editWorkoutData && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-96 animate-fade-in">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl flex flex-col animate-scale-in" style={{ maxHeight: 'calc(100vh - 10rem)' }}>
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <div className="flex items-center space-x-3">
+                  <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                    <Edit className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900">Edit Workout</h3>
+                    <p className="text-sm text-gray-500">Update workout details</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsEditingWorkout(false)
+                    setEditWorkoutData(null)
+                  }}
+                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <span className="text-2xl">&times;</span>
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="flex-1 p-6 overflow-y-auto">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
+                  {/* Left Column - Workout Info */}
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Workout Title
+                      </label>
+                      <input
+                        type="text"
+                        value={editWorkoutData.title}
+                        onChange={(e) => setEditWorkoutData({...editWorkoutData, title: e.target.value})}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Enter workout title"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Description
+                      </label>
+                      <textarea
+                        value={editWorkoutData.description}
+                        onChange={(e) => setEditWorkoutData({...editWorkoutData, description: e.target.value})}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        rows={4}
+                        placeholder="Enter workout description"
+                      />
+                    </div>
+
+                  </div>
+
+                  {/* Right Column - Exercises */}
+                  <div className="flex flex-col min-h-0">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="font-semibold text-gray-900 text-lg">Exercises</h4>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newExercise = {
+                            id: Date.now(), // Temporary ID for new exercises
+                            exercise_name: '',
+                            sets: 3,
+                            reps: 10,
+                            rest_seconds: 60,
+                            notes: '',
+                            isNew: true
+                          }
+                          setEditWorkoutExercises([...editWorkoutExercises, newExercise])
+                        }}
+                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-all duration-200 flex items-center space-x-2"
+                      >
+                        <Plus className="h-4 w-4" />
+                        <span>Add Exercise</span>
+                      </button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto space-y-4">
+                      {isLoadingEditExercises ? (
+                        <div className="text-center py-8">
+                          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                          <p className="text-sm text-gray-600">Loading exercises...</p>
+                        </div>
+                      ) : editWorkoutExercises.length > 0 ? (
+                        editWorkoutExercises.map((exercise, index) => (
+                          <div key={exercise.id} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                            <div className="flex items-start justify-between mb-3">
+                              <input
+                                type="text"
+                                value={exercise.exercise_name}
+                                onChange={(e) => {
+                                  const updated = [...editWorkoutExercises]
+                                  updated[index].exercise_name = e.target.value
+                                  setEditWorkoutExercises(updated)
+                                }}
+                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium"
+                                placeholder="Exercise name"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = editWorkoutExercises.filter((_, i) => i !== index)
+                                  setEditWorkoutExercises(updated)
+                                }}
+                                className="ml-2 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                            
+                            <div className="grid grid-cols-3 gap-3 mb-3">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Sets</label>
+                                <input
+                                  type="number"
+                                  value={exercise.sets}
+                                  onChange={(e) => {
+                                    const updated = [...editWorkoutExercises]
+                                    updated[index].sets = parseInt(e.target.value) || 0
+                                    setEditWorkoutExercises(updated)
+                                  }}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-center"
+                                  min="1"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Reps</label>
+                                <input
+                                  type="number"
+                                  value={exercise.reps}
+                                  onChange={(e) => {
+                                    const updated = [...editWorkoutExercises]
+                                    updated[index].reps = parseInt(e.target.value) || 0
+                                    setEditWorkoutExercises(updated)
+                                  }}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-center"
+                                  min="1"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Rest (s)</label>
+                                <input
+                                  type="number"
+                                  value={exercise.rest_seconds}
+                                  onChange={(e) => {
+                                    const updated = [...editWorkoutExercises]
+                                    updated[index].rest_seconds = parseInt(e.target.value) || 0
+                                    setEditWorkoutExercises(updated)
+                                  }}
+                                  className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-center"
+                                  min="0"
+                                />
+                              </div>
+                            </div>
+                            
+                            <textarea
+                              value={exercise.notes || ''}
+                              onChange={(e) => {
+                                const updated = [...editWorkoutExercises]
+                                updated[index].notes = e.target.value
+                                setEditWorkoutExercises(updated)
+                              }}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                              rows={2}
+                              placeholder="Exercise notes (optional)"
+                            />
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8">
+                          <Dumbbell className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                          <p className="text-gray-500 font-medium">No exercises added yet</p>
+                          <p className="text-sm text-gray-400">Click "Add Exercise" to get started</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="pt-6 mt-6 border-t border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditingWorkout(false)
+                        setEditWorkoutData(null)
+                        setEditWorkoutExercises([])
+                      }}
+                      className="px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors duration-200"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          // Validate required fields
+                          if (!editWorkoutData.title.trim()) {
+                            showToast('Please enter a workout title', 'warning')
+                            return
+                          }
+
+                          // Prepare workout data
+                          const workoutData = {
+                            title: editWorkoutData.title,
+                            description: editWorkoutData.description
+                          }
+
+                          // Prepare exercises data
+                          const exercisesData = editWorkoutExercises.map(exercise => ({
+                            exercise_name: exercise.exercise_name,
+                            sets: exercise.sets,
+                            reps: exercise.reps,
+                            rest_seconds: exercise.rest_seconds,
+                            notes: exercise.notes || null
+                          }))
+
+                          // Update workout using utils function
+                          await updateWorkout(editWorkoutData.id, workoutData, exercisesData)
+
+                          // Update local state immediately
+                          const updatedWorkout = {
+                            ...selectedWorkout,
+                            title: workoutData.title,
+                            description: workoutData.description,
+                            exercises: exercisesData.map(exercise => ({
+                              name: exercise.exercise_name,
+                              sets: exercise.sets,
+                              reps: exercise.reps,
+                              rest_seconds: exercise.rest_seconds,
+                              notes: exercise.notes || null
+                            }))
+                          }
+                          
+                          // Update the workouts array with the new data
+                          const updatedWorkouts = workouts.map(workout => 
+                            workout.id === editWorkoutData.id ? updatedWorkout : workout
+                          )
+                          updateWorkouts(updatedWorkouts)
+
+                          // Also update the filtered workouts immediately
+                          const updatedFilteredWorkouts = filteredWorkouts.map(workout => 
+                            workout.id === editWorkoutData.id ? updatedWorkout : workout
+                          )
+                          setFilteredWorkouts(updatedFilteredWorkouts)
+
+                          // Also refresh from server as backup
+                          console.log('Refreshing workouts after update...')
+                          refreshWorkouts()
+                          console.log('Workouts refreshed successfully')
+                          
+                          // Close modal and show success
+                          setIsEditingWorkout(false)
+                          setEditWorkoutData(null)
+                          setEditWorkoutExercises([])
+                          showToast('Workout updated successfully!', 'success')
+                        } catch (error) {
+                          console.error('Error updating workout:', error)
+                          showToast('Error updating workout: ' + (error as any).message, 'error')
+                        }
+                      }}
+                      className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl transition-all duration-300 hover:from-blue-600 hover:to-blue-700 transform hover:scale-105"
+                    >
+                      Update Workout
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Workout Details Modal - Enhanced for Desktop */}
         {showWorkoutDetails && selectedWorkout && (
         <div className="fixed inset-0 z-50 flex justify-center animate-fade-in" style={{ paddingTop: '7rem' }}>
@@ -961,36 +1290,42 @@ export default function WorkoutsPage() {
 
               {/* Modal Footer */}
               <div className="px-6 py-4 mt-4 border-t border-gray-200 bg-gray-50 rounded-b-3xl">
-                                  <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => setShowWorkoutDetails(false)}
+                    className="px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors duration-200"
+                  >
+                    Close
+                  </button>
+                  {isCoach && (
                     <button
-                      onClick={() => setShowWorkoutDetails(false)}
-                      className="px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors duration-200"
+                      onClick={async () => {
+                        setEditWorkoutData({
+                          id: selectedWorkout.id,
+                          title: selectedWorkout.title,
+                          description: selectedWorkout.description || ''
+                        })
+                        
+                        // Load existing exercises
+                        setIsLoadingEditExercises(true)
+                        try {
+                          const exercises = await getWorkoutExercises(selectedWorkout.id)
+                          setEditWorkoutExercises(exercises)
+                        } catch (error) {
+                          console.error('Error loading exercises:', error)
+                          setEditWorkoutExercises([])
+                        }
+                        setIsLoadingEditExercises(false)
+                        
+                        setIsEditingWorkout(true)
+                        setShowWorkoutDetails(false)
+                      }}
+                      className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl transition-all duration-300"
                     >
-                      Close
+                      Edit Workout
                     </button>
-                    {isCoach && (
-                      <div className="flex items-center space-x-3">
-                        <button
-                          onClick={() => {
-                            // Edit workout logic
-                            setShowWorkoutDetails(false)
-                          }}
-                          className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl transition-all duration-300"
-                        >
-                          Edit Workout
-                        </button>
-                        <button
-                          onClick={() => {
-                            // Assign workout logic
-                            setShowWorkoutDetails(false)
-                          }}
-                          className="px-6 py-3 bg-gradient-to-r from-royal-blue to-dark-blue text-white rounded-2xl transition-all duration-300"
-                        >
-                          Assign to Team
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
