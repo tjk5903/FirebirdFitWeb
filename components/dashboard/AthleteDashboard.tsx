@@ -142,9 +142,9 @@ const AthleteDashboard = React.memo(function AthleteDashboard() {
                 <div className="relative">
                   <FirebirdLogo className="h-8 w-8 sm:h-12 sm:w-12 md:h-14 md:w-14 drop-shadow-lg" />
                 </div>
-                <div className={`transition-all duration-500 delay-100 ${isLoaded ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'} hidden xs:block`}>
-                  <h1 className="text-sm sm:text-xl md:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-royal-blue via-blue-600 to-dark-blue bg-clip-text text-transparent font-elegant tracking-tight">Firebird Fit</h1>
-                  <p className="text-xs sm:text-sm text-gray-600 font-medium hidden sm:block tracking-wide">Team Performance & Communication</p>
+                <div className={`transition-all duration-500 delay-100 ${isLoaded ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'} hidden sm:block`}>
+                  <h1 className="text-xl md:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-royal-blue via-blue-600 to-dark-blue bg-clip-text text-transparent font-elegant tracking-tight">Firebird Fit</h1>
+                  <p className="text-sm text-gray-600 font-medium tracking-wide">Team Performance & Communication</p>
                 </div>
               </div>
             </div>
