@@ -103,6 +103,7 @@ const CoachDashboard = React.memo(function CoachDashboard() {
   const [activeTab, setActiveTab] = useState('')
   const [isLoaded, setIsLoaded] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
   const [showCreateWorkout, setShowCreateWorkout] = useState(false)
   const [showCreateEvent, setShowCreateEvent] = useState(false)
   const [showCreateChat, setShowCreateChat] = useState(false)
@@ -147,6 +148,25 @@ const CoachDashboard = React.memo(function CoachDashboard() {
     const timer = setTimeout(() => setIsLoaded(true), 100)
     return () => clearTimeout(timer)
   }, [])
+
+  // Handle click outside to close menu
+  useEffect(() => {
+    const handleClickOutside = (event: Event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMobileMenu(false)
+      }
+    }
+
+    if (showMobileMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+      document.addEventListener('touchstart', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
+  }, [showMobileMenu])
 
   // Messages are now loaded via the useTeamMessages hook
 
@@ -452,7 +472,7 @@ const CoachDashboard = React.memo(function CoachDashboard() {
               <NotificationCenter />
               
               {/* Mobile Menu Button */}
-              <div className="relative">
+              <div className="relative" ref={menuRef}>
                 <button 
                   onClick={() => setShowMobileMenu(!showMobileMenu)}
                   className="flex items-center space-x-0.5 sm:space-x-2 bg-white/90 backdrop-blur-sm rounded-lg sm:rounded-xl px-1.5 sm:px-3 py-1.5 sm:py-2 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105 cursor-pointer border border-white/50"
@@ -465,44 +485,28 @@ const CoachDashboard = React.memo(function CoachDashboard() {
 
                 {/* Dropdown Menu */}
                 {showMobileMenu && (
-                  <>
-                    {/* Click outside to close menu - invisible overlay */}
-                    <div 
-                      className="fixed inset-0 z-40 bg-transparent" 
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50 animate-in slide-in-from-top-2 duration-200">
+                    <button
+                      onClick={() => {
+                        router.push('/profile')
                         setShowMobileMenu(false)
                       }}
-                    ></div>
-                    
-                    {/* Dropdown content with animation */}
-                    <div 
-                      className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50 animate-in slide-in-from-top-2 duration-200"
-                      onClick={(e) => e.stopPropagation()}
+                      className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors duration-200 rounded-lg mx-1"
                     >
-                      <button
-                        onClick={() => {
-                          router.push('/profile')
-                          setShowMobileMenu(false)
-                        }}
-                        className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors duration-200 rounded-lg mx-1"
-                      >
-                        <Users className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm font-medium text-gray-700">Profile</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          handleLogout()
-                          setShowMobileMenu(false)
-                        }}
-                        className="w-full px-4 py-3 text-left hover:bg-red-50 flex items-center space-x-3 transition-colors duration-200 text-red-600 rounded-lg mx-1"
-                      >
-                        <LogOut className="h-4 w-4 text-red-500" />
-                        <span className="text-sm font-medium">Logout</span>
-                      </button>
-                    </div>
-                  </>
+                      <Users className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm font-medium text-gray-700">Profile</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleLogout()
+                        setShowMobileMenu(false)
+                      }}
+                      className="w-full px-4 py-3 text-left hover:bg-red-50 flex items-center space-x-3 transition-colors duration-200 text-red-600 rounded-lg mx-1"
+                    >
+                      <LogOut className="h-4 w-4 text-red-500" />
+                      <span className="text-sm font-medium">Logout</span>
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
