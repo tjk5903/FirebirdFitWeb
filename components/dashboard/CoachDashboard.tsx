@@ -403,21 +403,22 @@ const CoachDashboard = React.memo(function CoachDashboard() {
       <header className="glass-effect border-b border-white/20 shadow-sm sticky top-0 z-50 backdrop-blur-md">
         <div className="container-responsive">
           <div className="flex justify-between items-center h-16 md:h-20">
-            <div className="flex items-center space-x-2 sm:space-x-4 md:space-x-6">
-              <div className={`flex items-center space-x-2 sm:space-x-3 md:space-x-4 transition-all duration-500 ${isLoaded ? 'scale-100 opacity-100' : 'scale-90 opacity-0'}`}>
+            {/* Logo Section - Ultra Compact on Mobile */}
+            <div className="flex items-center space-x-1 sm:space-x-3 md:space-x-6 flex-shrink-0">
+              <div className={`flex items-center space-x-1 sm:space-x-3 md:space-x-4 transition-all duration-500 ${isLoaded ? 'scale-100 opacity-100' : 'scale-90 opacity-0'}`}>
                 <div className="relative">
-                  <FirebirdLogo className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 drop-shadow-lg" />
+                  <FirebirdLogo className="h-8 w-8 sm:h-12 sm:w-12 md:h-14 md:w-14 drop-shadow-lg" />
                 </div>
-                <div className={`transition-all duration-500 delay-100 ${isLoaded ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'}`}>
-                  <h1 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-royal-blue via-blue-600 to-dark-blue bg-clip-text text-transparent font-elegant tracking-tight">Firebird Fit</h1>
+                <div className={`transition-all duration-500 delay-100 ${isLoaded ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'} hidden xs:block`}>
+                  <h1 className="text-sm sm:text-xl md:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-royal-blue via-blue-600 to-dark-blue bg-clip-text text-transparent font-elegant tracking-tight">Firebird Fit</h1>
                   <p className="text-xs sm:text-sm text-gray-600 font-medium hidden sm:block tracking-wide">Team Performance & Communication</p>
                 </div>
               </div>
             </div>
             
-            {/* Navigation Tabs */}
-            <div className="flex items-center justify-center flex-1 px-2 sm:px-4">
-              <div className="flex space-x-0.5 sm:space-x-1 p-1 sm:p-2 bg-gray-100 rounded-xl sm:rounded-2xl overflow-x-auto scrollbar-hide">
+            {/* Navigation Tabs - Compact on Mobile */}
+            <div className="flex items-center justify-center flex-1 px-1 sm:px-4 min-w-0">
+              <div className="flex space-x-0.5 sm:space-x-1 p-0.5 sm:p-2 bg-gray-100 rounded-lg sm:rounded-2xl overflow-x-auto scrollbar-hide">
                 {[
                   { id: 'workouts', label: 'Workouts', icon: Dumbbell, href: '/workouts' },
                   { id: 'calendar', label: 'Calendar', icon: Calendar, href: '/calendar' },
@@ -446,15 +447,15 @@ const CoachDashboard = React.memo(function CoachDashboard() {
               </div>
             </div>
             
-            {/* Right Side - Mobile Optimized */}
-            <div className="flex items-center space-x-1 sm:space-x-3">
+            {/* Right Side - Ultra Compact Mobile */}
+            <div className="flex items-center space-x-0.5 sm:space-x-3 flex-shrink-0">
               <NotificationCenter />
               
               {/* Mobile Menu Button */}
               <div className="relative">
                 <button 
                   onClick={() => setShowMobileMenu(!showMobileMenu)}
-                  className="flex items-center space-x-1 sm:space-x-2 bg-white/90 backdrop-blur-sm rounded-xl px-2 sm:px-3 py-2 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105 cursor-pointer border border-white/50"
+                  className="flex items-center space-x-0.5 sm:space-x-2 bg-white/90 backdrop-blur-sm rounded-lg sm:rounded-xl px-1.5 sm:px-3 py-1.5 sm:py-2 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105 cursor-pointer border border-white/50"
                 >
                   <div className="h-6 w-6 sm:h-8 sm:w-8 bg-gradient-to-br from-royal-blue to-dark-blue rounded-full flex items-center justify-center border-2 border-royal-blue">
                     <Users className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
