@@ -89,7 +89,7 @@ export default function LoginPage() {
 
         {/* Login Form */}
         <div className="bg-gray-50/95 backdrop-blur-2xl rounded-3xl shadow-2xl p-8 space-y-6 border border-white/40 animate-slide-up drop-shadow-2xl" style={{ animationDelay: '0.2s' }}>
-          {/* Role Selection */}
+          {/* Role Selection - Mobile Optimized */}
           <div className="relative bg-gray-100 rounded-2xl p-1 mb-6">
             <div 
               className={`absolute top-1 bottom-1 w-1/3 bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-md transition-all duration-500 ease-in-out ${
@@ -102,38 +102,38 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setRole('athlete')}
-                className={`flex-1 py-4 px-4 rounded-xl transition-all duration-500 flex items-center justify-center space-x-2 relative z-10 ${
+                className={`flex-1 py-3 sm:py-4 px-2 sm:px-4 rounded-xl transition-all duration-500 flex flex-col sm:flex-row items-center justify-center space-y-1 sm:space-y-0 sm:space-x-2 relative z-10 ${
                   role === 'athlete'
                     ? 'text-white font-bold'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                <Activity className={`h-5 w-5 transition-all duration-300 ${role === 'athlete' ? 'text-white' : 'text-gray-400'}`} />
-                <span className="font-bold text-sm">Athlete</span>
+                <Activity className={`h-4 w-4 sm:h-5 sm:w-5 transition-all duration-300 ${role === 'athlete' ? 'text-white' : 'text-gray-400'}`} />
+                <span className="font-bold text-xs sm:text-sm">Athlete</span>
               </button>
               <button
                 type="button"
                 onClick={() => setRole('coach')}
-                className={`flex-1 py-4 px-4 rounded-xl transition-all duration-500 flex items-center justify-center space-x-2 relative z-10 ${
+                className={`flex-1 py-3 sm:py-4 px-2 sm:px-4 rounded-xl transition-all duration-500 flex flex-col sm:flex-row items-center justify-center space-y-1 sm:space-y-0 sm:space-x-2 relative z-10 ${
                   role === 'coach'
                     ? 'text-white font-bold'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                <Shield className={`h-5 w-5 transition-all duration-300 ${role === 'coach' ? 'text-white' : 'text-gray-400'}`} />
-                <span className="font-bold text-sm">Coach</span>
+                <Shield className={`h-4 w-4 sm:h-5 sm:w-5 transition-all duration-300 ${role === 'coach' ? 'text-white' : 'text-gray-400'}`} />
+                <span className="font-bold text-xs sm:text-sm">Coach</span>
               </button>
               <button
                 type="button"
                 onClick={() => setRole('assistant_coach')}
-                className={`flex-1 py-4 px-4 rounded-xl transition-all duration-500 flex items-center justify-center space-x-2 relative z-10 ${
+                className={`flex-1 py-3 sm:py-4 px-2 sm:px-4 rounded-xl transition-all duration-500 flex flex-col sm:flex-row items-center justify-center space-y-1 sm:space-y-0 sm:space-x-2 relative z-10 ${
                   role === 'assistant_coach'
                     ? 'text-white font-bold'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                <Users className={`h-5 w-5 transition-all duration-300 ${role === 'assistant_coach' ? 'text-white' : 'text-gray-400'}`} />
-                <span className="font-bold text-sm">Assistant</span>
+                <Users className={`h-4 w-4 sm:h-5 sm:w-5 transition-all duration-300 ${role === 'assistant_coach' ? 'text-white' : 'text-gray-400'}`} />
+                <span className="font-bold text-xs sm:text-sm">Assistant</span>
               </button>
             </div>
           </div>

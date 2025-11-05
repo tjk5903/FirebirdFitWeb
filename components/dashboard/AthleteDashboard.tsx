@@ -28,7 +28,9 @@ import {
   Award,
   Star,
   Heart,
-  Dumbbell
+  Dumbbell,
+  Menu,
+  ChevronDown
 } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
 import { SmartLoadingMessage, EmptyState } from '@/components/ui/LoadingStates'
@@ -52,6 +54,7 @@ const AthleteDashboard = React.memo(function AthleteDashboard() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('')
   const [isLoaded, setIsLoaded] = useState(false)
+  const [showMobileMenu, setShowMobileMenu] = useState(false)
 
   // Use custom hooks for team messages and workouts
   const { teamMessages, isLoadingMessages } = useTeamMessages(user?.id)
@@ -156,22 +159,55 @@ const AthleteDashboard = React.memo(function AthleteDashboard() {
               </div>
             </div>
             
-            <div className="flex items-center space-x-2 sm:space-x-4">
+            {/* Right Side - Mobile Optimized */}
+            <div className="flex items-center space-x-1 sm:space-x-3">
               <NotificationCenter />
-              <button 
-                onClick={() => router.push('/profile')}
-                className="flex items-center space-x-2 sm:space-x-3 bg-white rounded-xl px-2 sm:px-3 py-2 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105 cursor-pointer"
-              >
-                <div className="h-6 w-6 sm:h-8 sm:w-8 bg-gradient-to-br from-royal-blue to-dark-blue rounded-full flex items-center justify-center border-2 border-royal-blue">
-                  <Users className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
-                </div>
-              </button>
-              <button
-                onClick={handleLogout}
-                className="p-2 text-gray-400 hover:text-gray-600 transition-all duration-200 hover:scale-110 focus-ring"
-              >
-                <LogOut className="h-5 w-5" />
-              </button>
+              
+              {/* Mobile Menu Button */}
+              <div className="relative">
+                <button 
+                  onClick={() => setShowMobileMenu(!showMobileMenu)}
+                  className="flex items-center space-x-1 sm:space-x-2 bg-white/90 backdrop-blur-sm rounded-xl px-2 sm:px-3 py-2 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105 cursor-pointer border border-white/50"
+                >
+                  <div className="h-6 w-6 sm:h-8 sm:w-8 bg-gradient-to-br from-royal-blue to-dark-blue rounded-full flex items-center justify-center border-2 border-royal-blue">
+                    <Users className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
+                  </div>
+                  <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 text-gray-500 transition-transform duration-200 ${showMobileMenu ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Dropdown Menu */}
+                {showMobileMenu && (
+                  <>
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-white/50 py-2 z-50">
+                      <button
+                        onClick={() => {
+                          router.push('/profile')
+                          setShowMobileMenu(false)
+                        }}
+                        className="w-full px-4 py-3 text-left hover:bg-gray-50/80 flex items-center space-x-3 transition-colors duration-200"
+                      >
+                        <Users className="h-4 w-4 text-gray-500" />
+                        <span className="text-sm font-medium text-gray-700">Profile</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleLogout()
+                          setShowMobileMenu(false)
+                        }}
+                        className="w-full px-4 py-3 text-left hover:bg-red-50/80 flex items-center space-x-3 transition-colors duration-200 text-red-600"
+                      >
+                        <LogOut className="h-4 w-4 text-red-500" />
+                        <span className="text-sm font-medium">Logout</span>
+                      </button>
+                    </div>
+                    {/* Click outside to close menu */}
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setShowMobileMenu(false)}
+                    ></div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
