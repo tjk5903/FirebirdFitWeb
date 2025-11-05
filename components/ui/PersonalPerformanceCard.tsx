@@ -143,7 +143,7 @@ export default function PersonalPerformanceCard({ userId, className = '' }: Pers
                   {stats.attendanceRate}%
                 </div>
                 <p className="text-xs text-gray-500">
-                  {stats.attendedEvents}/{stats.totalEvents * stats.teamSize} events
+                  {stats.attendedEvents}/{stats.totalEvents} events
                 </p>
               </>
             ) : (
@@ -163,7 +163,7 @@ export default function PersonalPerformanceCard({ userId, className = '' }: Pers
                   {stats.completionRate}%
                 </div>
                 <p className="text-xs text-gray-500">
-                  {stats.completedWorkouts}/{stats.totalWorkouts * stats.teamSize} workouts
+                  {stats.completedWorkouts}/{stats.totalWorkouts} workouts
                 </p>
               </>
             ) : (
