@@ -4,6 +4,7 @@ import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { AppStateProvider } from '@/contexts/AppStateContext'
 import { ToastProvider } from '@/contexts/ToastContext'
+import { ThemeProvider } from '@/contexts/ThemeContext'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { GlobalLoadingManager } from '@/components/ui/GlobalLoadingManager'
 import HydrationFix from '@/components/ui/HydrationFix'
@@ -25,16 +26,18 @@ export default function RootLayout({
       <body className={inter.className}>
         <ErrorBoundary>
           <AuthProvider>
-            <AppStateProvider>
-              <ToastProvider>
-                <GlobalLoadingManager>
-                  <HydrationFix />
-                  <div className="min-h-screen bg-soft-white">
-                    {children}
-                  </div>
-                </GlobalLoadingManager>
-              </ToastProvider>
-            </AppStateProvider>
+            <ThemeProvider>
+              <AppStateProvider>
+                <ToastProvider>
+                  <GlobalLoadingManager>
+                    <HydrationFix />
+                    <div className="min-h-screen bg-soft-white dark:bg-slate-900 transition-colors duration-300">
+                      {children}
+                    </div>
+                  </GlobalLoadingManager>
+                </ToastProvider>
+              </AppStateProvider>
+            </ThemeProvider>
           </AuthProvider>
         </ErrorBoundary>
       </body>

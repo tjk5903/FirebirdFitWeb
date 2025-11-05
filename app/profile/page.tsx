@@ -6,6 +6,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { DashboardErrorBoundary } from '@/components/ui/DashboardErrorBoundary'
 import { SmartLoadingMessage, EmptyState } from '@/components/ui/LoadingStates'
 import { createTeam, joinTeam, leaveTeam, deleteTeam, getUserTeams, updateTeamName, updateUserProfile, getTeamMembersForTeam, removeTeamMember, UserRole, canCreateTeams, canJoinTeams } from '@/lib/utils'
+import NotificationPreferencesModal from '@/components/ui/NotificationPreferencesModal'
+import SettingsModal from '@/components/ui/SettingsModal'
 import { 
   ArrowLeft, 
   User, 
@@ -65,6 +67,8 @@ export default function ProfilePage() {
   const [isRemovingMember, setIsRemovingMember] = useState(false)
   const [memberToRemove, setMemberToRemove] = useState<any>(null)
   const [showRemoveMemberConfirm, setShowRemoveMemberConfirm] = useState(false)
+  const [showNotificationPreferences, setShowNotificationPreferences] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [profileData, setProfileData] = useState({
     name: '',
     email: '',
@@ -1097,7 +1101,10 @@ export default function ProfilePage() {
             <div className="card-elevated hover-lift">
               <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4">Quick Actions</h3>
               <div className="space-y-3">
-                <button className="w-full flex items-center space-x-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all duration-200 group">
+                <button 
+                  onClick={() => setShowSettings(true)}
+                  className="w-full flex items-center space-x-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all duration-200 group"
+                >
                   <div className="h-10 w-10 bg-blue-100 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
                     <Settings className="h-5 w-5 text-blue-600" />
                   </div>
@@ -1107,7 +1114,10 @@ export default function ProfilePage() {
                   </div>
                 </button>
 
-                <button className="w-full flex items-center space-x-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all duration-200 group">
+                <button 
+                  onClick={() => setShowNotificationPreferences(true)}
+                  className="w-full flex items-center space-x-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all duration-200 group"
+                >
                   <div className="h-10 w-10 bg-purple-100 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
                     <Bell className="h-5 w-5 text-purple-600" />
                   </div>
@@ -1259,6 +1269,21 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        onOpenNotifications={() => setShowNotificationPreferences(true)}
+        userId={user?.id || ''}
+      />
+
+      {/* Notification Preferences Modal */}
+      <NotificationPreferencesModal
+        isOpen={showNotificationPreferences}
+        onClose={() => setShowNotificationPreferences(false)}
+        userId={user?.id || ''}
+      />
     </div>
   )
 } 

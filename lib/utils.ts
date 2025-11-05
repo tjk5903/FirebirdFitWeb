@@ -2552,4 +2552,169 @@ export async function updateWorkout(workoutId: string, workoutData: any, exercis
     console.error('Error in updateWorkout:', error)
     throw error
   }
+}
+
+// Notification Preferences Types and Functions
+export interface NotificationPreferences {
+  id?: string
+  user_id: string
+  new_messages: boolean
+  chat_mentions: boolean
+  new_chat_invites: boolean
+  new_workouts: boolean
+  workout_reminders: 'off' | '30min' | '1hour'
+  workout_completions: boolean
+  new_events: boolean
+  event_reminders: 'off' | '1hour' | '1day'
+  event_updates: boolean
+  quiet_hours_enabled: boolean
+  quiet_hours_start: string
+  quiet_hours_end: string
+  sound_enabled: boolean
+  show_preview: boolean
+}
+
+// Get user's notification preferences
+export async function getUserNotificationPreferences(userId: string): Promise<NotificationPreferences | null> {
+  try {
+    const { data, error } = await supabase
+      .from('notification_preferences')
+      .select('*')
+      .eq('user_id', userId)
+      .single()
+
+    if (error) {
+      // If no preferences exist, return default preferences
+      if (error.code === 'PGRST116') {
+        return {
+          user_id: userId,
+          new_messages: true,
+          chat_mentions: true,
+          new_chat_invites: true,
+          new_workouts: true,
+          workout_reminders: '30min',
+          workout_completions: true,
+          new_events: true,
+          event_reminders: '1hour',
+          event_updates: true,
+          quiet_hours_enabled: false,
+          quiet_hours_start: '22:00:00',
+          quiet_hours_end: '07:00:00',
+          sound_enabled: true,
+          show_preview: true
+        }
+      }
+      throw error
+    }
+
+    return data
+  } catch (error) {
+    console.error('Error fetching notification preferences:', error)
+    return null
+  }
+}
+
+// Save user's notification preferences
+export async function saveNotificationPreferences(preferences: NotificationPreferences): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from('notification_preferences')
+      .upsert({
+        user_id: preferences.user_id,
+        new_messages: preferences.new_messages,
+        chat_mentions: preferences.chat_mentions,
+        new_chat_invites: preferences.new_chat_invites,
+        new_workouts: preferences.new_workouts,
+        workout_reminders: preferences.workout_reminders,
+        workout_completions: preferences.workout_completions,
+        new_events: preferences.new_events,
+        event_reminders: preferences.event_reminders,
+        event_updates: preferences.event_updates,
+        quiet_hours_enabled: preferences.quiet_hours_enabled,
+        quiet_hours_start: preferences.quiet_hours_start,
+        quiet_hours_end: preferences.quiet_hours_end,
+        sound_enabled: preferences.sound_enabled,
+        show_preview: preferences.show_preview
+      }, {
+        onConflict: 'user_id'
+      })
+
+    if (error) {
+      throw error
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('Error saving notification preferences:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
+// User Preferences Types and Functions
+export interface UserPreferences {
+  id?: string
+  user_id: string
+  theme: 'light' | 'dark' | 'system'
+  font_size: 'small' | 'medium' | 'large'
+  time_format: '12hr' | '24hr'
+  date_format: 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD'
+  auto_refresh: boolean
+}
+
+// Get user's preferences
+export async function getUserPreferences(userId: string): Promise<UserPreferences | null> {
+  try {
+    const { data, error } = await supabase
+      .from('user_preferences')
+      .select('*')
+      .eq('user_id', userId)
+      .single()
+
+    if (error) {
+      // If no preferences exist, return default preferences
+      if (error.code === 'PGRST116') {
+        return {
+          user_id: userId,
+          theme: 'system',
+          font_size: 'medium',
+          time_format: '12hr',
+          date_format: 'MM/DD/YYYY',
+          auto_refresh: true
+        }
+      }
+      throw error
+    }
+
+    return data
+  } catch (error) {
+    console.error('Error fetching user preferences:', error)
+    return null
+  }
+}
+
+// Save user's preferences
+export async function saveUserPreferences(preferences: UserPreferences): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from('user_preferences')
+      .upsert({
+        user_id: preferences.user_id,
+        theme: preferences.theme,
+        font_size: preferences.font_size,
+        time_format: preferences.time_format,
+        date_format: preferences.date_format,
+        auto_refresh: preferences.auto_refresh
+      }, {
+        onConflict: 'user_id'
+      })
+
+    if (error) {
+      throw error
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('Error saving user preferences:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
 } 
