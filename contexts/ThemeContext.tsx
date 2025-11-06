@@ -73,9 +73,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Update preferences in database if user is logged in
     if (user?.id && preferences) {
       try {
-        // Ensure we don't save 'system' - convert to 'light' if needed
-        const themeToSave = newTheme === 'system' ? 'light' : newTheme
-        const updatedPreferences = { ...preferences, theme: themeToSave as any }
+        const updatedPreferences = { ...preferences, theme: newTheme }
         await saveUserPreferences(updatedPreferences)
         setPreferences(updatedPreferences)
       } catch (error) {
