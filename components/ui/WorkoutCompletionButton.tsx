@@ -114,8 +114,8 @@ export default function WorkoutCompletionButton({
 
   if (isLoadingStatus) {
     return (
-      <div className={`animate-pulse bg-gray-200 rounded-lg ${config.button}`}>
-        <div className="w-20 h-4 bg-gray-300 rounded"></div>
+      <div className={`animate-pulse bg-gray-200 dark:bg-slate-700 rounded-lg ${config.button}`}>
+        <div className="w-20 h-4 bg-gray-300 dark:bg-slate-600 rounded"></div>
       </div>
     )
   }
@@ -131,7 +131,7 @@ export default function WorkoutCompletionButton({
         className={`flex items-center space-x-2 rounded-lg font-medium transition-all duration-200 ${config.button} ${
           isCompleted
             ? 'bg-green-500 text-white shadow-md hover:bg-green-600'
-            : 'bg-gray-100 text-gray-700 hover:bg-green-100 hover:text-green-700 border border-gray-200'
+            : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-green-100 dark:hover:bg-green-900/40 hover:text-green-700 dark:hover:text-green-400 border border-gray-200 dark:border-slate-600'
         } ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
       >
         {isLoading ? (
@@ -156,8 +156,8 @@ export default function WorkoutCompletionButton({
 
       {/* Completion Info */}
       {showCompletionInfo && completion && (
-        <div className={`text-xs text-gray-500 flex items-center space-x-2 ${config.text}`}>
-          <Check className="h-3 w-3 text-green-500" />
+        <div className={`text-xs text-gray-500 dark:text-gray-400 flex items-center space-x-2 ${config.text}`}>
+          <Check className="h-3 w-3 text-green-500 dark:text-green-400" />
           <span>
             Completed {new Date(completion.completed_at).toLocaleDateString()} at{' '}
             {new Date(completion.completed_at).toLocaleTimeString([], { 
@@ -172,7 +172,7 @@ export default function WorkoutCompletionButton({
       {isCompleted && !isLoading && (
         <button
           onClick={handleToggleCompletion}
-          className={`flex items-center space-x-1 text-gray-500 hover:text-gray-700 transition-colors ${config.text}`}
+          className={`flex items-center space-x-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors ${config.text}`}
         >
           <RotateCcw className="h-3 w-3" />
           <span>Mark as incomplete</span>

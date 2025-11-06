@@ -520,7 +520,7 @@ const CoachDashboard = React.memo(function CoachDashboard() {
     return eventTypes.find(t => t.id === type)?.label || 'Event'
   }
 
-  // Get upcoming events (next 3-5 events)
+  // Get upcoming events (next 2 events)
   const getUpcomingEvents = () => {
     const now = new Date()
     return events
@@ -529,7 +529,7 @@ const CoachDashboard = React.memo(function CoachDashboard() {
         return eventDate >= now
       })
       .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
-      .slice(0, 5) // Get next 5 events
+      .slice(0, 2) // Get next 2 events
   }
 
   return (

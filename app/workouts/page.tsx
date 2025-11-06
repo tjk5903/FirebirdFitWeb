@@ -943,17 +943,17 @@ export default function WorkoutsPage() {
 
         {/* Edit Workout Modal */}
         {isEditingWorkout && editWorkoutData && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-96 animate-fade-in">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl flex flex-col animate-scale-in" style={{ maxHeight: 'calc(100vh - 10rem)' }}>
+          <div className="fixed inset-0 z-50 flex justify-center animate-fade-in" style={{ paddingTop: '7rem' }}>
+            <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-4xl lg:max-w-5xl flex flex-col animate-scale-in" style={{ maxHeight: 'calc(100vh + 12rem)', margin: '0 1rem 0.125rem 1rem' }}>
               {/* Modal Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-slate-700">
                 <div className="flex items-center space-x-3">
                   <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
                     <Edit className="h-5 w-5 text-white" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-900">Edit Workout</h3>
-                    <p className="text-sm text-gray-500">Update workout details</p>
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100">Edit Workout</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Update workout details</p>
                   </div>
                 </div>
                 <button
