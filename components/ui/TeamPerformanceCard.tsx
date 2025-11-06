@@ -38,28 +38,28 @@ export default function TeamPerformanceCard({ teamId, className = '' }: TeamPerf
     return (
       <div className={`card-elevated hover-lift ${className}`}>
         <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <h3 className="text-lg sm:text-xl font-bold text-gray-900">Team Performance</h3>
+          <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">Team Performance</h3>
           <Award className="h-5 w-5 sm:h-6 sm:w-6 text-gold" />
         </div>
         
         <div className="space-y-3 sm:space-y-4 animate-pulse">
           <div className="text-center">
-            <div className="h-8 w-16 bg-gray-200 rounded mx-auto mb-2"></div>
-            <div className="h-4 w-24 bg-gray-200 rounded mx-auto"></div>
+            <div className="h-8 w-16 bg-gray-200 dark:bg-slate-700 rounded mx-auto mb-2"></div>
+            <div className="h-4 w-24 bg-gray-200 dark:bg-slate-700 rounded mx-auto"></div>
           </div>
           
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <div className="h-4 w-16 bg-gray-200 rounded"></div>
-              <div className="h-4 w-8 bg-gray-200 rounded"></div>
+              <div className="h-4 w-16 bg-gray-200 dark:bg-slate-700 rounded"></div>
+              <div className="h-4 w-8 bg-gray-200 dark:bg-slate-700 rounded"></div>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-1.5"></div>
+            <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-1.5"></div>
             
             <div className="flex items-center justify-between">
-              <div className="h-4 w-16 bg-gray-200 rounded"></div>
-              <div className="h-4 w-8 bg-gray-200 rounded"></div>
+              <div className="h-4 w-16 bg-gray-200 dark:bg-slate-700 rounded"></div>
+              <div className="h-4 w-8 bg-gray-200 dark:bg-slate-700 rounded"></div>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-1.5"></div>
+            <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-1.5"></div>
           </div>
         </div>
       </div>
@@ -70,16 +70,16 @@ export default function TeamPerformanceCard({ teamId, className = '' }: TeamPerf
     return (
       <div className={`card-elevated hover-lift ${className}`}>
         <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <h3 className="text-lg sm:text-xl font-bold text-gray-900">Team Performance</h3>
+          <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">Team Performance</h3>
           <Award className="h-5 w-5 sm:h-6 sm:w-6 text-gold" />
         </div>
         
         <div className="text-center py-8">
-          <TrendingUp className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-sm text-gray-500">
+          <TrendingUp className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+          <p className="text-sm text-gray-500 dark:text-gray-300">
             {error || 'No performance data available yet'}
           </p>
-          <p className="text-xs text-gray-400 mt-2">
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
             Performance data will appear as team members attend events and complete workouts
           </p>
         </div>
@@ -105,7 +105,7 @@ export default function TeamPerformanceCard({ teamId, className = '' }: TeamPerf
   return (
     <div className={`card-elevated hover-lift ${className}`}>
       <div className="flex items-center justify-between mb-4 sm:mb-6">
-        <h3 className="text-lg sm:text-xl font-bold text-gray-900">Team Performance</h3>
+        <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">Team Performance</h3>
         <Award className="h-5 w-5 sm:h-6 sm:w-6 text-gold" />
       </div>
       
@@ -115,15 +115,15 @@ export default function TeamPerformanceCard({ teamId, className = '' }: TeamPerf
           <div className={`text-2xl sm:text-3xl font-bold mb-1 ${getPerformanceColor(stats.overallPerformance)}`}>
             {stats.overallPerformance}%
           </div>
-          <p className="text-xs sm:text-sm text-gray-600">Overall Performance</p>
+          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Overall Performance</p>
         </div>
         
         {/* Attendance Rate */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Calendar className="h-3 w-3 text-gray-500" />
-              <span className="text-xs sm:text-sm font-medium text-gray-700">Attendance</span>
+              <Calendar className="h-3 w-3 text-gray-500 dark:text-gray-400" />
+              <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">Attendance</span>
             </div>
             <div className="flex items-center space-x-2">
               {stats.totalEvents > 0 ? (
@@ -131,19 +131,19 @@ export default function TeamPerformanceCard({ teamId, className = '' }: TeamPerf
                   <span className={`text-xs sm:text-sm font-semibold ${getPerformanceColor(stats.attendanceRate)}`}>
                     {stats.attendanceRate}%
                   </span>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-gray-400 dark:text-gray-500">
                     ({stats.attendedEvents}/{stats.totalEvents * stats.teamSize})
                   </span>
                 </>
               ) : (
-                <span className="text-xs sm:text-sm font-semibold text-gray-400">
+                <span className="text-xs sm:text-sm font-semibold text-gray-400 dark:text-gray-500">
                   N/A
                 </span>
               )}
             </div>
           </div>
           {stats.totalEvents > 0 && (
-            <div className="w-full bg-gray-200 rounded-full h-1.5">
+            <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-1.5">
               <div 
                 className={`h-1.5 rounded-full transition-all duration-1000 ${getProgressBarColor(stats.attendanceRate)}`}
                 style={{ width: `${stats.attendanceRate}%` }}
@@ -156,8 +156,8 @@ export default function TeamPerformanceCard({ teamId, className = '' }: TeamPerf
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Dumbbell className="h-3 w-3 text-gray-500" />
-              <span className="text-xs sm:text-sm font-medium text-gray-700">Completion</span>
+              <Dumbbell className="h-3 w-3 text-gray-500 dark:text-gray-400" />
+              <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">Completion</span>
             </div>
             <div className="flex items-center space-x-2">
               {stats.totalWorkouts > 0 ? (
@@ -165,19 +165,19 @@ export default function TeamPerformanceCard({ teamId, className = '' }: TeamPerf
                   <span className={`text-xs sm:text-sm font-semibold ${getPerformanceColor(stats.completionRate)}`}>
                     {stats.completionRate}%
                   </span>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-gray-400 dark:text-gray-500">
                     ({stats.completedWorkouts}/{stats.totalWorkouts * stats.teamSize})
                   </span>
                 </>
               ) : (
-                <span className="text-xs sm:text-sm font-semibold text-gray-400">
+                <span className="text-xs sm:text-sm font-semibold text-gray-400 dark:text-gray-500">
                   N/A
                 </span>
               )}
             </div>
           </div>
           {stats.totalWorkouts > 0 && (
-            <div className="w-full bg-gray-200 rounded-full h-1.5">
+            <div className="w-full bg-gray-200 dark:bg-slate-700 rounded-full h-1.5">
               <div 
                 className={`h-1.5 rounded-full transition-all duration-1000 ${getProgressBarColor(stats.completionRate)}`}
                 style={{ width: `${stats.completionRate}%` }}
@@ -188,8 +188,8 @@ export default function TeamPerformanceCard({ teamId, className = '' }: TeamPerf
 
         {/* Summary Stats */}
         {(stats.totalEvents > 0 || stats.totalWorkouts > 0) && (
-          <div className="pt-2 border-t border-gray-100">
-            <div className="flex items-center justify-center space-x-4 text-xs text-gray-500">
+          <div className="pt-2 border-t border-gray-100 dark:border-slate-700">
+            <div className="flex items-center justify-center space-x-4 text-xs text-gray-500 dark:text-gray-400">
               <div className="flex items-center space-x-1">
                 <Calendar className="h-3 w-3" />
                 <span>{stats.totalEvents} events</span>

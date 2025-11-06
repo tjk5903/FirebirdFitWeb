@@ -61,10 +61,10 @@ export default function MainNavigation() {
   ]
 
   return (
-    <nav className="bg-white border-b border-gray-200 shadow-sm">
+    <nav className="bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700 shadow-sm">
       <div className="container-responsive">
         <div className="flex justify-center">
-          <div className="flex space-x-1 p-2 bg-gray-100 rounded-2xl">
+          <div className="flex space-x-1 p-2 bg-gray-100 dark:bg-slate-800 rounded-2xl">
             {tabs.map((tab) => {
               const Icon = tab.icon
               const isActive = getActiveTab() === tab.id
@@ -75,8 +75,8 @@ export default function MainNavigation() {
                   onClick={() => handleTabClick(tab.id)}
                   className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
                     isActive
-                      ? 'bg-white text-blue-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                      ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-slate-700/50'
                   }`}
                 >
                   <Icon className="h-5 w-5" />

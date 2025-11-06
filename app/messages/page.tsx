@@ -409,7 +409,7 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
       <MainNavigation />
       
       <div className={`container-responsive py-6 transition-all duration-500 delay-200 ${
@@ -420,15 +420,15 @@ export default function MessagesPage() {
           <div className="flex items-center space-x-3 sm:space-x-4">
             <button
               onClick={() => router.push('/dashboard')}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
+              className="flex items-center space-x-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-300" />
               <span className="hidden sm:inline">Back to Dashboard</span>
             </button>
-            <div className="h-6 w-px bg-gray-300 hidden sm:block"></div>
+            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 hidden sm:block"></div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Messages</h1>
-              <p className="text-sm sm:text-base text-gray-600">Team communication hub</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Messages</h1>
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">Team communication hub</p>
             </div>
           </div>
 
@@ -444,16 +444,16 @@ export default function MessagesPage() {
         </div>
 
         {/* Messages Container */}
-        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
+        <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl overflow-hidden border border-gray-100 dark:border-slate-700">
           <div className="flex flex-col lg:flex-row h-[calc(100vh-300px)]">
             {/* Chat List */}
-            <div className={`w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col ${selectedChatId ? 'hidden lg:flex' : 'flex'}`}>
+            <div className={`w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-slate-700 flex flex-col ${selectedChatId ? 'hidden lg:flex' : 'flex'}`}>
               {/* Chat List Header */}
-              <div className="p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+              <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-slate-700 bg-gradient-to-r from-gray-50 to-white dark:from-slate-800 dark:to-slate-800">
                 <div className="flex items-center justify-between mb-3 sm:mb-4">
                   <div>
-                    <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-1">Conversations</h2>
-                    <p className="text-xs sm:text-sm text-gray-600">Connect with your team</p>
+                    <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-1">Conversations</h2>
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Connect with your team</p>
                   </div>
                 </div>
                 
@@ -465,13 +465,13 @@ export default function MessagesPage() {
                     placeholder="Search conversations..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 sm:pl-12 pr-4 py-3 sm:py-4 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-gray-50 focus:bg-white text-sm sm:text-base"
+                    className="w-full pl-10 sm:pl-12 pr-4 py-3 sm:py-4 border-2 border-gray-200 dark:border-slate-600 rounded-2xl focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 bg-gray-50 dark:bg-slate-700 focus:bg-white dark:focus:bg-slate-700 text-sm sm:text-base text-gray-900 dark:text-gray-100"
                   />
                 </div>
               </div>
 
               {/* Chat List */}
-              <div className="flex-1 overflow-y-auto bg-gradient-to-b from-gray-50/50 to-white">
+              <div className="flex-1 overflow-y-auto bg-gradient-to-b from-gray-50/50 to-white dark:from-slate-800 dark:to-slate-800">
                 {isLoadingChats && chats.length === 0 ? (
                   <LoadingCard count={5} />
                 ) : chatsError ? (
@@ -486,9 +486,9 @@ export default function MessagesPage() {
                   <div
                     key={chat.id}
                     onClick={() => setSelectedChatId(chat.id)}
-                    className={`group p-3 sm:p-4 border-b border-gray-100 cursor-pointer transition-all duration-300 hover:bg-gradient-to-r hover:from-blue-50/80 hover:to-blue-100/80 ${
+                    className={`group p-3 sm:p-4 border-b border-gray-100 dark:border-slate-700 cursor-pointer transition-all duration-300 hover:bg-gradient-to-r hover:from-blue-50/80 hover:to-blue-100/80 dark:hover:from-slate-700 dark:hover:to-slate-700 ${
                       selectedChatId === chat.id 
-                        ? 'bg-gradient-to-r from-blue-100 to-blue-200 border-blue-300 shadow-sm ring-2 ring-blue-300' 
+                        ? 'bg-gradient-to-r from-blue-100 to-blue-200 dark:from-blue-900/40 dark:to-blue-800/40 border-blue-300 dark:border-blue-600 shadow-sm ring-2 ring-blue-300 dark:ring-blue-600' 
                         : ''
                     }`}
                   >
@@ -509,9 +509,9 @@ export default function MessagesPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center space-x-2">
-                            <h3 className="font-bold text-gray-900 truncate text-sm sm:text-base">{chat.name}</h3>
+                            <h3 className="font-bold text-gray-900 dark:text-gray-100 truncate text-sm sm:text-base">{chat.name}</h3>
                             {chat.memberCount > 2 && (
-                              <Hash className="h-3 w-3 text-purple-500" />
+                              <Hash className="h-3 w-3 text-purple-500 dark:text-purple-400" />
                             )}
                           </div>
                           <div className="flex items-center space-x-2">
@@ -544,24 +544,24 @@ export default function MessagesPage() {
                                 </button>
                               </div>
                             )}
-                            <span className="text-xs text-gray-500 font-medium">
+                            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
                               {chat.lastMessageTime ? formatTimeAgo(chat.lastMessageTime) : 'No messages'}
                             </span>
                           </div>
                         </div>
-                        <p className="text-xs sm:text-sm text-gray-600 truncate mb-1 sm:mb-2">
+                        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 truncate mb-1 sm:mb-2">
                           {chat.lastMessage || 'No messages yet'}
                         </p>
                         {chat.unread && (
                           <div className="flex items-center space-x-2">
                             <span className="h-2 w-2 bg-blue-500 rounded-full animate-pulse"></span>
-                            <span className="text-xs text-blue-600 font-bold">New message</span>
+                            <span className="text-xs text-blue-600 dark:text-blue-400 font-bold">New message</span>
                           </div>
                         )}
                         {chat.memberCount > 2 && (
                           <div className="flex items-center space-x-1 mt-1">
-                            <Users className="h-3 w-3 text-purple-400" />
-                            <span className="text-xs text-purple-500 font-medium">Group chat</span>
+                            <Users className="h-3 w-3 text-purple-400 dark:text-purple-500" />
+                            <span className="text-xs text-purple-500 dark:text-purple-400 font-medium">Group chat</span>
                           </div>
                         )}
                       </div>
@@ -570,11 +570,11 @@ export default function MessagesPage() {
                 ))
                 ) : (
                   <div className="text-center py-8">
-                    <div className="h-16 w-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Search className="h-8 w-8 text-gray-400" />
+                    <div className="h-16 w-16 bg-gray-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Search className="h-8 w-8 text-gray-400 dark:text-gray-500" />
                     </div>
-                    <h4 className="text-lg font-semibold text-gray-900 mb-2">No chats found</h4>
-                    <p className="text-gray-600">
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">No chats found</h4>
+                    <p className="text-gray-600 dark:text-gray-300">
                       {searchTerm ? 'No conversations match your search.' : 'Start a conversation with your team members.'}
                     </p>
                   </div>
@@ -583,19 +583,19 @@ export default function MessagesPage() {
             </div>
 
             {/* Chat Area */}
-            <div className={`flex-1 flex flex-col bg-gradient-to-b from-gray-50/30 to-white min-h-0 ${selectedChatId ? 'flex' : 'hidden lg:flex'}`}>
+            <div className={`flex-1 flex flex-col bg-gradient-to-b from-gray-50/30 to-white dark:from-slate-800 dark:to-slate-800 min-h-0 ${selectedChatId ? 'flex' : 'hidden lg:flex'}`}>
               {selectedChatId ? (
                 <>
                   {/* Chat Header */}
-                  <div className="p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+                  <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-slate-700 bg-gradient-to-r from-gray-50 to-white dark:from-slate-800 dark:to-slate-800">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3 sm:space-x-4">
                         {/* Mobile Back Button */}
                         <button
                           onClick={() => setSelectedChatId(null)}
-                          className="lg:hidden p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
+                          className="lg:hidden p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-xl transition-all duration-200"
                         >
-                          <ArrowLeft className="h-5 w-5" />
+                          <ArrowLeft className="h-5 w-5 text-gray-400 dark:text-gray-500" />
                         </button>
                         <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-2xl flex items-center justify-center shadow-lg ${
                           (selectedChat?.memberCount || 0) > 2 
@@ -612,16 +612,16 @@ export default function MessagesPage() {
                         </div>
                         <div>
                           <div className="flex items-center space-x-2">
-                            <h2 className="font-bold text-gray-900 text-base sm:text-lg">
+                            <h2 className="font-bold text-gray-900 dark:text-gray-100 text-base sm:text-lg">
                               {selectedChat?.name}
                             </h2>
                             {(selectedChat?.memberCount || 0) > 2 && (
-                              <Hash className="h-4 w-4 text-purple-500" />
+                              <Hash className="h-4 w-4 text-purple-500 dark:text-purple-400" />
                             )}
                           </div>
                           <div className="flex items-center space-x-2">
                             <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></span>
-                            <p className="text-xs sm:text-sm text-gray-600 font-medium">
+                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 font-medium">
                               {(selectedChat?.memberCount || 0) > 2 ? `${chatMembers.length} members` : 'Direct chat'}
                             </p>
                           </div>
@@ -633,17 +633,17 @@ export default function MessagesPage() {
                         <div className="relative">
                           <button 
                             onClick={() => setShowOptionsDropdown(!showOptionsDropdown)}
-                            className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
+                            className="p-1.5 sm:p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-xl transition-all duration-200"
                           >
                             <MoreVertical className="h-4 w-4 sm:h-5 sm:w-5" />
                           </button>
                           
                           {/* Dropdown Menu */}
                           {showOptionsDropdown && canManageMembers && (selectedChat?.memberCount || 0) > 2 && (
-                            <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
+                            <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 py-2 z-50">
                               <button
                                 onClick={() => handleOpenAddMembersModal(selectedChat!)}
-                                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center space-x-2"
+                                className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors flex items-center space-x-2"
                               >
                                 <Users className="h-4 w-4" />
                                 <span>Add Members</span>
@@ -659,7 +659,7 @@ export default function MessagesPage() {
                       <div className="mt-4 flex items-center space-x-2">
                         <div className="flex -space-x-2">
                           {chatMembers.slice(0, 5).map(member => (
-                            <div key={member.id} className="h-6 w-6 rounded-full bg-gray-300 border-2 border-white flex items-center justify-center text-xs font-bold">
+                            <div key={member.id} className="h-6 w-6 rounded-full bg-gray-300 dark:bg-slate-600 border-2 border-white dark:border-slate-800 flex items-center justify-center text-xs font-bold">
                               {member.avatar ? (
                                 <img src={member.avatar} alt={member.name} className="h-full w-full rounded-full" />
                               ) : (
@@ -668,12 +668,12 @@ export default function MessagesPage() {
                             </div>
                           ))}
                           {chatMembers.length > 5 && (
-                            <div className="h-6 w-6 rounded-full bg-gray-400 border-2 border-white flex items-center justify-center text-xs font-bold text-white">
+                            <div className="h-6 w-6 rounded-full bg-gray-400 dark:bg-slate-600 border-2 border-white dark:border-slate-800 flex items-center justify-center text-xs font-bold text-white dark:text-gray-300">
                               +{chatMembers.length - 5}
                             </div>
                           )}
                         </div>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
                           {chatMembers.map(m => m.name).join(', ')}
                         </span>
                       </div>
@@ -681,12 +681,12 @@ export default function MessagesPage() {
                   </div>
 
                   {/* Messages */}
-                  <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gradient-to-b from-gray-50/50 to-white">
+                  <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gradient-to-b from-gray-50/50 to-white dark:from-slate-800 dark:to-slate-800">
                     {isLoadingMessages ? (
                       <div className="flex items-center justify-center h-full">
                         <div className="text-center">
                           <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                          <p className="text-gray-600">Loading messages...</p>
+                          <p className="text-gray-600 dark:text-gray-300">Loading messages...</p>
                         </div>
                       </div>
                     ) : messages.length > 0 ? (
@@ -699,18 +699,18 @@ export default function MessagesPage() {
                           className={`max-w-xs lg:max-w-md px-6 py-4 rounded-3xl shadow-lg transition-all duration-300 hover:shadow-xl ${
                             msg.sender.id === user.id
                               ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
-                              : 'bg-white text-gray-900 border-2 border-gray-100 shadow-md'
+                              : 'bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 border-2 border-gray-100 dark:border-slate-600 shadow-md'
                           }`}
                         >
                           {msg.sender.id !== user.id && (
-                            <div className="text-xs font-medium text-gray-500 mb-1">
+                            <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
                               {msg.sender.name}
-                              {msg.isCoach && <span className="ml-1 text-purple-500">(Coach)</span>}
+                              {msg.isCoach && <span className="ml-1 text-purple-500 dark:text-purple-400">(Coach)</span>}
                             </div>
                           )}
                           <p className="text-sm leading-relaxed">{msg.message}</p>
                           <div className={`flex items-center justify-between mt-2 ${
-                            msg.sender.id === user.id ? 'text-blue-100' : 'text-gray-500'
+                            msg.sender.id === user.id ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
                           }`}>
                             <span className="text-xs font-medium">
                               {formatTimeAgo(msg.created_at)}
@@ -725,16 +725,16 @@ export default function MessagesPage() {
                     ) : (
                       <div className="flex items-center justify-center h-full">
                         <div className="text-center">
-                          <MessageCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                          <h3 className="text-lg font-semibold text-gray-900 mb-2">No messages yet</h3>
-                          <p className="text-gray-600">Start the conversation by sending the first message!</p>
+                          <MessageCircle className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">No messages yet</h3>
+                          <p className="text-gray-600 dark:text-gray-300">Start the conversation by sending the first message!</p>
                         </div>
                       </div>
                     )}
                   </div>
 
                   {/* Message Input */}
-                  <div className="p-4 sm:p-6 border-t border-gray-200 bg-white">
+                  <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
                     <div className="flex items-center space-x-3 sm:space-x-4">
                       <div className="flex-1 relative">
                         <input
@@ -743,13 +743,13 @@ export default function MessagesPage() {
                           value={newMessage}
                           onChange={(e) => setNewMessage(e.target.value)}
                           onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                          className="w-full px-4 sm:px-6 py-3 sm:py-4 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 bg-gray-50 focus:bg-white text-sm sm:text-base"
+                          className="w-full px-4 sm:px-6 py-3 sm:py-4 border-2 border-gray-200 dark:border-slate-600 rounded-2xl focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 bg-gray-50 dark:bg-slate-700 focus:bg-white dark:focus:bg-slate-700 text-sm sm:text-base text-gray-900 dark:text-gray-100"
                         />
                         <div className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2 flex items-center space-x-1 sm:space-x-2">
-                          <button className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
+                          <button className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
                             <span className="text-base sm:text-lg">😊</span>
                           </button>
-                          <button className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
+                          <button className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
                             <span className="text-base sm:text-lg">📎</span>
                           </button>
                         </div>
@@ -769,13 +769,13 @@ export default function MessagesPage() {
                   </div>
                 </>
               ) : (
-                <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50/50 to-white">
+                <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50/50 to-white dark:from-slate-800 dark:to-slate-800">
                   <div className="text-center max-w-md px-4">
                     <div className="h-16 w-16 sm:h-20 sm:w-20 bg-gradient-to-br from-blue-500 to-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-lg">
                       <MessageCircle className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
                     </div>
-                    <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2 sm:mb-3">Select a conversation</h3>
-                    <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">Choose a chat from the list to start messaging with your team</p>
+                    <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 sm:mb-3">Select a conversation</h3>
+                    <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 mb-4 sm:mb-6">Choose a chat from the list to start messaging with your team</p>
                     {isCoachOrAssistant(user?.role) && (
                       <button
                         onClick={() => setShowNewChat(true)}
@@ -795,13 +795,13 @@ export default function MessagesPage() {
       {/* New Chat Modal */}
       {showNewChat && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6 border-b border-gray-200">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-slate-700">
               <div className="flex items-center justify-between">
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Create Chat</h3>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">Create Chat</h3>
                 <button
                   onClick={() => setShowNewChat(false)}
-                  className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="p-1.5 sm:p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                 >
                   <X className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
@@ -810,7 +810,7 @@ export default function MessagesPage() {
 
             <div className="p-4 sm:p-6">
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                   Group Name
                 </label>
                 <input
@@ -818,14 +818,14 @@ export default function MessagesPage() {
                   value={newChatName}
                   onChange={(e) => setNewChatName(e.target.value)}
                   placeholder="Enter group name..."
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
+                  className="w-full px-4 py-3 border-2 border-gray-200 dark:border-slate-600 rounded-2xl focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                 />
               </div>
 
               <div className="flex items-center justify-end space-x-3">
                 <button
                   onClick={() => setShowNewChat(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                  className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
                 >
                   Cancel
                 </button>
@@ -850,29 +850,29 @@ export default function MessagesPage() {
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md animate-scale-in">
-            {/* Modal Header */}
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center space-x-3">
-                <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
-                  <svg className="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900">Success!</h3>
-                  <p className="text-sm text-gray-500">Operation completed</p>
+            <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md animate-scale-in">
+              {/* Modal Header */}
+              <div className="p-6 border-b border-gray-200 dark:border-slate-700">
+                <div className="flex items-center space-x-3">
+                  <div className="h-10 w-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                    <svg className="h-5 w-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100">Success!</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Operation completed</p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Modal Content */}
-            <div className="p-6">
-              <p className="text-gray-600">{successMessage}</p>
-            </div>
+              {/* Modal Content */}
+              <div className="p-6">
+                <p className="text-gray-600 dark:text-gray-300">{successMessage}</p>
+              </div>
 
-            {/* Modal Footer */}
-            <div className="p-6 border-t border-gray-200 flex items-center justify-end">
+              {/* Modal Footer */}
+              <div className="p-6 border-t border-gray-200 dark:border-slate-700 flex items-center justify-end">
               <button
                 onClick={() => setShowSuccessModal(false)}
                 className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl transition-all duration-300 transform hover:scale-105"
@@ -887,39 +887,39 @@ export default function MessagesPage() {
       {/* Delete Chat Confirmation Modal */}
       {showDeleteModal && chatToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md animate-scale-in">
-            {/* Modal Header */}
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center space-x-3">
-                <div className="h-10 w-10 bg-red-100 rounded-full flex items-center justify-center">
-                  <Trash2 className="h-5 w-5 text-red-600" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-gray-900">Delete Chat</h3>
-                  <p className="text-sm text-gray-500">This action cannot be undone</p>
+            <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md animate-scale-in">
+              {/* Modal Header */}
+              <div className="p-6 border-b border-gray-200 dark:border-slate-700">
+                <div className="flex items-center space-x-3">
+                  <div className="h-10 w-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                    <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100">Delete Chat</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">This action cannot be undone</p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Modal Content */}
-            <div className="p-6">
-              <p className="text-gray-600 mb-4">
-                Are you sure you want to delete the chat <span className="font-semibold">"{chatToDelete.name}"</span>?
-              </p>
-              <p className="text-sm text-red-600 bg-red-50 p-3 rounded-xl">
-                <strong>Warning:</strong> This will permanently delete the chat and all messages. All members will lose access to this conversation.
-              </p>
-            </div>
+              {/* Modal Content */}
+              <div className="p-6">
+                <p className="text-gray-600 dark:text-gray-300 mb-4">
+                  Are you sure you want to delete the chat <span className="font-semibold">"{chatToDelete.name}"</span>?
+                </p>
+                <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded-xl">
+                  <strong>Warning:</strong> This will permanently delete the chat and all messages. All members will lose access to this conversation.
+                </p>
+              </div>
 
-            {/* Modal Footer */}
-            <div className="p-6 border-t border-gray-200 flex items-center justify-end space-x-3">
-              <button
-                onClick={() => {
-                  setShowDeleteModal(false)
-                  setChatToDelete(null)
-                }}
-                disabled={isDeletingChat}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
+              {/* Modal Footer */}
+              <div className="p-6 border-t border-gray-200 dark:border-slate-700 flex items-center justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false)
+                    setChatToDelete(null)
+                  }}
+                  disabled={isDeletingChat}
+                  className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -948,16 +948,16 @@ export default function MessagesPage() {
       {/* Add Members Modal */}
       {showAddMembersModal && chatToAddMembers && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col animate-scale-in">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col animate-scale-in">
             {/* Modal Header */}
-            <div className="p-6 border-b border-gray-200">
+            <div className="p-6 border-b border-gray-200 dark:border-slate-700">
               <div className="flex items-center space-x-3">
-                <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                  <UserPlus className="h-5 w-5 text-blue-600" />
+                <div className="h-10 w-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                  <UserPlus className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-900">Add Members</h3>
-                  <p className="text-sm text-gray-500">Add members to "{chatToAddMembers.name}"</p>
+                  <h3 className="font-bold text-gray-900 dark:text-gray-100">Add Members</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Add members to "{chatToAddMembers.name}"</p>
                 </div>
               </div>
             </div>
@@ -981,7 +981,7 @@ export default function MessagesPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-6 border-t border-gray-200 flex items-center justify-end space-x-3">
+            <div className="p-6 border-t border-gray-200 dark:border-slate-700 flex items-center justify-end space-x-3">
               <button
                 onClick={() => {
                   setShowAddMembersModal(false)
@@ -989,7 +989,7 @@ export default function MessagesPage() {
                   setSelectedMembersToAdd([])
                 }}
                 disabled={isAddingMembers}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>

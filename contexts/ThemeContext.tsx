@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react'
 import { UserPreferences, getUserPreferences, saveUserPreferences } from '@/lib/utils'
 import { useAuth } from './AuthContext'
 
-type Theme = 'light' | 'dark' | 'system'
+type Theme = 'light' | 'dark'
 
 interface ThemeContextType {
   theme: Theme
@@ -20,7 +20,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth()
-  const [theme, setThemeState] = useState<Theme>('system')
+  const [theme, setThemeState] = useState<Theme>('light')
   const [actualTheme, setActualTheme] = useState<'light' | 'dark'>('light')
   const [preferences, setPreferences] = useState<UserPreferences | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -37,7 +37,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const userPrefs = await getUserPreferences(user.id)
         if (userPrefs) {
           setPreferences(userPrefs)
-          setThemeState(userPrefs.theme)
+          // Convert 'system' to 'light' if it exists in old preferences
+          const themeValue = userPrefs.theme === 'system' ? 'light' : (userPrefs.theme as Theme)
+          setThemeState(themeValue)
         }
       } catch (error) {
         console.error('Error loading user preferences:', error)
@@ -49,25 +51,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     loadPreferences()
   }, [user?.id])
 
-  // Update actual theme based on theme setting and system preference
+  // Update actual theme based on theme setting
   useEffect(() => {
-    const updateActualTheme = () => {
-      if (theme === 'system') {
-        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-        setActualTheme(systemPrefersDark ? 'dark' : 'light')
-      } else {
-        setActualTheme(theme)
-      }
-    }
-
-    updateActualTheme()
-
-    // Listen for system theme changes when using system theme
-    if (theme === 'system') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-      mediaQuery.addEventListener('change', updateActualTheme)
-      return () => mediaQuery.removeEventListener('change', updateActualTheme)
-    }
+    setActualTheme(theme)
   }, [theme])
 
   // Apply theme to document
@@ -87,7 +73,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Update preferences in database if user is logged in
     if (user?.id && preferences) {
       try {
-        const updatedPreferences = { ...preferences, theme: newTheme }
+        // Ensure we don't save 'system' - convert to 'light' if needed
+        const themeToSave = newTheme === 'system' ? 'light' : newTheme
+        const updatedPreferences = { ...preferences, theme: themeToSave as any }
         await saveUserPreferences(updatedPreferences)
         setPreferences(updatedPreferences)
       } catch (error) {
@@ -108,7 +96,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         
         // Update theme if it was changed
         if (newPreferences.theme) {
-          setThemeState(newPreferences.theme)
+          // Convert 'system' to 'light' if it exists
+          const themeValue = newPreferences.theme === 'system' ? 'light' : (newPreferences.theme as Theme)
+          setThemeState(themeValue)
         }
       } else {
         throw new Error(result.error)
@@ -120,13 +110,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }
 
   const toggleTheme = () => {
-    if (theme === 'light') {
-      setTheme('dark')
-    } else if (theme === 'dark') {
-      setTheme('system')
-    } else {
-      setTheme('light')
-    }
+    setTheme(theme === 'light' ? 'dark' : 'light')
   }
 
   return (

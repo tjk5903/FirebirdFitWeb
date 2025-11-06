@@ -90,10 +90,10 @@ function WorkoutExercises({ workoutId }: { workoutId: string }) {
   if (isLoading) {
     return (
       <div>
-        <h4 className="font-semibold text-gray-900 mb-4">Exercises</h4>
+        <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Exercises</h4>
         <div className="text-center py-4">
           <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-          <p className="text-sm text-gray-600">Loading exercises...</p>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Loading exercises...</p>
         </div>
       </div>
     )
@@ -104,31 +104,31 @@ function WorkoutExercises({ workoutId }: { workoutId: string }) {
       {exercises.length > 0 ? (
         <div className="space-y-4">
           {exercises.map((exercise, index) => (
-            <div key={exercise.id} className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200 hover:shadow-sm transition-shadow">
+            <div key={exercise.id} className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-slate-700 dark:to-slate-800 rounded-xl border border-gray-200 dark:border-slate-600 hover:shadow-sm transition-shadow">
               <div className="flex items-start justify-between">
                 <div className="flex items-start space-x-3 flex-1">
                   <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
                     <Dumbbell className="h-5 w-5 text-white" />
                   </div>
                   <div className="flex-1">
-                    <h5 className="font-bold text-gray-900 text-base mb-1">{exercise.exercise_name}</h5>
+                    <h5 className="font-bold text-gray-900 dark:text-gray-100 text-base mb-1">{exercise.exercise_name}</h5>
                     {exercise.notes && (
-                      <p className="text-sm text-gray-600 leading-relaxed">{exercise.notes}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{exercise.notes}</p>
                     )}
                   </div>
                 </div>
                 <div className="flex items-center space-x-6 ml-4">
                   <div className="text-center">
-                    <p className="text-lg font-bold text-gray-900">{exercise.sets}</p>
-                    <p className="text-xs text-gray-500 font-medium">Sets</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{exercise.sets}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-300 font-medium">Sets</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-lg font-bold text-gray-900">{exercise.reps}</p>
-                    <p className="text-xs text-gray-500 font-medium">Reps</p>
+                    <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{exercise.reps}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-300 font-medium">Reps</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-lg font-bold text-blue-600">{exercise.rest_seconds}s</p>
-                    <p className="text-xs text-gray-500 font-medium">Rest</p>
+                    <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{exercise.rest_seconds}s</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-300 font-medium">Rest</p>
                   </div>
                 </div>
               </div>
@@ -136,9 +136,9 @@ function WorkoutExercises({ workoutId }: { workoutId: string }) {
           ))}
         </div>
       ) : (
-        <div className="p-6 bg-gray-50 rounded-xl text-center">
-          <Dumbbell className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 font-medium">No exercises added to this workout</p>
+        <div className="p-6 bg-gray-50 dark:bg-slate-700/50 rounded-xl text-center">
+          <Dumbbell className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+          <p className="text-gray-500 dark:text-gray-300 font-medium">No exercises added to this workout</p>
         </div>
       )}
     </div>
@@ -180,7 +180,7 @@ function WorkoutExercisePreview({ workoutId }: { workoutId: string }) {
     return (
       <div className="space-y-1.5 sm:space-y-2">
         <div className="flex items-center justify-between p-1.5 sm:p-2 bg-gray-50 rounded-lg">
-          <span className="text-xs sm:text-sm font-medium text-gray-700">Exercises</span>
+          <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">Exercises</span>
           <div className="w-4 h-4 border border-blue-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
       </div>
@@ -192,26 +192,26 @@ function WorkoutExercisePreview({ workoutId }: { workoutId: string }) {
       {exercises.length > 0 ? (
         <div className="space-y-1">
           {exercises.slice(0, 3).map((exercise, index) => (
-            <div key={index} className="flex items-center justify-between p-1.5 sm:p-2 bg-gray-50 rounded-lg">
-              <span className="text-xs sm:text-sm font-medium text-gray-700 capitalize">
+            <div key={index} className="flex items-center justify-between p-1.5 sm:p-2 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
+              <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">
                 {exercise.exercise_name}
               </span>
               <div className="flex items-center space-x-1">
-                <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                <span className="text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">
                   {exercise.sets}x{exercise.reps}
                 </span>
               </div>
             </div>
           ))}
           {exercises.length > 3 && (
-            <div className="p-1.5 sm:p-2 bg-gray-50 rounded-lg text-center">
-              <span className="text-xs text-gray-500">+{exercises.length - 3} more exercises</span>
+            <div className="p-1.5 sm:p-2 bg-gray-50 dark:bg-slate-700/50 rounded-lg text-center">
+              <span className="text-xs text-gray-500 dark:text-gray-400">+{exercises.length - 3} more exercises</span>
             </div>
           )}
         </div>
       ) : (
-        <div className="p-1.5 sm:p-2 bg-gray-50 rounded-lg text-center">
-          <span className="text-xs sm:text-sm text-gray-500">No exercises added</span>
+        <div className="p-1.5 sm:p-2 bg-gray-50 dark:bg-slate-700/50 rounded-lg text-center">
+          <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">No exercises added</span>
         </div>
       )}
     </div>
@@ -491,7 +491,7 @@ export default function WorkoutsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
       <MainNavigation />
       
       <div className={`container-responsive py-6 transition-all duration-500 delay-200 ${
@@ -502,15 +502,15 @@ export default function WorkoutsPage() {
           <div className="flex items-center space-x-3 sm:space-x-4">
             <button
               onClick={() => router.push('/dashboard')}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
+              className="flex items-center space-x-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-300" />
               <span className="hidden sm:inline">Back to Dashboard</span>
             </button>
-            <div className="h-6 w-px bg-gray-300 hidden sm:block"></div>
+            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 hidden sm:block"></div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Workouts</h1>
-              <p className="text-sm sm:text-base text-gray-600">Manage your training programs</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Workouts</h1>
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">Manage your training programs</p>
             </div>
           </div>
 
@@ -534,7 +534,7 @@ export default function WorkoutsPage() {
               placeholder="Search workouts..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 bg-white/80 backdrop-blur-sm border-2 border-blue-200/50 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 placeholder-blue-400/70 shadow-lg text-sm sm:text-base"
+              className="w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm border-2 border-blue-200/50 dark:border-slate-600 rounded-2xl focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 placeholder-blue-400/70 dark:placeholder-gray-400 shadow-lg text-sm sm:text-base text-gray-900 dark:text-gray-100"
             />
           </div>
 
@@ -543,7 +543,7 @@ export default function WorkoutsPage() {
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
-              className="px-3 sm:px-4 py-2.5 sm:py-3 bg-white/80 backdrop-blur-sm border-2 border-blue-200/50 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-gray-700 shadow-lg text-sm sm:text-base"
+              className="px-3 sm:px-4 py-2.5 sm:py-3 bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm border-2 border-blue-200/50 dark:border-slate-600 rounded-2xl focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 text-gray-700 dark:text-gray-100 shadow-lg text-sm sm:text-base"
             >
               <option value="all">All Types</option>
               <option value="strength">Strength</option>
@@ -565,7 +565,7 @@ export default function WorkoutsPage() {
             <div className="text-red-500 mb-4">
               <Activity className="h-12 w-12 mx-auto mb-4" />
               <h3 className="text-lg font-semibold">Error Loading Workouts</h3>
-              <p className="text-sm text-gray-600">{workoutsError}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">{workoutsError}</p>
               <button 
                 onClick={refreshWorkouts}
                 className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
@@ -579,7 +579,7 @@ export default function WorkoutsPage() {
             {filteredWorkouts.map((workout: any, index: number) => (
             <div 
               key={workout.id} 
-              className="group relative bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden hover:shadow-3xl transition-all duration-300 hover:scale-[1.02] cursor-pointer active:scale-[0.98]"
+              className="group relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-gray-100 dark:border-slate-700 overflow-hidden hover:shadow-3xl transition-all duration-300 hover:scale-[1.02] cursor-pointer active:scale-[0.98]"
               onClick={() => {
                 setSelectedWorkout(workout)
                 setShowWorkoutDetails(true)
@@ -596,7 +596,7 @@ export default function WorkoutsPage() {
                       {getTypeIcon()}
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-bold text-gray-900 text-base sm:text-lg mb-1">{workout.title}</h3>
+                      <h3 className="font-bold text-gray-900 dark:text-gray-100 text-base sm:text-lg mb-1">{workout.title}</h3>
                     </div>
                   </div>
                 </div>
@@ -606,9 +606,9 @@ export default function WorkoutsPage() {
                   <WorkoutExercisePreview workoutId={workout.id} />
                   {workout.assigned_to && (
                     <div className="mt-1.5 sm:mt-2">
-                      <div className="flex items-center justify-between p-1.5 sm:p-2 bg-gray-50 rounded-lg">
-                        <span className="text-xs sm:text-sm font-medium text-gray-700">Assigned To</span>
-                        <span className="text-xs font-bold text-gray-500 bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ml-1.5 sm:ml-2">
+                      <div className="flex items-center justify-between p-1.5 sm:p-2 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
+                        <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">Assigned To</span>
+                        <span className="text-xs font-bold text-gray-500 dark:text-gray-400 bg-white dark:bg-slate-700 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ml-1.5 sm:ml-2">
                           Individual
                         </span>
                       </div>
@@ -629,8 +629,8 @@ export default function WorkoutsPage() {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                  <div className="flex items-center space-x-1.5 sm:space-x-2 text-xs sm:text-sm text-gray-500">
+                <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-slate-700">
+                  <div className="flex items-center space-x-1.5 sm:space-x-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                     <Calendar className="h-3 w-3" />
                     <span>Created: {formatDate(workout.created_at)}</span>
                   </div>
@@ -687,10 +687,10 @@ export default function WorkoutsPage() {
 
         {/* Empty State */}
         {!isLoadingWorkouts && filteredWorkouts.length === 0 && (
-          <div className="bg-white rounded-3xl shadow-2xl p-6 sm:p-12 border border-gray-100 text-center">
-            <Dumbbell className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mx-auto mb-3 sm:mb-4" />
-            <h3 className="text-lg sm:text-xl font-semibold text-gray-600 mb-2">No workouts found</h3>
-            <p className="text-sm sm:text-base text-gray-500 mb-4 sm:mb-6">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl p-6 sm:p-12 border border-gray-100 dark:border-slate-700 text-center">
+            <Dumbbell className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 dark:text-gray-600 mx-auto mb-3 sm:mb-4" />
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-600 dark:text-gray-300 mb-2">No workouts found</h3>
+            <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mb-4 sm:mb-6">
               {isCoach ? 'Create your first workout to get started' : 'No workouts have been assigned yet'}
             </p>
             {isCoach && (
@@ -707,21 +707,21 @@ export default function WorkoutsPage() {
         {/* Create Workout Modal */}
         {showCreateWorkout && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-96 animate-fade-in">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl flex flex-col animate-scale-in" style={{ maxHeight: 'calc(100vh - 10rem)' }}>
+            <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-4xl flex flex-col animate-scale-in" style={{ maxHeight: 'calc(100vh - 10rem)' }}>
               {/* Modal Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-slate-700">
                 <div className="flex items-center space-x-3">
                   <div className="h-10 w-10 bg-gradient-to-br from-royal-blue to-dark-blue rounded-full flex items-center justify-center">
                     <Plus className="h-5 w-5 text-white" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-900">Create New Workout</h3>
-                    <p className="text-sm text-gray-500">Design a training session for your team</p>
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100">Create New Workout</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Design a training session for your team</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowCreateWorkout(false)}
-                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                 >
                   <span className="text-2xl">&times;</span>
                 </button>
@@ -733,7 +733,7 @@ export default function WorkoutsPage() {
                                      {/* Workout Details */}
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                      <div>
-                       <label className="block text-sm font-semibold text-gray-700 mb-2">
+                       <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
                          Workout Name
                        </label>
                        <input
@@ -741,19 +741,19 @@ export default function WorkoutsPage() {
                          value={workoutName}
                          onChange={(e) => setWorkoutName(e.target.value)}
                          placeholder="Enter workout name..."
-                         className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-base"
+                         className="w-full px-4 py-3 border-2 border-gray-200 dark:border-slate-600 rounded-2xl focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 text-base bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                          required
                        />
                      </div>
 
                      <div>
-                       <label className="block text-sm font-semibold text-gray-700 mb-2">
+                       <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
                          Workout Type
                        </label>
                                                <select
                           value={workoutType}
                           onChange={(e) => setWorkoutType(e.target.value)}
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-base"
+                          className="w-full px-4 py-3 border-2 border-gray-200 dark:border-slate-600 rounded-2xl focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 text-base bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                         >
                           <option value="strength">Strength</option>
                           <option value="cardio">Cardio</option>
@@ -771,7 +771,7 @@ export default function WorkoutsPage() {
                       onChange={(e) => setWorkoutDescription(e.target.value)}
                       placeholder="Describe the workout goals and focus areas..."
                       rows={3}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-base resize-none"
+                      className="w-full px-4 py-3 border-2 border-gray-200 dark:border-slate-600 rounded-2xl focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 text-base resize-none bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                     />
                   </div>
 
@@ -779,14 +779,14 @@ export default function WorkoutsPage() {
 
                   {/* Exercises Section */}
                   <div>
-                    <h4 className="text-lg font-semibold text-gray-900 mb-4">Exercises</h4>
-                    <p className="text-gray-600 mb-4">Add exercises to your workout with sets and reps.</p>
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Exercises</h4>
+                    <p className="text-gray-600 dark:text-gray-300 mb-4">Add exercises to your workout with sets and reps.</p>
                     
                     {/* Add Exercise Form */}
-                    <div className="bg-gray-50 rounded-2xl p-4 mb-4">
+                    <div className="bg-gray-50 dark:bg-slate-700/50 rounded-2xl p-4 mb-4">
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Exercise</label>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Exercise</label>
                           
                           {/* Toggle between library and custom */}
                           <div className="flex items-center space-x-3 mb-2">
@@ -798,7 +798,7 @@ export default function WorkoutsPage() {
                                 onChange={() => setUseCustomExercise(false)}
                                 className="mr-1 text-xs"
                               />
-                              <span className="text-xs text-gray-600">Library</span>
+                              <span className="text-xs text-gray-600 dark:text-gray-300">Library</span>
                             </label>
                             <label className="flex items-center">
                               <input
@@ -808,7 +808,7 @@ export default function WorkoutsPage() {
                                 onChange={() => setUseCustomExercise(true)}
                                 className="mr-1 text-xs"
                               />
-                              <span className="text-xs text-gray-600">Custom</span>
+                              <span className="text-xs text-gray-600 dark:text-gray-300">Custom</span>
                             </label>
                           </div>
 
@@ -819,13 +819,13 @@ export default function WorkoutsPage() {
                               value={customExerciseName}
                               onChange={(e) => setCustomExerciseName(e.target.value)}
                               placeholder="Enter exercise name..."
-                              className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-sm"
+                              className="w-full px-3 py-2 border-2 border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 text-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                             />
                           ) : (
                             <select
                               value={selectedExercise}
                               onChange={(e) => setSelectedExercise(e.target.value)}
-                              className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-sm"
+                              className="w-full px-3 py-2 border-2 border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 text-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                             >
                               <option value="">Select exercise...</option>
                               {exerciseLibrary.map((exercise) => (
@@ -837,25 +837,25 @@ export default function WorkoutsPage() {
                           )}
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Sets</label>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Sets</label>
                           <input
                             type="number"
                             value={exerciseSets}
                             onChange={(e) => setExerciseSets(e.target.value)}
                             min="1"
                             max="10"
-                            className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-sm"
+                            className="w-full px-3 py-2 border-2 border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 text-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Reps</label>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Reps</label>
                           <input
                             type="number"
                             value={exerciseReps}
                             onChange={(e) => setExerciseReps(e.target.value)}
                             min="1"
                             max="50"
-                            className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-sm"
+                            className="w-full px-3 py-2 border-2 border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 text-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                           />
                         </div>
                         <div className="flex items-end">
@@ -875,28 +875,28 @@ export default function WorkoutsPage() {
                     <div className="space-y-3">
                       {exercises.length > 0 ? (
                         exercises.map((exercise, index) => (
-                          <div key={index} className="flex items-center justify-between p-4 bg-white border-2 border-gray-200 rounded-2xl">
+                          <div key={index} className="flex items-center justify-between p-4 bg-white dark:bg-slate-700 border-2 border-gray-200 dark:border-slate-600 rounded-2xl">
                             <div className="flex items-center space-x-4">
                               <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
                                 <Dumbbell className="h-5 w-5 text-white" />
                               </div>
                               <div>
-                                <h5 className="font-semibold text-gray-900">{exercise.name}</h5>
-                                <p className="text-sm text-gray-500">{exercise.muscle}</p>
+                                <h5 className="font-semibold text-gray-900 dark:text-gray-100">{exercise.name}</h5>
+                                <p className="text-sm text-gray-500 dark:text-gray-300">{exercise.muscle}</p>
                               </div>
                             </div>
                             <div className="flex items-center space-x-4">
                               <div className="text-center">
-                                <p className="text-sm font-semibold text-gray-900">{exercise.sets}</p>
-                                <p className="text-xs text-gray-500">Sets</p>
+                                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{exercise.sets}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-300">Sets</p>
                               </div>
                               <div className="text-center">
-                                <p className="text-sm font-semibold text-gray-900">{exercise.reps}</p>
-                                <p className="text-xs text-gray-500">Reps</p>
+                                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{exercise.reps}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-300">Reps</p>
                               </div>
                               <div className="text-center">
-                                <p className="text-sm font-semibold text-gray-900">{exercise.rest}s</p>
-                                <p className="text-xs text-gray-500">Rest</p>
+                                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{exercise.rest}s</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-300">Rest</p>
                               </div>
                               <button
                                 type="button"
@@ -909,20 +909,20 @@ export default function WorkoutsPage() {
                           </div>
                         ))
                       ) : (
-                        <div className="p-4 bg-gray-50 border-2 border-gray-200 rounded-2xl text-center">
-                          <p className="text-gray-500">No exercises added yet. Add exercises using the form above.</p>
+                        <div className="p-4 bg-gray-50 dark:bg-slate-700/50 border-2 border-gray-200 dark:border-slate-600 rounded-2xl text-center">
+                          <p className="text-gray-500 dark:text-gray-300">No exercises added yet. Add exercises using the form above.</p>
                         </div>
                       )}
                     </div>
                   </div>
 
                   {/* Modal Footer - Inside Form */}
-                  <div className="pt-6 border-t border-gray-200">
+                  <div className="pt-6 border-t border-gray-200 dark:border-slate-700">
                     <div className="flex items-center justify-between">
                       <button
                         type="button"
                         onClick={() => setShowCreateWorkout(false)}
-                        className="px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors duration-200"
+                        className="px-6 py-3 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors duration-200"
                       >
                         Cancel
                       </button>
@@ -961,7 +961,7 @@ export default function WorkoutsPage() {
                     setIsEditingWorkout(false)
                     setEditWorkoutData(null)
                   }}
-                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                 >
                   <span className="text-2xl">&times;</span>
                 </button>
@@ -973,27 +973,27 @@ export default function WorkoutsPage() {
                   {/* Left Column - Workout Info */}
                   <div className="space-y-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                         Workout Title
                       </label>
                       <input
                         type="text"
                         value={editWorkoutData.title}
                         onChange={(e) => setEditWorkoutData({...editWorkoutData, title: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                         placeholder="Enter workout title"
                         required
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                         Description
                       </label>
                       <textarea
                         value={editWorkoutData.description}
                         onChange={(e) => setEditWorkoutData({...editWorkoutData, description: e.target.value})}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-4 py-3 border border-gray-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                         rows={4}
                         placeholder="Enter workout description"
                       />
@@ -1004,7 +1004,7 @@ export default function WorkoutsPage() {
                   {/* Right Column - Exercises */}
                   <div className="flex flex-col min-h-0">
                     <div className="flex items-center justify-between mb-4">
-                      <h4 className="font-semibold text-gray-900 text-lg">Exercises</h4>
+                      <h4 className="font-semibold text-gray-900 dark:text-gray-100 text-lg">Exercises</h4>
                       <button
                         type="button"
                         onClick={() => {
@@ -1030,11 +1030,11 @@ export default function WorkoutsPage() {
                       {isLoadingEditExercises ? (
                         <div className="text-center py-8">
                           <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                          <p className="text-sm text-gray-600">Loading exercises...</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-300">Loading exercises...</p>
                         </div>
                       ) : editWorkoutExercises.length > 0 ? (
                         editWorkoutExercises.map((exercise, index) => (
-                          <div key={exercise.id} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                          <div key={exercise.id} className="p-4 bg-gray-50 dark:bg-slate-700/50 rounded-xl border border-gray-200 dark:border-slate-600">
                             <div className="flex items-start justify-between mb-3">
                               <input
                                 type="text"
@@ -1044,7 +1044,7 @@ export default function WorkoutsPage() {
                                   updated[index].exercise_name = e.target.value
                                   setEditWorkoutExercises(updated)
                                 }}
-                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-medium"
+                                className="flex-1 px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent font-medium bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                                 placeholder="Exercise name"
                               />
                               <button
@@ -1061,7 +1061,7 @@ export default function WorkoutsPage() {
                             
                             <div className="grid grid-cols-3 gap-3 mb-3">
                               <div>
-                                <label className="block text-xs font-medium text-gray-600 mb-1">Sets</label>
+                                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Sets</label>
                                 <input
                                   type="number"
                                   value={exercise.sets}
@@ -1070,12 +1070,12 @@ export default function WorkoutsPage() {
                                     updated[index].sets = parseInt(e.target.value) || 0
                                     setEditWorkoutExercises(updated)
                                   }}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-center"
+                                  className="w-full px-2 py-1 border border-gray-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400 text-center bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                                   min="1"
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs font-medium text-gray-600 mb-1">Reps</label>
+                                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Reps</label>
                                 <input
                                   type="number"
                                   value={exercise.reps}
@@ -1084,12 +1084,12 @@ export default function WorkoutsPage() {
                                     updated[index].reps = parseInt(e.target.value) || 0
                                     setEditWorkoutExercises(updated)
                                   }}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-center"
+                                  className="w-full px-2 py-1 border border-gray-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400 text-center bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                                   min="1"
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs font-medium text-gray-600 mb-1">Rest (s)</label>
+                                <label className="block text-xs font-medium text-gray-600 dark:text-gray-300 mb-1">Rest (s)</label>
                                 <input
                                   type="number"
                                   value={exercise.rest_seconds}
@@ -1098,7 +1098,7 @@ export default function WorkoutsPage() {
                                     updated[index].rest_seconds = parseInt(e.target.value) || 0
                                     setEditWorkoutExercises(updated)
                                   }}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-center"
+                                  className="w-full px-2 py-1 border border-gray-300 dark:border-slate-600 rounded focus:ring-1 focus:ring-blue-500 dark:focus:ring-blue-400 text-center bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                                   min="0"
                                 />
                               </div>
@@ -1111,7 +1111,7 @@ export default function WorkoutsPage() {
                                 updated[index].notes = e.target.value
                                 setEditWorkoutExercises(updated)
                               }}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent text-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                               rows={2}
                               placeholder="Exercise notes (optional)"
                             />
@@ -1119,9 +1119,9 @@ export default function WorkoutsPage() {
                         ))
                       ) : (
                         <div className="text-center py-8">
-                          <Dumbbell className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                          <p className="text-gray-500 font-medium">No exercises added yet</p>
-                          <p className="text-sm text-gray-400">Click "Add Exercise" to get started</p>
+                          <Dumbbell className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                          <p className="text-gray-500 dark:text-gray-300 font-medium">No exercises added yet</p>
+                          <p className="text-sm text-gray-400 dark:text-gray-500">Click "Add Exercise" to get started</p>
                         </div>
                       )}
                     </div>
@@ -1129,7 +1129,7 @@ export default function WorkoutsPage() {
                 </div>
 
                 {/* Modal Footer */}
-                <div className="pt-6 mt-6 border-t border-gray-200">
+                <div className="pt-6 mt-6 border-t border-gray-200 dark:border-slate-700">
                   <div className="flex items-center justify-between">
                     <button
                       type="button"
@@ -1138,7 +1138,7 @@ export default function WorkoutsPage() {
                         setEditWorkoutData(null)
                         setEditWorkoutExercises([])
                       }}
-                      className="px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors duration-200"
+                      className="px-6 py-3 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors duration-200"
                     >
                       Cancel
                     </button>
@@ -1225,21 +1225,21 @@ export default function WorkoutsPage() {
         {/* Workout Details Modal - Enhanced for Desktop */}
         {showWorkoutDetails && selectedWorkout && (
         <div className="fixed inset-0 z-50 flex justify-center animate-fade-in" style={{ paddingTop: '7rem' }}>
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl lg:max-w-5xl flex flex-col animate-scale-in" style={{ maxHeight: 'calc(100vh + 12rem)', margin: '0 1rem 0.125rem 1rem' }}>
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-4xl lg:max-w-5xl flex flex-col animate-scale-in" style={{ maxHeight: 'calc(100vh + 12rem)', margin: '0 1rem 0.125rem 1rem' }}>
               {/* Modal Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-slate-700">
                 <div className="flex items-center space-x-3">
                   <div className={`h-10 w-10 ${getTypeColor()} rounded-full flex items-center justify-center`}>
                     {getTypeIcon()}
                   </div>
                                      <div>
-                     <h3 className="font-bold text-gray-900">{selectedWorkout.title}</h3>
-                     <p className="text-sm text-gray-500">Workout</p>
+                     <h3 className="font-bold text-gray-900 dark:text-gray-100">{selectedWorkout.title}</h3>
+                     <p className="text-sm text-gray-500 dark:text-gray-400">Workout</p>
                    </div>
                 </div>
                 <button
                   onClick={() => setShowWorkoutDetails(false)}
-                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                 >
                   <span className="text-2xl">&times;</span>
                 </button>
@@ -1252,24 +1252,24 @@ export default function WorkoutsPage() {
                   <div className="space-y-6">
                     {/* Workout Info */}
                     <div>
-                      <h4 className="font-semibold text-gray-900 mb-3 text-lg">Description</h4>
-                      <p className="text-gray-600 leading-relaxed">{selectedWorkout.description || 'No description available'}</p>
+                      <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3 text-lg">Description</h4>
+                      <p className="text-gray-600 dark:text-gray-300 leading-relaxed">{selectedWorkout.description || 'No description available'}</p>
                     </div>
 
                     {/* Workout Details */}
                     <div>
-                      <h4 className="font-semibold text-gray-900 mb-4 text-lg">Workout Details</h4>
+                      <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-4 text-lg">Workout Details</h4>
                       <div className="space-y-3">
-                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                          <span className="text-sm font-medium text-gray-700">Assigned Date</span>
-                          <span className="text-sm font-bold text-gray-900 bg-white px-3 py-1.5 rounded-full">
+                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-700/50 rounded-xl">
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Assigned Date</span>
+                          <span className="text-sm font-bold text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-600 px-3 py-1.5 rounded-full">
                             {formatDate(selectedWorkout.date_assigned)}
                           </span>
                         </div>
                         {selectedWorkout.assigned_to && (
-                          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                            <span className="text-sm font-medium text-gray-700">Assigned To</span>
-                            <span className="text-sm font-bold text-gray-900 bg-white px-3 py-1.5 rounded-full">
+                          <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-slate-700/50 rounded-xl">
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Assigned To</span>
+                            <span className="text-sm font-bold text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-600 px-3 py-1.5 rounded-full">
                               Individual athlete
                             </span>
                           </div>
@@ -1280,7 +1280,7 @@ export default function WorkoutsPage() {
 
                   {/* Right Column - Exercises (Scrollable) */}
                   <div className="flex flex-col min-h-0">
-                    <h4 className="font-semibold text-gray-900 mb-4 text-lg">Exercises</h4>
+                    <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-4 text-lg">Exercises</h4>
                     <div className="flex-1 overflow-y-auto">
                       <WorkoutExercises workoutId={selectedWorkout.id} />
                     </div>
@@ -1289,11 +1289,11 @@ export default function WorkoutsPage() {
               </div>
 
               {/* Modal Footer */}
-              <div className="px-6 py-4 mt-4 border-t border-gray-200 bg-gray-50 rounded-b-3xl">
+              <div className="px-6 py-4 mt-4 border-t border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-700/50 rounded-b-3xl">
                 <div className="flex items-center justify-between">
                   <button
                     onClick={() => setShowWorkoutDetails(false)}
-                    className="px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors duration-200"
+                    className="px-6 py-3 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors duration-200"
                   >
                     Close
                   </button>
@@ -1334,38 +1334,38 @@ export default function WorkoutsPage() {
         {/* Custom Delete Confirmation Modal */}
         {showDeleteModal && workoutToDelete && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md animate-scale-in">
+            <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md animate-scale-in">
               {/* Modal Header */}
-              <div className="p-6 border-b border-gray-200">
+              <div className="p-6 border-b border-gray-200 dark:border-slate-700">
                 <div className="flex items-center space-x-3">
-                  <div className="h-10 w-10 bg-red-100 rounded-full flex items-center justify-center">
-                    <Trash2 className="h-5 w-5 text-red-600" />
+                  <div className="h-10 w-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                    <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-900">Delete Workout</h3>
-                    <p className="text-sm text-gray-500">This action cannot be undone</p>
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100">Delete Workout</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">This action cannot be undone</p>
                   </div>
                 </div>
               </div>
 
               {/* Modal Content */}
               <div className="p-6">
-                <p className="text-gray-600 mb-2">
+                <p className="text-gray-600 dark:text-gray-300 mb-2">
                   Are you sure you want to delete <span className="font-semibold">"{workoutToDelete.title}"</span>?
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
                   This will permanently remove the workout and all its exercises.
                 </p>
               </div>
 
               {/* Modal Footer */}
-              <div className="p-6 border-t border-gray-200 flex items-center justify-end space-x-3">
+              <div className="p-6 border-t border-gray-200 dark:border-slate-700 flex items-center justify-end space-x-3">
                 <button
                   onClick={() => {
                     setShowDeleteModal(false)
                     setWorkoutToDelete(null)
                   }}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors duration-200"
+                  className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors duration-200"
                 >
                   Cancel
                 </button>
@@ -1383,29 +1383,29 @@ export default function WorkoutsPage() {
         {/* Custom Success Modal */}
         {showSuccessModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md animate-scale-in">
+            <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md animate-scale-in">
               {/* Modal Header */}
-              <div className="p-6 border-b border-gray-200">
+              <div className="p-6 border-b border-gray-200 dark:border-slate-700">
                 <div className="flex items-center space-x-3">
-                  <div className="h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <svg className="h-5 w-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="h-10 w-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                    <svg className="h-5 w-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
                   <div>
-                    <h3 className="font-bold text-gray-900">Success!</h3>
-                    <p className="text-sm text-gray-500">Operation completed</p>
+                    <h3 className="font-bold text-gray-900 dark:text-gray-100">Success!</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Operation completed</p>
                   </div>
                 </div>
               </div>
 
               {/* Modal Content */}
               <div className="p-6">
-                <p className="text-gray-600">{successMessage}</p>
+                <p className="text-gray-600 dark:text-gray-300">{successMessage}</p>
               </div>
 
               {/* Modal Footer */}
-              <div className="p-6 border-t border-gray-200 flex items-center justify-end">
+              <div className="p-6 border-t border-gray-200 dark:border-slate-700 flex items-center justify-end">
                 <button
                   onClick={() => setShowSuccessModal(false)}
                   className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl transition-all duration-300 transform hover:scale-105"

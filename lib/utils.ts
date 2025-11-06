@@ -2675,7 +2675,7 @@ export async function getUserPreferences(userId: string): Promise<UserPreference
       if (error.code === 'PGRST116') {
         return {
           user_id: userId,
-          theme: 'system',
+          theme: 'light',
           font_size: 'medium',
           time_format: '12hr',
           date_format: 'MM/DD/YYYY',

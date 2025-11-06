@@ -351,7 +351,7 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
       <MainNavigation />
       
       <div className={`container-responsive py-6 transition-all duration-500 delay-200 ${
@@ -362,15 +362,15 @@ export default function CalendarPage() {
           <div className="flex items-center space-x-3 sm:space-x-4">
             <button
               onClick={() => router.push('/dashboard')}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
+              className="flex items-center space-x-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-5 w-5 text-gray-600 dark:text-gray-300" />
               <span className="hidden sm:inline">Back to Dashboard</span>
             </button>
-            <div className="h-6 w-px bg-gray-300 hidden sm:block"></div>
+            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600 hidden sm:block"></div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Calendar</h1>
-              <p className="text-sm sm:text-base text-gray-600">Manage your team schedule and events</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Calendar</h1>
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">Manage your team schedule and events</p>
             </div>
           </div>
           {isCoach && (
@@ -397,21 +397,21 @@ export default function CalendarPage() {
         </div>
 
         {/* Calendar Navigation */}
-        <div className="bg-white rounded-3xl shadow-2xl p-4 sm:p-6 mb-6 sm:mb-8 border border-gray-100">
+        <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl p-4 sm:p-6 mb-6 sm:mb-8 border border-gray-100 dark:border-slate-700">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-4 sm:gap-0">
             <div className="flex items-center justify-center sm:justify-start space-x-2 sm:space-x-4">
               <button
                 onClick={goToPreviousMonth}
-                className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
+                className="p-1.5 sm:p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-xl transition-all duration-200"
               >
                 <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
               </button>
-              <h2 className="text-lg sm:text-2xl font-bold text-gray-900">
+              <h2 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
               </h2>
               <button
                 onClick={goToNextMonth}
-                className="p-1.5 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
+                className="p-1.5 sm:p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-xl transition-all duration-200"
               >
                 <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
               </button>
@@ -429,7 +429,7 @@ export default function CalendarPage() {
             {/* Day Headers */}
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
               <div key={day} className="p-2 sm:p-3 text-center">
-                <span className="text-xs sm:text-sm font-semibold text-gray-600">{day}</span>
+                <span className="text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-300">{day}</span>
               </div>
             ))}
 
@@ -441,14 +441,14 @@ export default function CalendarPage() {
               return (
                 <div
                   key={index}
-                  className={`min-h-[80px] sm:min-h-[120px] p-1 sm:p-2 border border-gray-100 transition-all duration-200 ${
-                    date ? 'cursor-pointer hover:bg-gray-50' : ''
+                  className={`min-h-[80px] sm:min-h-[120px] p-1 sm:p-2 border border-gray-100 dark:border-slate-700 transition-all duration-200 ${
+                    date ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700/50' : ''
                   } ${
-                    date && isToday(date) ? 'bg-blue-50 border-blue-200' : ''
+                    date && isToday(date) ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700' : ''
                   } ${
-                    date && isSelectedDate(date) ? 'bg-blue-100 border-blue-300' : ''
+                    date && isSelectedDate(date) ? 'bg-blue-100 dark:bg-blue-800/40 border-blue-300 dark:border-blue-600' : ''
                   } ${
-                    !isCurrentMonth ? 'bg-gray-50 text-gray-400' : ''
+                    !isCurrentMonth ? 'bg-gray-50 dark:bg-slate-800/50 text-gray-400 dark:text-gray-500' : ''
                   }`}
                   onClick={() => date && handleDateClick(date)}
                 >
@@ -474,7 +474,7 @@ export default function CalendarPage() {
                           </div>
                         ))}
                         {events.length > 2 && (
-                          <div className="text-xs text-gray-500 font-medium">
+                          <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
                             +{events.length - 2} more
                           </div>
                         )}
@@ -488,22 +488,22 @@ export default function CalendarPage() {
         </div>
 
         {/* Upcoming Events */}
-        <div className="bg-white rounded-3xl shadow-2xl p-4 sm:p-6 border border-gray-100">
+        <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl p-4 sm:p-6 border border-gray-100 dark:border-slate-700">
           <div className="flex items-center justify-between mb-4 sm:mb-6">
-            <h3 className="text-base sm:text-lg font-bold text-gray-900">Upcoming Events</h3>
+            <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Upcoming Events</h3>
           </div>
           
           <div className="space-y-3 sm:space-y-4">
             {isLoadingEvents ? (
               <div className="flex items-center justify-center py-8">
                 <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-3"></div>
-                <span className="text-gray-600">Loading events...</span>
+                <span className="text-gray-600 dark:text-gray-300">Loading events...</span>
               </div>
             ) : getUpcomingEvents().length > 0 ? (
               getUpcomingEvents().map((event) => (
                  <div 
                    key={event.id} 
-                   className="group relative bg-gradient-to-r from-gray-50 to-white border border-gray-200 rounded-2xl p-3 sm:p-4 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] hover:border-blue-200 cursor-pointer"
+                   className="group relative bg-gradient-to-r from-gray-50 to-white dark:from-slate-700 dark:to-slate-800 border border-gray-200 dark:border-slate-600 rounded-2xl p-3 sm:p-4 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] hover:border-blue-200 dark:hover:border-blue-600 cursor-pointer"
                    onClick={() => {
                      setSelectedEvent(event)
                      setShowEventDetails(true)
@@ -513,37 +513,37 @@ export default function CalendarPage() {
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 sm:space-x-3 mb-2 sm:mb-3">
                         <div className={`h-2 w-2 sm:h-3 sm:w-3 rounded-full ${getEventTypeColor(event.event_type)} shadow-md`}></div>
-                        <h4 className="font-semibold text-gray-900 text-sm sm:text-base">{event.title}</h4>
+                        <h4 className="font-semibold text-gray-900 dark:text-gray-100 text-sm sm:text-base">{event.title}</h4>
                         <span className="text-xs bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full font-semibold">
                           {getEventTypeLabel(event.event_type)}
                         </span>
                       </div>
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                        <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600">
+                        <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
                           <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500" />
                           <span>{formatDate(event.start_time)}</span>
                         </div>
-                        <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600">
+                        <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
                           <Clock className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
                           <span>{formatTime(event.start_time)}</span>
                         </div>
-                        <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600">
+                        <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
                           <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-purple-500" />
                           <span>{event.location || 'No location'}</span>
                         </div>
-                        <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600">
+                        <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600 dark:text-gray-300">
                           <Users className="h-3 w-3 sm:h-4 sm:w-4 text-orange-500" />
                           <span>Team Event</span>
                         </div>
                       </div>
                       
                       {event.description && (
-                        <p className="text-xs sm:text-sm text-gray-600 mt-2 sm:mt-3 overflow-hidden" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{event.description}</p>
+                        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mt-2 sm:mt-3 overflow-hidden" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{event.description}</p>
                       )}
 
                       {/* Quick Attendance Buttons */}
-                      <div className="mt-3 pt-3 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
+                      <div className="mt-3 pt-3 border-t border-gray-100 dark:border-slate-700" onClick={(e) => e.stopPropagation()}>
                         <AttendanceButtons 
                           eventId={event.id}
                           onAttendanceChange={(status) => {
@@ -560,7 +560,7 @@ export default function CalendarPage() {
                             e.stopPropagation()
                             handleEditEvent(event)
                           }}
-                          className="p-1.5 sm:p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-200"
+                          className="p-1.5 sm:p-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-xl transition-all duration-200"
                         >
                           <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
                         </button>
@@ -583,9 +583,9 @@ export default function CalendarPage() {
               ))
             ) : (
               <div className="text-center py-6 sm:py-8">
-                <Calendar className="h-10 w-10 sm:h-12 sm:w-12 text-gray-300 mx-auto mb-3 sm:mb-4" />
-                <h4 className="text-base sm:text-lg font-semibold text-gray-600 mb-2">No upcoming events</h4>
-                <p className="text-sm sm:text-base text-gray-500 mb-3 sm:mb-4">No events scheduled for the next 7 days</p>
+                <Calendar className="h-10 w-10 sm:h-12 sm:w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3 sm:mb-4" />
+                <h4 className="text-base sm:text-lg font-semibold text-gray-600 dark:text-gray-300 mb-2">No upcoming events</h4>
+                <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mb-3 sm:mb-4">No events scheduled for the next 7 days</p>
                 {isCoach && (
                   <button
                     onClick={() => setShowCreateEvent(true)}
@@ -603,49 +603,49 @@ export default function CalendarPage() {
       {/* Create/Edit Event Modal */}
       {showCreateEvent && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md">
+            <div className="p-6 border-b border-gray-200 dark:border-slate-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 {editingEvent ? 'Edit Event' : 'Create New Event'}
               </h3>
             </div>
 
             <form onSubmit={handleCreateEvent} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                   Event Title
                 </label>
                 <input
                   type="text"
                   value={eventForm.title}
                   onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
+                  className="w-full px-4 py-3 border-2 border-gray-200 dark:border-slate-600 rounded-2xl focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                   required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                     Date
                   </label>
                   <input
                     type="date"
                     value={eventForm.date}
                     onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
+                    className="w-full px-4 py-3 border-2 border-gray-200 dark:border-slate-600 rounded-2xl focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                     Time
                   </label>
                   <input
                     type="time"
                     value={eventForm.time}
                     onChange={(e) => setEventForm({ ...eventForm, time: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
+                    className="w-full px-4 py-3 border-2 border-gray-200 dark:border-slate-600 rounded-2xl focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                     required
                   />
                 </div>
@@ -653,13 +653,13 @@ export default function CalendarPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                     Duration (min)
                   </label>
                   <select
                     value={eventForm.duration}
                     onChange={(e) => setEventForm({ ...eventForm, duration: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
+                    className="w-full px-4 py-3 border-2 border-gray-200 dark:border-slate-600 rounded-2xl focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                   >
                     <option value="30">30 minutes</option>
                     <option value="60">1 hour</option>
@@ -668,13 +668,13 @@ export default function CalendarPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                     Type
                   </label>
                   <select
                     value={eventForm.type}
                     onChange={(e) => setEventForm({ ...eventForm, type: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
+                    className="w-full px-4 py-3 border-2 border-gray-200 dark:border-slate-600 rounded-2xl focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                   >
                     {eventTypes.map((type) => (
                       <option key={type.id} value={type.id}>{type.label}</option>
@@ -691,7 +691,7 @@ export default function CalendarPage() {
                   type="text"
                   value={eventForm.location}
                   onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300"
+                  className="w-full px-4 py-3 border-2 border-gray-200 dark:border-slate-600 rounded-2xl focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100"
                 />
               </div>
 
@@ -724,7 +724,7 @@ export default function CalendarPage() {
                       attendees: ''
                     })
                   }}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                  className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
                 >
                   Cancel
                 </button>
@@ -744,13 +744,13 @@ export default function CalendarPage() {
       {/* Event Details Modal */}
       {showEventDetails && selectedEvent && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md">
-            <div className="p-6 border-b border-gray-200">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md">
+            <div className="p-6 border-b border-gray-200 dark:border-slate-700">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">{selectedEvent.title}</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{selectedEvent.title}</h3>
                 <button
                   onClick={() => setShowEventDetails(false)}
-                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                 >
                   <span className="text-2xl">&times;</span>
                 </button>
@@ -758,49 +758,49 @@ export default function CalendarPage() {
             </div>
 
             <div className="p-6 space-y-4">
-              <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-2xl">
-                <Calendar className="h-5 w-5 text-blue-600" />
+              <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-slate-700/50 rounded-2xl">
+                <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">{formatDate(selectedEvent.start_time)}</p>
-                  <p className="text-xs text-gray-500">Date</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{formatDate(selectedEvent.start_time)}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Date</p>
                 </div>
               </div>
               
-              <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-2xl">
-                <Clock className="h-5 w-5 text-green-600" />
+              <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-slate-700/50 rounded-2xl">
+                <Clock className="h-5 w-5 text-green-600 dark:text-green-400" />
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">{formatTime(selectedEvent.start_time)}</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{formatTime(selectedEvent.start_time)}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     {Math.round((new Date(selectedEvent.end_time).getTime() - new Date(selectedEvent.start_time).getTime()) / (1000 * 60))} min
                   </p>
                 </div>
               </div>
               
-              <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-2xl">
-                <MapPin className="h-5 w-5 text-purple-600" />
+              <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-slate-700/50 rounded-2xl">
+                <MapPin className="h-5 w-5 text-purple-600 dark:text-purple-400" />
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">{selectedEvent.location || 'No location'}</p>
-                  <p className="text-xs text-gray-500">Location</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{selectedEvent.location || 'No location'}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Location</p>
                 </div>
               </div>
               
-              <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-2xl">
+              <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-slate-700/50 rounded-2xl">
                 <div className={`h-5 w-5 rounded-full ${getEventTypeColor(selectedEvent.event_type)}`}></div>
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">{getEventTypeLabel(selectedEvent.event_type)}</p>
-                  <p className="text-xs text-gray-500">Event Type</p>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{getEventTypeLabel(selectedEvent.event_type)}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Event Type</p>
                 </div>
               </div>
               
               {selectedEvent.description && (
-                <div className="bg-gray-50 p-4 rounded-2xl">
-                  <p className="text-sm text-gray-700 leading-relaxed">{selectedEvent.description}</p>
+                <div className="bg-gray-50 dark:bg-slate-700/50 p-4 rounded-2xl">
+                  <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{selectedEvent.description}</p>
                 </div>
               )}
 
               {/* Attendance Section */}
-              <div className="bg-blue-50 p-4 rounded-2xl">
-                <h4 className="text-sm font-semibold text-gray-900 mb-3">Will you attend this event?</h4>
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Will you attend this event?</h4>
                 <AttendanceButtons 
                   eventId={selectedEvent.id}
                   onAttendanceChange={(status) => {
@@ -815,7 +815,7 @@ export default function CalendarPage() {
               <div className="flex items-center justify-between">
                 <button
                   onClick={() => setShowEventDetails(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                  className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
                 >
                   Close
                 </button>

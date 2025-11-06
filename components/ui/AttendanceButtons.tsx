@@ -76,9 +76,9 @@ export default function AttendanceButtons({
   if (isLoadingStatus) {
     return (
       <div className="flex items-center space-x-2">
-        <div className="animate-pulse bg-gray-200 rounded-lg h-8 w-20"></div>
-        <div className="animate-pulse bg-gray-200 rounded-lg h-8 w-20"></div>
-        <div className="animate-pulse bg-gray-200 rounded-lg h-8 w-20"></div>
+        <div className="animate-pulse bg-gray-200 dark:bg-slate-700 rounded-lg h-8 w-20"></div>
+        <div className="animate-pulse bg-gray-200 dark:bg-slate-700 rounded-lg h-8 w-20"></div>
+        <div className="animate-pulse bg-gray-200 dark:bg-slate-700 rounded-lg h-8 w-20"></div>
       </div>
     )
   }
@@ -93,7 +93,7 @@ export default function AttendanceButtons({
           className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
             currentStatus === 'attending'
               ? 'bg-green-500 text-white shadow-md'
-              : 'bg-gray-100 text-gray-700 hover:bg-green-100 hover:text-green-700'
+              : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-green-100 dark:hover:bg-green-900/40 hover:text-green-700 dark:hover:text-green-400'
           } ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}`}
         >
           <Check className="h-4 w-4" />
@@ -106,7 +106,7 @@ export default function AttendanceButtons({
           className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
             currentStatus === 'maybe'
               ? 'bg-yellow-500 text-white shadow-md'
-              : 'bg-gray-100 text-gray-700 hover:bg-yellow-100 hover:text-yellow-700'
+              : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-yellow-100 dark:hover:bg-yellow-900/40 hover:text-yellow-700 dark:hover:text-yellow-400'
           } ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}`}
         >
           <HelpCircle className="h-4 w-4" />
@@ -119,7 +119,7 @@ export default function AttendanceButtons({
           className={`flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
             currentStatus === 'not_attending'
               ? 'bg-red-500 text-white shadow-md'
-              : 'bg-gray-100 text-gray-700 hover:bg-red-100 hover:text-red-700'
+              : 'bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-700 dark:hover:text-red-400'
           } ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}`}
         >
           <X className="h-4 w-4" />
@@ -129,7 +129,7 @@ export default function AttendanceButtons({
 
       {/* Attendance Count (for coaches) */}
       {showCount && attendanceCount && (
-        <div className="flex items-center space-x-4 text-xs text-gray-600 bg-gray-50 rounded-lg p-2">
+        <div className="flex items-center space-x-4 text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-slate-700/50 rounded-lg p-2">
           <div className="flex items-center space-x-1">
             <Users className="h-3 w-3" />
             <span>{attendanceCount.total_responses} responses</span>
@@ -153,7 +153,7 @@ export default function AttendanceButtons({
 
       {/* Current Status Indicator */}
       {currentStatus && (
-        <div className="text-xs text-gray-500">
+        <div className="text-xs text-gray-500 dark:text-gray-400">
           Your response: <span className="font-medium">
             {currentStatus === 'attending' && '✅ Going'}
             {currentStatus === 'maybe' && '❓ Maybe'}

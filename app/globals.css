@@ -16,6 +16,11 @@
     overflow-x: hidden;
   }
 
+  .dark body {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #f8fafc;
+  }
+
   * {
     box-sizing: border-box;
   }
@@ -47,23 +52,23 @@
   }
 
   .btn-ghost {
-    @apply bg-white hover:bg-gray-50 text-gray-700 font-medium py-2 px-4 rounded-lg transition-all duration-200 border border-gray-200 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-royal-blue focus:ring-offset-2 active:scale-95;
+    @apply bg-white dark:bg-slate-800 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-100 font-medium py-2 px-4 rounded-lg transition-all duration-200 border border-gray-200 dark:border-slate-600 dark:border-slate-500/50 hover:border-gray-300 dark:hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-royal-blue dark:focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800 active:scale-95;
   }
   
   .card {
-    @apply bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-xl transition-all duration-300 backdrop-blur-sm hover:border-gray-200;
+    @apply bg-white dark:bg-slate-800 dark:text-gray-100 rounded-2xl shadow-sm border border-gray-100 dark:border-slate-700 dark:border-slate-600/50 p-6 hover:shadow-xl transition-all duration-300 backdrop-blur-sm hover:border-gray-200 dark:hover:border-slate-500;
   }
 
   .card-elevated {
-    @apply bg-white rounded-2xl shadow-lg border border-gray-100 p-6 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 hover:border-gray-200;
+    @apply bg-white dark:bg-slate-800 dark:text-gray-100 rounded-2xl shadow-lg border border-gray-100 dark:border-slate-700 dark:border-slate-600/50 p-6 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 hover:border-gray-200 dark:hover:border-slate-500;
   }
   
   .input-field {
-    @apply w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-royal-blue focus:border-transparent transition-all duration-200 bg-white shadow-sm hover:border-gray-300;
+    @apply w-full px-4 py-3 border border-gray-200 dark:border-slate-600 dark:border-slate-500/50 rounded-xl focus:ring-2 focus:ring-royal-blue dark:focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-white dark:bg-slate-700 dark:text-gray-100 text-gray-900 shadow-sm hover:border-gray-300 dark:hover:border-slate-500 placeholder-gray-400 dark:placeholder-gray-400;
   }
 
   .glass-effect {
-    @apply bg-white/80 backdrop-blur-md border border-white/20;
+    @apply bg-white/80 dark:bg-slate-900/90 dark:text-gray-100 backdrop-blur-md border border-white/20 dark:border-slate-700/50;
   }
 
   .gradient-text {
@@ -75,7 +80,7 @@
   }
 
   .message-bubble {
-    @apply bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-4 hover:shadow-md transition-all duration-200 hover:border-blue-200;
+    @apply bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-700 dark:to-slate-800 dark:text-gray-100 border border-blue-100 dark:border-slate-600 dark:border-slate-500/50 rounded-2xl p-4 hover:shadow-md transition-all duration-200 hover:border-blue-200 dark:hover:border-slate-400;
   }
 
   .status-indicator {
@@ -83,7 +88,7 @@
   }
 
   .nav-item {
-    @apply flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-700 hover:bg-gray-50 hover:text-royal-blue transition-all duration-200 font-medium;
+    @apply flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-royal-blue dark:hover:text-blue-400 transition-all duration-200 font-medium;
   }
 
   .nav-item.active {

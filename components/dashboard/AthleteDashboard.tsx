@@ -130,7 +130,7 @@ const AthleteDashboard = React.memo(function AthleteDashboard() {
   const progressPercentage = totalWorkouts > 0 ? (completedWorkouts / totalWorkouts) * 100 : 0
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
       <PushNotificationSetup />
       {/* Header */}
       <header className="glass-effect border-b border-white/20 shadow-sm sticky top-0 z-50 backdrop-blur-md">
@@ -144,14 +144,14 @@ const AthleteDashboard = React.memo(function AthleteDashboard() {
                 </div>
                 <div className={`transition-all duration-500 delay-100 ${isLoaded ? 'translate-x-0 opacity-100' : 'translate-x-4 opacity-0'} hidden sm:block`}>
                   <h1 className="text-xl md:text-2xl lg:text-3xl font-bold bg-gradient-to-r from-royal-blue via-blue-600 to-dark-blue bg-clip-text text-transparent font-elegant tracking-tight">Firebird Fit</h1>
-                  <p className="text-sm text-gray-600 font-medium tracking-wide">Team Performance & Communication</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 font-medium tracking-wide">Team Performance & Communication</p>
                 </div>
               </div>
             </div>
             
             {/* Navigation Tabs - Compact on Mobile */}
             <div className="flex items-center justify-center flex-1 px-1 sm:px-4 min-w-0">
-              <div className="flex space-x-0.5 sm:space-x-1 p-0.5 sm:p-2 bg-gray-100 rounded-lg sm:rounded-2xl overflow-x-auto scrollbar-hide">
+              <div className="flex space-x-0.5 sm:space-x-1 p-0.5 sm:p-2 bg-gray-100 dark:bg-slate-800 rounded-lg sm:rounded-2xl overflow-x-auto scrollbar-hide">
                 {[
                   { id: 'workouts', label: 'Workouts', icon: Dumbbell, href: '/workouts' },
                   { id: 'calendar', label: 'Calendar', icon: Calendar, href: '/calendar' },
@@ -168,8 +168,8 @@ const AthleteDashboard = React.memo(function AthleteDashboard() {
                       }}
                       className={`flex items-center justify-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg sm:rounded-xl font-medium transition-all duration-200 min-w-[60px] sm:min-w-[80px] touch-manipulation ${
                         isActive
-                          ? 'bg-white text-blue-600 shadow-sm'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-white/50 active:bg-white/70'
+                          ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                          : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-slate-700/50 active:bg-white/70 dark:active:bg-slate-700/70'
                       }`}
                     >
                       <Icon className="h-4 w-4 sm:h-4 sm:w-4 flex-shrink-0" />
@@ -188,26 +188,26 @@ const AthleteDashboard = React.memo(function AthleteDashboard() {
               <div className="relative" ref={menuRef}>
                 <button 
                   onClick={() => setShowMobileMenu(!showMobileMenu)}
-                  className="flex items-center space-x-0.5 sm:space-x-2 bg-white/90 backdrop-blur-sm rounded-lg sm:rounded-xl px-1.5 sm:px-3 py-1.5 sm:py-2 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105 cursor-pointer border border-white/50"
+                  className="flex items-center space-x-0.5 sm:space-x-2 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm rounded-lg sm:rounded-xl px-1.5 sm:px-3 py-1.5 sm:py-2 shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105 cursor-pointer border border-white/50 dark:border-slate-700/50"
                 >
                   <div className="h-6 w-6 sm:h-8 sm:w-8 bg-gradient-to-br from-royal-blue to-dark-blue rounded-full flex items-center justify-center border-2 border-royal-blue">
                     <Users className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
                   </div>
-                  <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 text-gray-500 transition-transform duration-200 ${showMobileMenu ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 text-gray-500 dark:text-gray-400 transition-transform duration-200 ${showMobileMenu ? 'rotate-180' : ''}`} />
                 </button>
 
                 {/* Dropdown Menu */}
                 {showMobileMenu && (
-                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50 animate-in slide-in-from-top-2 duration-200">
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 py-2 z-50 animate-in slide-in-from-top-2 duration-200">
                     <button
                       onClick={() => {
                         router.push('/profile')
                         setShowMobileMenu(false)
                       }}
-                      className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center space-x-3 transition-colors duration-200 rounded-lg mx-1"
+                      className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-slate-700 flex items-center space-x-3 transition-colors duration-200 rounded-lg mx-1"
                     >
-                      <Users className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-700">Profile</span>
+                      <Users className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Profile</span>
                     </button>
                     <button
                       onClick={() => {
@@ -230,7 +230,7 @@ const AthleteDashboard = React.memo(function AthleteDashboard() {
       <div className="container-responsive py-4 sm:py-6 md:py-8">
         {/* Welcome Section */}
         <div className={`mb-4 sm:mb-6 md:mb-8 transition-all duration-500 delay-200 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
-          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-2 px-1">{getPersonalizedWelcome(user)}</h2>
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2 px-1">{getPersonalizedWelcome(user)}</h2>
         </div>
 
         {/* Messages & Quick Actions */}
@@ -239,7 +239,7 @@ const AthleteDashboard = React.memo(function AthleteDashboard() {
           <DashboardErrorBoundary componentName="Messages">
             <div className="md:col-span-2 lg:col-span-2 card-elevated mobile-card hover-lift cursor-pointer transition-all duration-300 hover:scale-[1.01] md:hover:scale-[1.02] hover:shadow-2xl touch-manipulation active:scale-[0.99]" onClick={() => router.push('/messages')}>
               <div className="flex items-center justify-between mb-3 sm:mb-4 md:mb-6">
-                <h3 className="mobile-heading font-bold text-gray-900">Messages</h3>
+                <h3 className="mobile-heading font-bold text-gray-900 dark:text-gray-100">Messages</h3>
               </div>
             
             <div className="space-y-2 sm:space-y-3">
@@ -272,14 +272,14 @@ const AthleteDashboard = React.memo(function AthleteDashboard() {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
-                          <p className="font-semibold text-gray-900 mobile-text">{message.name}</p>
-                          <span className="text-xs text-gray-500">{message.time}</span>
+                          <p className="font-semibold text-gray-900 dark:text-gray-100 mobile-text">{message.name}</p>
+                          <span className="text-xs text-gray-500 dark:text-gray-300">{message.time}</span>
                         </div>
-                        <p className="text-gray-700 mobile-text">{message.lastMessage}</p>
+                        <p className="text-gray-700 dark:text-gray-300 mobile-text">{message.lastMessage}</p>
                         {message.unread && (
                           <div className="flex items-center space-x-2 mt-2">
                             <span className="status-indicator"></span>
-                            <span className="text-xs text-royal-blue font-medium">New message</span>
+                            <span className="text-xs text-royal-blue dark:text-blue-400 font-medium">New message</span>
                           </div>
                         )}
                       </div>
@@ -300,10 +300,10 @@ const AthleteDashboard = React.memo(function AthleteDashboard() {
           {/* Upcoming Events */}
           <div className="card-elevated mobile-card hover-lift">
             <div className="flex items-center justify-between mb-3 sm:mb-4 md:mb-6">
-              <h3 className="mobile-heading font-bold text-gray-900">Upcoming Events</h3>
+              <h3 className="mobile-heading font-bold text-gray-900 dark:text-gray-100">Upcoming Events</h3>
               <button 
                 onClick={() => router.push('/calendar')}
-                className="text-royal-blue hover:text-dark-blue text-sm font-semibold transition-colors duration-200 focus-ring"
+                className="text-royal-blue dark:text-blue-400 hover:text-dark-blue dark:hover:text-blue-300 text-sm font-semibold transition-colors duration-200 focus-ring"
               >
                 View Calendar
               </button>
@@ -311,9 +311,9 @@ const AthleteDashboard = React.memo(function AthleteDashboard() {
             
             {/* Show upcoming events message for now - will be replaced with real events later */}
             <div className="text-center py-6">
-              <Calendar className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-600 text-sm font-semibold">No upcoming events</p>
-              <p className="text-gray-500 text-xs mt-1">Team events will appear here when scheduled</p>
+              <Calendar className="h-10 w-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-600 dark:text-gray-300 text-sm font-semibold">No upcoming events</p>
+              <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">Team events will appear here when scheduled</p>
             </div>
           </div>
         </div>
@@ -323,7 +323,7 @@ const AthleteDashboard = React.memo(function AthleteDashboard() {
           {/* Next Workout */}
           <div className="card-elevated mobile-card hover-lift">
             <div className="flex items-center justify-between mb-3 sm:mb-4 md:mb-6">
-              <h3 className="mobile-heading font-bold text-gray-900">Next Workout</h3>
+              <h3 className="mobile-heading font-bold text-gray-900 dark:text-gray-100">Next Workout</h3>
             </div>
            
            {isLoadingNextWorkouts ? (
