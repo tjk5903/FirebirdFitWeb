@@ -703,19 +703,17 @@ const CoachDashboard = React.memo(function CoachDashboard() {
                     }}
                   >
                     <div className="flex items-start space-x-3">
-                      <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center transition-transform duration-200 hover:scale-110 ${
-                        message.type === 'group' 
-                          ? 'bg-gradient-to-br from-purple-500 to-purple-600' 
-                          : 'bg-gradient-to-br from-royal-blue to-dark-blue'
-                      }`}>
-                        {message.type === 'group' ? (
-                          <Users className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
-                        ) : (
-                          <span className="text-white font-semibold text-xs sm:text-sm">
-                            {message.avatar}
-                          </span>
-                        )}
-                      </div>
+                          <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center transition-transform duration-200 hover:scale-110 bg-gradient-to-br from-purple-500 to-purple-600 overflow-hidden text-white font-semibold">
+                            {message.avatarUrl ? (
+                              <img
+                                src={message.avatarUrl}
+                                alt={message.name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-xs sm:text-sm">{message.initials}</span>
+                            )}
+                          </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
                           <p className="font-semibold text-gray-900 dark:text-gray-100 mobile-text">{message.name}</p>

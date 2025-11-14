@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { DashboardErrorBoundary } from '@/components/ui/DashboardErrorBoundary'
@@ -26,6 +26,7 @@ import {
   AlertCircle
 } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
+import { supabase } from '@/lib/supabaseClient'
 
 export default function ProfilePage() {
   const { user, logout } = useAuth()
@@ -75,6 +76,13 @@ export default function ProfilePage() {
     role: 'coach' as UserRole,
     avatar: ''
   })
+  const [avatarPreview, setAvatarPreview] = useState('')
+  const [newAvatarFile, setNewAvatarFile] = useState<File | null>(null)
+  const [avatarUploadError, setAvatarUploadError] = useState('')
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
+  const [avatarRemoved, setAvatarRemoved] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const localPreviewUrlRef = useRef<string | null>(null)
 
   // Update profile data when user loads
   useEffect(() => {
@@ -85,8 +93,94 @@ export default function ProfilePage() {
         role: user.role || 'coach',
         avatar: user.avatar || ''
       })
+      setAvatarPreview(user.avatar || '')
     }
   }, [user])
+
+  useEffect(() => {
+    return () => {
+      if (localPreviewUrlRef.current) {
+        URL.revokeObjectURL(localPreviewUrlRef.current)
+      }
+    }
+  }, [])
+
+  const handleAvatarButtonClick = () => {
+    if (!isEditing) return
+    fileInputRef.current?.click()
+  }
+
+  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setAvatarUploadError('')
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setAvatarUploadError('Please select a valid image file.')
+      return
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setAvatarUploadError('Image must be smaller than 2MB.')
+      return
+    }
+
+    if (localPreviewUrlRef.current) {
+      URL.revokeObjectURL(localPreviewUrlRef.current)
+    }
+    const objectUrl = URL.createObjectURL(file)
+    localPreviewUrlRef.current = objectUrl
+
+    setNewAvatarFile(file)
+    setAvatarPreview(objectUrl)
+    setAvatarRemoved(false)
+  }
+
+  const handleRemoveAvatar = () => {
+    if (localPreviewUrlRef.current) {
+      URL.revokeObjectURL(localPreviewUrlRef.current)
+      localPreviewUrlRef.current = null
+    }
+    setNewAvatarFile(null)
+    setAvatarRemoved(true)
+    setAvatarPreview('')
+    setProfileData((prev) => ({ ...prev, avatar: '' }))
+  }
+
+  const uploadAvatarIfNeeded = async (): Promise<string | null> => {
+    if (!user) return profileData.avatar || null
+
+    if (avatarRemoved) {
+      return null
+    }
+
+    if (!newAvatarFile) {
+      return profileData.avatar || null
+    }
+
+    setIsUploadingAvatar(true)
+    try {
+      const fileExt = newAvatarFile.name.split('.').pop()
+      const filePath = `${user.id}/${Date.now()}.${fileExt}`
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, newAvatarFile, {
+          cacheControl: '3600',
+          upsert: true
+        })
+
+      if (uploadError) {
+        console.error('Avatar upload error:', uploadError)
+        setAvatarUploadError('Failed to upload avatar. Please try again.')
+        return profileData.avatar || null
+      }
+
+      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath)
+      return data.publicUrl
+    } finally {
+      setIsUploadingAvatar(false)
+    }
+  }
 
   // Load user's teams when user loads
   useEffect(() => {
@@ -182,15 +276,26 @@ export default function ProfilePage() {
     setProfileSaveSuccess('')
     
     try {
+      const avatarUrl = await uploadAvatarIfNeeded()
+
       const result = await updateUserProfile(user.id, {
         full_name: profileData.name.trim(),
         email: profileData.email.trim(),
-        role: profileData.role
+        role: profileData.role,
+        avatar: avatarUrl
       })
       
       if (result.success) {
         setProfileSaveSuccess('Profile updated successfully!')
         setIsEditing(false)
+        setProfileData((prev) => ({ ...prev, avatar: avatarUrl || '' }))
+        setAvatarPreview(avatarUrl || '')
+        setNewAvatarFile(null)
+        setAvatarRemoved(false)
+        if (localPreviewUrlRef.current) {
+          URL.revokeObjectURL(localPreviewUrlRef.current)
+          localPreviewUrlRef.current = null
+        }
         
         // Clear success message after 3 seconds
         setTimeout(() => setProfileSaveSuccess(''), 3000)
@@ -215,6 +320,13 @@ export default function ProfilePage() {
       role: user?.role || 'coach',
       avatar: user?.avatar || ''
     })
+    setAvatarPreview(user?.avatar || '')
+    setNewAvatarFile(null)
+    setAvatarRemoved(false)
+    if (localPreviewUrlRef.current) {
+      URL.revokeObjectURL(localPreviewUrlRef.current)
+      localPreviewUrlRef.current = null
+    }
     setIsEditing(false)
     setProfileSaveError('')
     setProfileSaveSuccess('')
@@ -582,20 +694,49 @@ export default function ProfilePage() {
                 {/* Avatar Section */}
                 <div className="flex items-center space-x-6">
                   <div className="relative">
-                    <div className="h-20 w-20 sm:h-24 sm:w-24 bg-gradient-to-br from-royal-blue to-dark-blue rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-xl sm:text-2xl">
-                        {profileData.name.split(' ').map(n => n[0]).join('')}
-                      </span>
+                    <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-gradient-to-br from-royal-blue to-dark-blue flex items-center justify-center text-white font-bold text-xl sm:text-2xl overflow-hidden">
+                      {avatarPreview ? (
+                        <img src={avatarPreview} alt={profileData.name} className="h-full w-full object-cover" />
+                      ) : (
+                        profileData.name.split(' ').map(n => n[0]).join('').slice(0, 2)
+                      )}
                     </div>
                     {isEditing && (
-                      <button className="absolute -bottom-1 -right-1 h-8 w-8 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center transition-all duration-200">
-                        <Camera className="h-4 w-4 text-white" />
-                      </button>
+                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-center space-x-2">
+                        <button
+                          onClick={handleAvatarButtonClick}
+                          className="h-8 w-8 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center transition-all duration-200 focus-ring"
+                          title="Change avatar"
+                        >
+                          <Camera className="h-4 w-4 text-white" />
+                        </button>
+                        {avatarPreview && (
+                          <button
+                            onClick={handleRemoveAvatar}
+                            className="h-8 w-8 bg-gray-500 hover:bg-gray-600 rounded-full flex items-center justify-center transition-all duration-200 focus-ring"
+                            title="Remove avatar"
+                          >
+                            <X className="h-4 w-4 text-white" />
+                          </button>
+                        )}
+                      </div>
                     )}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAvatarChange}
+                    />
                   </div>
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{profileData.name}</h4>
                     <p className="text-gray-600 dark:text-gray-400 capitalize">{profileData.role}</p>
+                    {(isUploadingAvatar || avatarUploadError) && (
+                      <p className={`text-sm mt-2 ${avatarUploadError ? 'text-red-500' : 'text-gray-500'}`}>
+                        {avatarUploadError || 'Uploading photo...'}
+                      </p>
+                    )}
                   </div>
                 </div>
 

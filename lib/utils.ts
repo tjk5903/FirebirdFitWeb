@@ -268,6 +268,7 @@ export interface ChatData {
   memberCount: number
   announcementMode?: boolean
   ownerId?: string
+  avatar?: string | null
 }
 
 // Type definitions for Supabase query results
@@ -279,6 +280,7 @@ type UserChatResult = {
     created_at: string
     owner_id: string | null
     announcement_mode: boolean | null
+    avatar?: string | null
   }
 }
 
@@ -303,7 +305,8 @@ export async function getUserChats(userId: string): Promise<ChatData[]> {
           name,
           created_at,
           owner_id,
-          announcement_mode
+          announcement_mode,
+          avatar
         )
       `)
       .eq('user_id', userId) as { data: UserChatResult[] | null, error: any }
@@ -387,7 +390,8 @@ export async function getUserChats(userId: string): Promise<ChatData[]> {
         unread: false, // For now, we'll set this to false. Unread logic can be implemented later
         memberCount: memberCountMap.get(chat.id) || 0,
         announcementMode: Boolean(chat.announcement_mode),
-        ownerId: chat.owner_id || undefined
+        ownerId: chat.owner_id || undefined,
+        avatar: chat.avatar || null
       }
     })
 
@@ -2246,6 +2250,7 @@ export async function updateUserProfile(
     full_name?: string;
     email?: string;
     role?: UserRole;
+    avatar?: string | null;
   }
 ): Promise<{ success: boolean; error?: string }> {
   try {

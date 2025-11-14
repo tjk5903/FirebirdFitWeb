@@ -11,7 +11,8 @@ interface MessageItemProps {
     lastMessage: string
     time: string
     unread: boolean
-    avatar: string
+    avatarUrl: string
+    initials: string
     memberCount: number
   }
   index: number
@@ -30,10 +31,14 @@ export const MemoizedMessageItem = memo(function MessageItem({
       style={{ animationDelay: `${index * 100}ms` }}
       onClick={onClick}
     >
-      <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3">
         <div className="relative">
-          <div className="h-10 w-10 bg-gradient-to-br from-royal-blue to-blue-600 rounded-xl flex items-center justify-center text-white font-semibold text-sm">
-            {message.avatar}
+          <div className="h-10 w-10 rounded-full overflow-hidden bg-gradient-to-br from-royal-blue to-blue-600 text-white font-semibold text-sm flex items-center justify-center">
+            {message.avatarUrl ? (
+              <img src={message.avatarUrl} alt={message.name} className="h-full w-full object-cover" />
+            ) : (
+              <span>{message.initials}</span>
+            )}
           </div>
           {message.unread && (
             <div className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-white"></div>

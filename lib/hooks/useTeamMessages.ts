@@ -26,7 +26,8 @@ export function useTeamMessages(userId: string | undefined) {
           lastMessage: chat.lastMessage || 'No messages yet',
           time: chat.lastMessageTime ? formatTimeAgo(chat.lastMessageTime) : 'Just now',
           unread: chat.unread,
-          avatar: generateAvatar(chat.name),
+          avatarUrl: chat.avatar || '',
+          initials: generateAvatar(chat.name),
           memberCount: chat.memberCount,
           conversationId: chat.id
         }))
@@ -65,7 +66,8 @@ export function useTeamMessages(userId: string | undefined) {
             lastMessage: chat.lastMessage || 'No messages yet',
             time: chat.lastMessageTime ? formatTimeAgo(chat.lastMessageTime) : 'Just now',
             unread: chat.unread,
-            avatar: generateAvatar(chat.name),
+            avatarUrl: chat.avatar || '',
+            initials: generateAvatar(chat.name),
             memberCount: chat.memberCount,
             conversationId: chat.id
           }))
