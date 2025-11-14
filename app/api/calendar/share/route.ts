@@ -104,27 +104,57 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unable to load events for sharing.' }, { status: 500 })
     }
 
+    const eventTypeLabels: Record<string, string> = {
+      practice: 'Practice',
+      game: 'Game',
+      meeting: 'Meeting',
+      training: 'Training'
+    }
+
     const eventsHtml = events && events.length > 0
       ? events.map((event) => {
           const startDate = new Date(event.start_time)
           const endDate = new Date(event.end_time)
-          const formatter = new Intl.DateTimeFormat('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit'
-          })
+          const dateLabel = startDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+          const timeLabel = `${startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+          const durationMinutes = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60))
+          const typeLabel = eventTypeLabels[event.event_type] || 'Event'
+
           return `
-            <li style="margin-bottom:16px;">
-              <strong>${event.title}</strong><br/>
-              <span>${formatter.format(startDate)}${event.location ? ` · ${event.location}` : ''}</span><br/>
-              <small>${Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60))} min · ${event.event_type}</small>
-              ${event.description ? `<p style="margin-top:6px;color:#475569;">${event.description}</p>` : ''}
+            <li style="margin-bottom:24px;padding:24px;border-radius:24px;border:1px solid #dbeafe;background:linear-gradient(135deg,#eff6ff 0%,#ffffff 100%);box-shadow:0 12px 30px rgba(15,23,42,0.08);list-style:none;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;">
+                <strong style="font-size:20px;color:#0f172a;">${event.title}</strong>
+                <span style="padding:6px 14px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">${typeLabel}</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;color:#1e293b;font-size:14px;line-height:1.7;margin-bottom:12px;">
+                <div style="padding:12px;border-radius:16px;background:#ffffff;border:1px solid #e2e8f0;">
+                  <div style="font-size:12px;text-transform:uppercase;color:#94a3b8;font-weight:600;">Date</div>
+                  <div style="font-weight:600;">${dateLabel}</div>
+                </div>
+                <div style="padding:12px;border-radius:16px;background:#ffffff;border:1px solid #e2e8f0;">
+                  <div style="font-size:12px;text-transform:uppercase;color:#94a3b8;font-weight:600;">Time</div>
+                  <div style="font-weight:600;">${timeLabel}</div>
+                </div>
+                <div style="padding:12px;border-radius:16px;background:#ffffff;border:1px solid #e2e8f0;">
+                  <div style="font-size:12px;text-transform:uppercase;color:#94a3b8;font-weight:600;">Duration</div>
+                  <div style="font-weight:600;">${durationMinutes} min</div>
+                </div>
+                ${event.location ? `
+                  <div style="padding:12px;border-radius:16px;background:#ffffff;border:1px solid #e2e8f0;">
+                    <div style="font-size:12px;text-transform:uppercase;color:#94a3b8;font-weight:600;">Location</div>
+                    <div style="font-weight:600;">${event.location}</div>
+                  </div>
+                ` : ''}
+              </div>
+              ${event.description ? `
+                <p style="margin-top:12px;padding:16px;border-left:4px solid #3b82f6;background:#eff6ff;color:#1e293b;border-radius:16px;margin-bottom:0;">
+                  ${event.description}
+                </p>
+              ` : ''}
             </li>
           `
         }).join('')
-      : '<p>No events scheduled in the upcoming window.</p>'
+      : '<p style="color:#475569;">No events scheduled in the upcoming window.</p>'
 
     const origin = request.headers.get('origin') || defaultAppUrl
     const calendarUrl = `${origin.replace(/\/$/, '')}/calendar`
@@ -137,12 +167,6 @@ export async function POST(request: Request) {
         <ol style="padding-left:20px;margin:0 0 16px 0;">
           ${eventsHtml}
         </ol>
-        <p style="margin:16px 0;">
-          View the live calendar anytime: <a href="${calendarUrl}" target="_blank" rel="noopener noreferrer">${calendarUrl}</a>
-        </p>
-        <p style="margin-top:24px;font-size:12px;color:#64748b;">
-          Sent via FirebirdFit. Replies will go directly to ${userProfile.email}.
-        </p>
       </div>
     `
 
