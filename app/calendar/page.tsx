@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { getTeamEvents, createEvent, updateEvent, deleteEvent, isCoachOrAssistant } from '@/lib/utils'
@@ -21,6 +21,8 @@ export default function CalendarPage() {
   const { user } = useAuth()
   const { showToast } = useToast()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const eventFromQuery = searchParams?.get('event')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showCreateEvent, setShowCreateEvent] = useState(false)
   const [editingEvent, setEditingEvent] = useState<any>(null)
@@ -88,6 +90,20 @@ export default function CalendarPage() {
     const timer = setTimeout(() => setIsLoaded(true), 100)
     return () => clearTimeout(timer)
   }, [])
+
+  // Open event detail if linked via query param
+  useEffect(() => {
+    if (!eventFromQuery || events.length === 0) return
+    const matchedEvent = events.find((event) => event.id === eventFromQuery)
+    if (!matchedEvent) return
+
+    setSelectedEvent(matchedEvent)
+    setShowEventDetails(true)
+
+    const eventDate = new Date(matchedEvent.start_time)
+    setSelectedDate(eventDate)
+    setCurrentDate(new Date(eventDate.getFullYear(), eventDate.getMonth(), 1))
+  }, [eventFromQuery, events])
 
   // Calendar navigation
   const goToPreviousMonth = () => {
@@ -397,7 +413,12 @@ export default function CalendarPage() {
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ]
-  const upcomingEventsPreview = getUpcomingEvents().slice(0, 4)
+  const MAX_COLLAPSED_UPCOMING = 2
+  const MAX_EXPANDED_UPCOMING = 6
+  const [showAllUpcoming, setShowAllUpcoming] = useState(false)
+  const upcomingEvents = getUpcomingEvents()
+  const upcomingEventsPreview = upcomingEvents.slice(0, 4)
+  const upcomingListHeight = showAllUpcoming ? 960 : 420
 
   // Redirect to login if no user (with small delay to allow auth restoration)
   useEffect(() => {
@@ -570,19 +591,34 @@ export default function CalendarPage() {
         <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl p-4 sm:p-6 border border-gray-100 dark:border-slate-700">
           <div className="flex items-center justify-between mb-4 sm:mb-6">
             <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100">Upcoming Events</h3>
+            {upcomingEvents.length > MAX_COLLAPSED_UPCOMING && (
+              <button
+                onClick={() => setShowAllUpcoming(!showAllUpcoming)}
+                className="flex items-center space-x-2 rounded-full bg-gray-100 dark:bg-slate-700/70 px-3 py-1 text-xs font-semibold text-royal-blue dark:text-blue-300 shadow-sm hover:shadow focus-ring"
+              >
+                <span>{showAllUpcoming ? 'Show less' : 'Show more'}</span>
+                <ChevronRight className={`h-4 w-4 transition-transform ${showAllUpcoming ? 'rotate-90' : ''}`} />
+              </button>
+            )}
           </div>
           
-          <div className="space-y-3 sm:space-y-4">
+          <div
+            className="space-y-3 sm:space-y-4 overflow-hidden transition-[max-height] duration-600 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[max-height]"
+            style={{ maxHeight: `${upcomingListHeight}px` }}
+          >
             {isLoadingEvents ? (
               <div className="flex items-center justify-center py-8">
                 <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-3"></div>
                 <span className="text-gray-600 dark:text-gray-300">Loading events...</span>
               </div>
-            ) : getUpcomingEvents().length > 0 ? (
-              getUpcomingEvents().map((event) => (
+            ) : upcomingEvents.length > 0 ? (
+              upcomingEvents
+                .slice(0, showAllUpcoming ? MAX_EXPANDED_UPCOMING : MAX_COLLAPSED_UPCOMING)
+                .map((event) => (
                  <div 
-                   key={event.id} 
-                   className="group relative bg-gradient-to-r from-gray-50 to-white dark:from-slate-700 dark:to-slate-800 border border-gray-200 dark:border-slate-600 rounded-2xl p-3 sm:p-4 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] hover:border-blue-200 dark:hover:border-blue-600 cursor-pointer"
+                    key={event.id} 
+                    className="group relative bg-gradient-to-r from-gray-50 to-white dark:from-slate-700 dark:to-slate-800 border border-gray-200 dark:border-slate-600 rounded-2xl p-3 sm:p-4 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] hover:border-blue-200 dark:hover:border-blue-600 cursor-pointer"
+                    style={{ zIndex: 1 }}
                    onClick={() => {
                      setSelectedEvent(event)
                      setShowEventDetails(true)
@@ -657,7 +693,7 @@ export default function CalendarPage() {
                   </div>
                   
                   {/* Hover Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl"></div>
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl z-[-1]"></div>
                 </div>
               ))
             ) : (

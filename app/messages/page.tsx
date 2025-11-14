@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { useAppState } from '@/contexts/AppStateContext'
@@ -28,7 +28,7 @@ import {
   toggleMessageReaction,
   ReactionType
 } from '@/lib/utils'
-import { Search, Send, Plus, X, Users, MoreVertical, ArrowLeft, MessageCircle, Hash, Trash2, UserPlus, ThumbsUp, ThumbsDown } from 'lucide-react'
+import { Search, Send, Plus, X, Users, ArrowLeft, MessageCircle, Hash, Trash2, UserPlus, ThumbsUp, ThumbsDown } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
 import MainNavigation from '@/components/navigation/MainNavigation'
 import { ChatItemSkeleton } from '@/components/ui/SkeletonLoader'
@@ -80,6 +80,9 @@ export default function MessagesPage() {
   
   // Real-time subscription
   const subscriptionRef = useRef<any>(null)
+
+  const searchParams = useSearchParams()
+  const chatFromQuery = searchParams?.get('chat') || null
 
   // Chats are now loaded by AppState context
 
@@ -205,6 +208,15 @@ export default function MessagesPage() {
 
   const selectedChat = selectedChatId ? chats.find(c => c.id === selectedChatId) : null
   const isAnnouncementLocked = !!(selectedChat?.announcementMode && selectedChat.ownerId && selectedChat.ownerId !== user?.id)
+
+  // Auto-select chat from query param when available
+  useEffect(() => {
+    if (!chatFromQuery || chats.length === 0) return
+    const exists = chats.find(chat => chat.id === chatFromQuery)
+    if (exists) {
+      setSelectedChatId(chatFromQuery)
+    }
+  }, [chatFromQuery, chats])
 
   // Send message handler
   const handleSendMessage = async () => {
@@ -657,29 +669,7 @@ export default function MessagesPage() {
                       </div>
                       
                       {/* Chat Actions */}
-                      <div className="flex items-center space-x-1 sm:space-x-2">
-                        <div className="relative">
-                          <button 
-                            onClick={() => setShowOptionsDropdown(!showOptionsDropdown)}
-                            className="p-1.5 sm:p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-xl transition-all duration-200"
-                          >
-                            <MoreVertical className="h-4 w-4 sm:h-5 sm:w-5" />
-                          </button>
-                          
-                          {/* Dropdown Menu */}
-                          {showOptionsDropdown && canManageMembers && (selectedChat?.memberCount || 0) > 2 && (
-                            <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-200 dark:border-slate-700 py-2 z-50">
-                              <button
-                                onClick={() => handleOpenAddMembersModal(selectedChat!)}
-                                className="w-full px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors flex items-center space-x-2"
-                              >
-                                <Users className="h-4 w-4" />
-                                <span>Add Members</span>
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                      <div className="flex items-center space-x-1 sm:space-x-2" />
                     </div>
                     
                     {/* Chat Members (for group chats) */}
@@ -809,14 +799,6 @@ export default function MessagesPage() {
                               isAnnouncementLocked ? 'cursor-not-allowed opacity-60' : ''
                             }`}
                         />
-                        <div className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2 flex items-center space-x-1 sm:space-x-2">
-                          <button className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-                            <span className="text-base sm:text-lg">😊</span>
-                          </button>
-                          <button className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
-                            <span className="text-base sm:text-lg">📎</span>
-                          </button>
-                        </div>
                       </div>
                       <button
                         onClick={handleSendMessage}

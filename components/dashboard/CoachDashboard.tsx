@@ -87,6 +87,9 @@ const exerciseLibrary = [
   { name: 'Butterfly Kicks', category: 'core', muscle: 'Core, Abs' }
 ]
 
+const MAX_COLLAPSED_CHATS = 2
+const MAX_EXPANDED_CHATS = 4
+
 const CoachDashboard = React.memo(function CoachDashboard() {
   const { user, logout } = useAuth()
   const { teams, workouts, updateWorkouts, refreshWorkouts, chats, updateChats, refreshChats } = useAppState()
@@ -155,6 +158,12 @@ const CoachDashboard = React.memo(function CoachDashboard() {
 
   // Use custom hook for team messages
   const { teamMessages, isLoadingMessages } = useTeamMessages(user?.id)
+  const [showAllChats, setShowAllChats] = useState(false)
+
+  const chatLimit = showAllChats ? MAX_EXPANDED_CHATS : MAX_COLLAPSED_CHATS
+  const visibleTeamMessages = teamMessages.slice(0, chatLimit)
+  const canToggleChats = teamMessages.length > MAX_COLLAPSED_CHATS
+  const chatListMaxHeight = showAllChats ? 520 : 260
 
   useEffect(() => {
     // Simulate loading animation
@@ -653,14 +662,29 @@ const CoachDashboard = React.memo(function CoachDashboard() {
         </div>
 
         {/* Communication & Quick Actions */}
-        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8 mb-4 sm:mb-6 md:mb-8 transition-all duration-500 delay-400 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-2 sm:mb-4 md:mb-6 transition-all duration-500 delay-400 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
           {/* Team Communication */}
           <div className="md:col-span-2 lg:col-span-2 card-elevated mobile-card hover-lift cursor-pointer transition-all duration-300 hover:scale-[1.01] md:hover:scale-[1.02] hover:shadow-2xl touch-manipulation active:scale-[0.99]" onClick={() => router.push('/messages')}>
             <div className="flex items-center justify-between mb-3 sm:mb-4 md:mb-6">
               <h3 className="mobile-heading font-bold text-gray-900 dark:text-gray-100">Team Communication</h3>
+              {canToggleChats && (
+                <button
+                  className="flex items-center space-x-2 rounded-full bg-white/70 dark:bg-slate-700/70 px-3 py-1 text-xs font-semibold text-royal-blue dark:text-blue-300 shadow-sm hover:shadow focus-ring"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowAllChats(!showAllChats)
+                  }}
+                >
+                  <span>{showAllChats ? 'Show less' : 'Show more'}</span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${showAllChats ? 'rotate-180' : ''}`} />
+                </button>
+              )}
             </div>
             
-            <div className="space-y-2 sm:space-y-3">
+            <div
+              className="space-y-2 sm:space-y-3 overflow-hidden transition-[max-height] duration-600 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[max-height]"
+              style={{ maxHeight: `${chatListMaxHeight}px` }}
+            >
               {isLoadingMessages ? (
                 <SmartLoadingMessage 
                   type="messages" 
@@ -668,11 +692,15 @@ const CoachDashboard = React.memo(function CoachDashboard() {
                   hasData={teamMessages.length > 0}
                 />
               ) : teamMessages.length > 0 ? (
-                teamMessages.slice(0, 3).map((message, index) => (
+                visibleTeamMessages.map((message, index) => (
                   <div 
                     key={message.id} 
                     className={`message-bubble transition-all duration-200 hover:scale-[1.02] ${message.unread ? 'ring-2 ring-royal-blue/20 dark:ring-blue-500/30' : ''}`}
                     style={{ animationDelay: `${index * 100}ms` }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      router.push(`/messages?chat=${message.id}`)
+                    }}
                   >
                     <div className="flex items-start space-x-3">
                       <div className={`h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center transition-transform duration-200 hover:scale-110 ${
@@ -747,7 +775,7 @@ const CoachDashboard = React.memo(function CoachDashboard() {
         </div>
 
         {/* Upcoming Events & Team Performance */}
-        <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 transition-all duration-500 delay-500 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
+        <div className={`grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 transition-all duration-500 delay-500 ${isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
           {/* Upcoming Events */}
           <div className="card-elevated hover-lift">
             <div className="flex items-center justify-between mb-4 sm:mb-6">
@@ -771,7 +799,7 @@ const CoachDashboard = React.memo(function CoachDashboard() {
                   <div 
                     key={event.id} 
                     className="group relative bg-gradient-to-r from-gray-50 to-white dark:from-slate-700 dark:to-slate-800 border border-gray-200 dark:border-slate-600 rounded-2xl p-4 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] hover:border-blue-200 dark:hover:border-blue-500 cursor-pointer"
-                    onClick={() => router.push('/calendar')}
+                    onClick={() => router.push(`/calendar?event=${event.id}`)}
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
