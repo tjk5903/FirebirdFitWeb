@@ -266,6 +266,8 @@ export interface ChatData {
   lastMessageTime: string | null
   unread: boolean
   memberCount: number
+  announcementMode?: boolean
+  ownerId?: string
 }
 
 // Type definitions for Supabase query results
@@ -275,6 +277,8 @@ type UserChatResult = {
     id: string
     name: string
     created_at: string
+    owner_id: string | null
+    announcement_mode: boolean | null
   }
 }
 
@@ -297,7 +301,9 @@ export async function getUserChats(userId: string): Promise<ChatData[]> {
         chats!inner (
           id,
           name,
-          created_at
+          created_at,
+          owner_id,
+          announcement_mode
         )
       `)
       .eq('user_id', userId) as { data: UserChatResult[] | null, error: any }
@@ -379,7 +385,9 @@ export async function getUserChats(userId: string): Promise<ChatData[]> {
         lastMessage: lastMsg ? lastMsg.message : null,
         lastMessageTime: lastMsg ? lastMsg.created_at : chat.created_at,
         unread: false, // For now, we'll set this to false. Unread logic can be implemented later
-        memberCount: memberCountMap.get(chat.id) || 0
+        memberCount: memberCountMap.get(chat.id) || 0,
+        announcementMode: Boolean(chat.announcement_mode),
+        ownerId: chat.owner_id || undefined
       }
     })
 
@@ -399,6 +407,27 @@ export async function getUserChats(userId: string): Promise<ChatData[]> {
 }
 
 // Interface for message data structure
+export type ReactionType = 'thumbs_up' | 'thumbs_down'
+
+export interface ReactionCounts {
+  thumbs_up: number
+  thumbs_down: number
+}
+
+export interface MessageReactions {
+  counts: ReactionCounts
+  userReaction?: ReactionType
+}
+
+const defaultReactionCounts: ReactionCounts = {
+  thumbs_up: 0,
+  thumbs_down: 0
+}
+
+const createEmptyReactions = (): MessageReactions => ({
+  counts: { ...defaultReactionCounts }
+})
+
 export interface MessageData {
   id: string
   message: string
@@ -411,6 +440,7 @@ export interface MessageData {
     role: 'coach' | 'athlete'
   }
   isCoach: boolean
+  reactions: MessageReactions
 }
 
 // Type definition for message query results
@@ -427,8 +457,41 @@ type MessageResult = {
   } | null
 }
 
+type MessageReactionRow = {
+  id: string
+  message_id: string
+  user_id: string
+  reaction_type: ReactionType
+}
+
+const buildReactionSummary = (
+  rows: MessageReactionRow[],
+  viewerId?: string
+): Map<string, MessageReactions> => {
+  const summary = new Map<string, MessageReactions>()
+
+  const getSummary = (messageId: string): MessageReactions => {
+    if (!summary.has(messageId)) {
+      summary.set(messageId, createEmptyReactions())
+    }
+    return summary.get(messageId)!
+  }
+
+  rows.forEach((reaction) => {
+    const entry = getSummary(reaction.message_id)
+    const key = reaction.reaction_type as keyof ReactionCounts
+    entry.counts[key] = (entry.counts[key] || 0) + 1
+
+    if (viewerId && reaction.user_id === viewerId) {
+      entry.userReaction = reaction.reaction_type
+    }
+  })
+
+  return summary
+}
+
 // Fetch messages for a selected chat
-export async function getChatMessages(chatId: string): Promise<MessageData[]> {
+export async function getChatMessages(chatId: string, viewerId?: string): Promise<MessageData[]> {
   try {
     // Fetch messages with sender information using a JOIN
     const { data: messages, error: messagesError } = await supabase
@@ -457,9 +520,26 @@ export async function getChatMessages(chatId: string): Promise<MessageData[]> {
       return []
     }
 
+    const messageIds = messages.map(msg => msg.id)
+    let reactionSummaryMap = new Map<string, MessageReactions>()
+
+    if (messageIds.length > 0) {
+      const { data: reactionRows, error: reactionError } = await supabase
+        .from('message_reactions')
+        .select('id, message_id, user_id, reaction_type')
+        .in('message_id', messageIds) as { data: MessageReactionRow[] | null, error: any }
+
+      if (reactionError) {
+        console.warn('Unable to load message reactions:', reactionError)
+      } else if (reactionRows) {
+        reactionSummaryMap = buildReactionSummary(reactionRows, viewerId)
+      }
+    }
+
     // Transform the data to match our MessageData interface
     const transformedMessages: MessageData[] = messages.map(msg => {
       const sender = msg.users
+      const reactions = reactionSummaryMap.get(msg.id) || createEmptyReactions()
       
       return {
         id: msg.id,
@@ -472,7 +552,8 @@ export async function getChatMessages(chatId: string): Promise<MessageData[]> {
           avatar: sender?.avatar || undefined,
           role: sender?.role || 'athlete'
         },
-        isCoach: sender?.role === 'coach'
+        isCoach: sender?.role === 'coach',
+        reactions
       }
     })
 
@@ -494,6 +575,22 @@ export async function sendChatMessage(
     // Validate input
     if (!message.trim()) {
       throw new Error('Message cannot be empty')
+    }
+
+    // Ensure sender is allowed to post (announcement mode restriction)
+    const { data: chatMeta, error: chatMetaError } = await supabase
+      .from('chats')
+      .select('owner_id, announcement_mode')
+      .eq('id', chatId)
+      .single()
+
+    if (chatMetaError) {
+      console.error('Error fetching chat metadata:', chatMetaError)
+      throw chatMetaError
+    }
+
+    if (chatMeta?.announcement_mode && chatMeta.owner_id !== senderId) {
+      throw new Error('Only the chat creator can post in announcement mode.')
     }
 
     // Insert the message into the database
@@ -549,13 +646,83 @@ export async function sendChatMessage(
         avatar: userData?.avatar || undefined,
         role: userData?.role || 'athlete'
       },
-      isCoach: userData?.role === 'coach'
+      isCoach: userData?.role === 'coach',
+      reactions: createEmptyReactions()
     }
 
     return transformedMessage
 
   } catch (error) {
     console.error('Error in sendChatMessage:', error)
+    throw error
+  }
+}
+
+export async function toggleMessageReaction(
+  messageId: string,
+  userId: string,
+  reactionType: ReactionType
+): Promise<MessageReactions> {
+  try {
+    const { data: existingReaction, error: existingError } = await supabase
+      .from('message_reactions')
+      .select('id, reaction_type')
+      .eq('message_id', messageId)
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (existingError) {
+      console.error('Error checking existing reaction:', existingError)
+      throw existingError
+    }
+
+    if (existingReaction) {
+      if (existingReaction.reaction_type === reactionType) {
+        const { error: deleteError } = await supabase
+          .from('message_reactions')
+          .delete()
+          .eq('id', existingReaction.id)
+
+        if (deleteError) {
+          throw deleteError
+        }
+      } else {
+        const { error: updateError } = await supabase
+          .from('message_reactions')
+          .update({ reaction_type: reactionType })
+          .eq('id', existingReaction.id)
+
+        if (updateError) {
+          throw updateError
+        }
+      }
+    } else {
+      const { error: insertError } = await supabase
+        .from('message_reactions')
+        .insert({
+          message_id: messageId,
+          user_id: userId,
+          reaction_type: reactionType
+        })
+
+      if (insertError) {
+        throw insertError
+      }
+    }
+
+    const { data: updatedReactions, error: fetchError } = await supabase
+      .from('message_reactions')
+      .select('id, message_id, user_id, reaction_type')
+      .eq('message_id', messageId) as { data: MessageReactionRow[] | null, error: any }
+
+    if (fetchError) {
+      throw fetchError
+    }
+
+    const summary = buildReactionSummary(updatedReactions || [], userId)
+    return summary.get(messageId) || createEmptyReactions()
+  } catch (error) {
+    console.error('Error toggling message reaction:', error)
     throw error
   }
 }
@@ -671,7 +838,8 @@ export function subscribeToMessages(
               avatar: sender?.avatar || undefined,
               role: sender?.role || 'athlete'
             },
-            isCoach: sender?.role === 'coach'
+            isCoach: sender?.role === 'coach',
+            reactions: createEmptyReactions()
           }
 
           // Call the callback with the transformed message
@@ -949,36 +1117,38 @@ export async function getAvailableUsersForChat(chatId: string, teamId?: string):
 // Create a new group chat
 // Create a chat - simple function that just creates a chat with selected members
 export async function createChat(
-  coachId: string,
+  creatorId: string,
   chatName: string,
-  memberIds: string[] = []
+  memberIds: string[] = [],
+  announcementMode: boolean = false
 ): Promise<{ success: boolean; chatId?: string; error?: string }> {
   try {
-    console.log('🔧 createChat: Starting with coachId:', coachId)
+    console.log('🔧 createChat: Starting with creatorId:', creatorId)
     console.log('🔧 createChat: Chat name:', chatName)
     console.log('🔧 createChat: Member IDs:', memberIds)
+    console.log('🔧 createChat: Announcement mode:', announcementMode)
     
-    // Verify the user is a coach
+    // Verify the user is a coach or assistant coach
     console.log('🔍 createChat: Verifying user role...')
     const { data: userProfile, error: profileError } = await supabase
       .from('users')
       .select('role')
-      .eq('id', coachId)
+      .eq('id', creatorId)
       .single()
 
     console.log('🔍 createChat: User profile result:', { userProfile, profileError })
 
-    if (profileError || userProfile?.role !== 'coach') {
+    if (profileError || !userProfile?.role || !isCoachOrAssistant(userProfile.role)) {
       console.log('🚨 createChat: Role verification failed')
-      return { success: false, error: 'Only coaches can create chats' }
+      return { success: false, error: 'Only coaches and assistant coaches can create chats' }
     }
 
-    // Get the coach's team
-    console.log('🔍 createChat: Getting coach team...')
+    // Get the creator's team
+    console.log('🔍 createChat: Getting creator team...')
     const { data: userTeam, error: teamError } = await supabase
       .from('team_members')
       .select('team_id')
-      .eq('user_id', coachId)
+      .eq('user_id', creatorId)
       .single()
 
     console.log('🔍 createChat: Team lookup result:', { userTeam, teamError })
@@ -1010,14 +1180,16 @@ export async function createChat(
     console.log('🔧 createChat: Creating chat with data:', {
       name: chatName.trim(),
       team_id: userTeam.team_id,
-      owner_id: coachId
+      owner_id: creatorId,
+      announcement_mode: announcementMode
     })
     const { data: newChat, error: chatError } = await supabase
       .from('chats')
       .insert({
         name: chatName.trim(),
         team_id: userTeam.team_id,
-        owner_id: coachId,
+        owner_id: creatorId,
+        announcement_mode: announcementMode,
         created_at: new Date().toISOString()
       })
       .select('id')
@@ -1033,13 +1205,13 @@ export async function createChat(
 
     console.log('✅ createChat: Chat created successfully:', newChat)
 
-    // Add the coach as an admin member
-    console.log('Adding coach to chat:', { chatId: newChat.id, coachId, role: 'admin' })
+    // Add the creator as an admin member
+    console.log('Adding creator to chat:', { chatId: newChat.id, creatorId, role: 'admin' })
     const { data: coachMemberData, error: coachMemberError } = await supabase
       .from('chat_members')
       .insert({
         chat_id: newChat.id,
-        user_id: coachId,
+        user_id: creatorId,
         role: 'admin'
       })
       .select()

@@ -24,9 +24,11 @@ import {
   ChatData,
   MessageData,
   ChatMemberDisplay,
-  isCoachOrAssistant
+  isCoachOrAssistant,
+  toggleMessageReaction,
+  ReactionType
 } from '@/lib/utils'
-import { Search, Send, Plus, X, Users, MoreVertical, ArrowLeft, MessageCircle, Hash, Trash2, UserPlus } from 'lucide-react'
+import { Search, Send, Plus, X, Users, MoreVertical, ArrowLeft, MessageCircle, Hash, Trash2, UserPlus, ThumbsUp, ThumbsDown } from 'lucide-react'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
 import MainNavigation from '@/components/navigation/MainNavigation'
 import { ChatItemSkeleton } from '@/components/ui/SkeletonLoader'
@@ -48,6 +50,7 @@ export default function MessagesPage() {
   const [newMessage, setNewMessage] = useState('')
   const [showNewChat, setShowNewChat] = useState(false)
   const [newChatName, setNewChatName] = useState('')
+  const [newChatAnnouncementMode, setNewChatAnnouncementMode] = useState(false)
   const [isLoaded, setIsLoaded] = useState(false)
   
   // Local chat data
@@ -118,7 +121,7 @@ export default function MessagesPage() {
       
       setIsLoadingMessages(true)
       try {
-        const chatMessages = await getChatMessages(selectedChatId)
+        const chatMessages = await getChatMessages(selectedChatId, user?.id)
         setMessages(chatMessages)
       } catch (error) {
         console.error('Failed to load messages:', error)
@@ -201,10 +204,16 @@ export default function MessagesPage() {
   )
 
   const selectedChat = selectedChatId ? chats.find(c => c.id === selectedChatId) : null
+  const isAnnouncementLocked = !!(selectedChat?.announcementMode && selectedChat.ownerId && selectedChat.ownerId !== user?.id)
 
   // Send message handler
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedChatId || !user?.id || isSendingMessage) {
+      return
+    }
+
+    if (isAnnouncementLocked) {
+      showToast('Only the coach who created this chat can send announcements.', 'warning')
       return
     }
 
@@ -252,7 +261,7 @@ export default function MessagesPage() {
 
     try {
       console.log('📞 handleCreateChat: Calling createChat function...')
-      const result = await createChat(user.id, newChatName.trim(), selectedMembersToAdd)
+      const result = await createChat(user.id, newChatName.trim(), selectedMembersToAdd, newChatAnnouncementMode)
       console.log('📊 handleCreateChat: Create result:', result)
       
       if (result.success) {
@@ -266,6 +275,7 @@ export default function MessagesPage() {
         setShowNewChat(false)
         setNewChatName('')
         setSelectedMembersToAdd([])
+        setNewChatAnnouncementMode(false)
         
         showToast(`Chat "${newChatName}" created successfully!`, 'success')
       } else {
@@ -320,6 +330,19 @@ export default function MessagesPage() {
       showToast('Failed to add members to chat. Please try again.', 'error')
     } finally {
       setIsAddingMembers(false)
+    }
+  }
+
+  const handleReaction = async (messageId: string, reaction: ReactionType) => {
+    if (!user?.id) return
+    try {
+      const updatedReactions = await toggleMessageReaction(messageId, user.id, reaction)
+      setMessages(prev =>
+        prev.map(msg => (msg.id === messageId ? { ...msg, reactions: updatedReactions } : msg))
+      )
+    } catch (error) {
+      console.error('Failed to toggle reaction:', error)
+      showToast('Unable to update reaction. Please try again.', 'error')
     }
   }
 
@@ -618,6 +641,11 @@ export default function MessagesPage() {
                             {(selectedChat?.memberCount || 0) > 2 && (
                               <Hash className="h-4 w-4 text-purple-500 dark:text-purple-400" />
                             )}
+                            {selectedChat?.announcementMode && (
+                              <span className="text-xs font-semibold text-amber-600 bg-amber-100 dark:bg-amber-500/20 dark:text-amber-200 px-2 py-0.5 rounded-full">
+                                Announcement
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center space-x-2">
                             <span className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></span>
@@ -680,6 +708,12 @@ export default function MessagesPage() {
                     )}
                   </div>
 
+                  {selectedChat?.announcementMode && (
+                    <div className="mx-6 mt-4 rounded-2xl border border-amber-200 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10 p-4 text-sm text-amber-700 dark:text-amber-100">
+                      Announcement mode is on. Only the coach who created this chat can post updates. Team members can react with 👍 or 👎 to acknowledge announcements.
+                    </div>
+                  )}
+
                   {/* Messages */}
                   <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gradient-to-b from-gray-50/50 to-white dark:from-slate-800 dark:to-slate-800">
                     {isLoadingMessages ? (
@@ -691,37 +725,64 @@ export default function MessagesPage() {
                       </div>
                     ) : messages.length > 0 ? (
                       messages.map((msg) => (
-                      <div
-                        key={msg.id}
-                        className={`flex ${msg.sender.id === user.id ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div
-                          className={`max-w-xs lg:max-w-md px-6 py-4 rounded-3xl shadow-lg transition-all duration-300 hover:shadow-xl ${
-                            msg.sender.id === user.id
-                              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
-                              : 'bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 border-2 border-gray-100 dark:border-slate-600 shadow-md'
-                          }`}
-                        >
-                          {msg.sender.id !== user.id && (
-                            <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                              {msg.sender.name}
-                              {msg.isCoach && <span className="ml-1 text-purple-500 dark:text-purple-400">(Coach)</span>}
+                        <div key={msg.id} className="space-y-2">
+                          <div
+                            className={`flex ${msg.sender.id === user.id ? 'justify-end' : 'justify-start'}`}
+                          >
+                            <div
+                              className={`max-w-xs lg:max-w-md px-6 py-4 rounded-3xl shadow-lg transition-all duration-300 hover:shadow-xl ${
+                                msg.sender.id === user.id
+                                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
+                                  : 'bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 border-2 border-gray-100 dark:border-slate-600 shadow-md'
+                              }`}
+                            >
+                              {msg.sender.id !== user.id && (
+                                <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                                  {msg.sender.name}
+                                  {msg.isCoach && <span className="ml-1 text-purple-500 dark:text-purple-400">(Coach)</span>}
+                                </div>
+                              )}
+                              <p className="text-sm leading-relaxed">{msg.message}</p>
+                              <div className={`flex items-center justify-between mt-2 ${
+                                msg.sender.id === user.id ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
+                              }`}>
+                                <span className="text-xs font-medium">
+                                  {formatTimeAgo(msg.created_at)}
+                                </span>
+                                {msg.sender.id === user.id && (
+                                  <span className="text-xs">✓✓</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          {selectedChat?.announcementMode && (
+                            <div className={`flex ${msg.sender.id === user.id ? 'justify-end' : 'justify-start'}`}>
+                              <div className="flex items-center gap-2 rounded-full bg-gray-100 dark:bg-slate-700/60 px-3 py-1">
+                                {(['thumbs_up', 'thumbs_down'] as ReactionType[]).map((reaction) => {
+                                  const counts = msg.reactions?.counts || { thumbs_up: 0, thumbs_down: 0 }
+                                  const isActive = msg.reactions?.userReaction === reaction
+                                  const Icon = reaction === 'thumbs_up' ? ThumbsUp : ThumbsDown
+                                  return (
+                                    <button
+                                      key={reaction}
+                                      type="button"
+                                      onClick={() => handleReaction(msg.id, reaction)}
+                                      className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full border transition-colors ${
+                                        isActive
+                                          ? 'bg-blue-100 border-blue-500 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200'
+                                          : 'border-gray-200 text-gray-600 dark:border-slate-600 dark:text-gray-300 hover:border-blue-400 hover:text-blue-600'
+                                      }`}
+                                    >
+                                      <Icon className="h-3 w-3" />
+                                      <span>{counts[reaction]}</span>
+                                    </button>
+                                  )
+                                })}
+                              </div>
                             </div>
                           )}
-                          <p className="text-sm leading-relaxed">{msg.message}</p>
-                          <div className={`flex items-center justify-between mt-2 ${
-                            msg.sender.id === user.id ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
-                          }`}>
-                            <span className="text-xs font-medium">
-                              {formatTimeAgo(msg.created_at)}
-                            </span>
-                            {msg.sender.id === user.id && (
-                              <span className="text-xs">✓✓</span>
-                            )}
-                          </div>
                         </div>
-                      </div>
-                    ))
+                      ))
                     ) : (
                       <div className="flex items-center justify-center h-full">
                         <div className="text-center">
@@ -739,11 +800,14 @@ export default function MessagesPage() {
                       <div className="flex-1 relative">
                         <input
                           type="text"
-                          placeholder="Type your message..."
+                            placeholder={isAnnouncementLocked ? 'Announcement mode: only the creator can post.' : 'Type your message...'}
                           value={newMessage}
                           onChange={(e) => setNewMessage(e.target.value)}
                           onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                          className="w-full px-4 sm:px-6 py-3 sm:py-4 border-2 border-gray-200 dark:border-slate-600 rounded-2xl focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 bg-gray-50 dark:bg-slate-700 focus:bg-white dark:focus:bg-slate-700 text-sm sm:text-base text-gray-900 dark:text-gray-100"
+                            disabled={isAnnouncementLocked}
+                            className={`w-full px-4 sm:px-6 py-3 sm:py-4 border-2 border-gray-200 dark:border-slate-600 rounded-2xl focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 bg-gray-50 dark:bg-slate-700 focus:bg-white dark:focus:bg-slate-700 text-sm sm:text-base text-gray-900 dark:text-gray-100 ${
+                              isAnnouncementLocked ? 'cursor-not-allowed opacity-60' : ''
+                            }`}
                         />
                         <div className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2 flex items-center space-x-1 sm:space-x-2">
                           <button className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
@@ -756,7 +820,7 @@ export default function MessagesPage() {
                       </div>
                       <button
                         onClick={handleSendMessage}
-                        disabled={!newMessage.trim() || isSendingMessage}
+                        disabled={!newMessage.trim() || isSendingMessage || isAnnouncementLocked}
                         className="p-3 sm:p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl hover:shadow-lg transition-all duration-300 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 touch-manipulation"
                       >
                         {isSendingMessage ? (
@@ -800,7 +864,10 @@ export default function MessagesPage() {
               <div className="flex items-center justify-between">
                 <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">Create Chat</h3>
                 <button
-                  onClick={() => setShowNewChat(false)}
+                  onClick={() => {
+                    setShowNewChat(false)
+                    setNewChatAnnouncementMode(false)
+                  }}
                   className="p-1.5 sm:p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                 >
                   <X className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -822,9 +889,32 @@ export default function MessagesPage() {
                 />
               </div>
 
+              <div className="mb-6 rounded-2xl border border-gray-200 dark:border-slate-700 p-4 flex items-start justify-between gap-4 bg-gray-50 dark:bg-slate-700/40">
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Announcement mode</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Only you can post updates. Everyone else can react with 👍 or 👎.
+                  </p>
+                </div>
+                <label className="inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={newChatAnnouncementMode}
+                    onChange={(e) => setNewChatAnnouncementMode(e.target.checked)}
+                  />
+                  <div className="w-12 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:bg-blue-500 relative transition-colors">
+                    <div className={`absolute top-1 left-1 h-4 w-4 bg-white rounded-full transition-transform ${newChatAnnouncementMode ? 'translate-x-6' : ''}`}></div>
+                  </div>
+                </label>
+              </div>
+
               <div className="flex items-center justify-end space-x-3">
                 <button
-                  onClick={() => setShowNewChat(false)}
+                  onClick={() => {
+                    setShowNewChat(false)
+                    setNewChatAnnouncementMode(false)
+                  }}
                   className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
                 >
                   Cancel

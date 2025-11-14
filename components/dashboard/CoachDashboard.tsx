@@ -463,7 +463,7 @@ const CoachDashboard = React.memo(function CoachDashboard() {
 
     setIsCreatingChat(true)
     try {
-      const result = await createChat(user.id, newChatName.trim(), selectedMembers)
+      const result = await createChat(user.id, newChatName.trim(), selectedMembers, false)
       
       if (result.success) {
         console.log('Chat created successfully, updating local state...')
@@ -475,7 +475,9 @@ const CoachDashboard = React.memo(function CoachDashboard() {
           lastMessage: null,
           lastMessageTime: null,
           unread: false,
-          memberCount: selectedMembers.length + 1 // +1 for the creator
+          memberCount: selectedMembers.length + 1, // +1 for the creator
+          announcementMode: false,
+          ownerId: user.id
         }
         
         // Update local state immediately

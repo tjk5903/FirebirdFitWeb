@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { getTeamEvents, createEvent, updateEvent, deleteEvent, isCoachOrAssistant } from '@/lib/utils'
-import { Calendar, Plus, Edit, Trash2, Clock, MapPin, Users, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
+import { Calendar, Plus, Edit, Trash2, Clock, MapPin, Users, ChevronLeft, ChevronRight, ArrowLeft, Share2 } from 'lucide-react'
 import MainNavigation from '@/components/navigation/MainNavigation'
 import AttendanceButtons from '@/components/ui/AttendanceButtons'
 
@@ -40,6 +40,11 @@ export default function CalendarPage() {
   }>>([])
   const [isLoadingEvents, setIsLoadingEvents] = useState(false)
   const [isCreatingEvent, setIsCreatingEvent] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [shareEmailsInput, setShareEmailsInput] = useState('')
+  const [shareNote, setShareNote] = useState('')
+  const [isSharingCalendar, setIsSharingCalendar] = useState(false)
+  const [shareError, setShareError] = useState<string | null>(null)
   
   const [eventForm, setEventForm] = useState({
     title: '',
@@ -53,6 +58,12 @@ export default function CalendarPage() {
   })
 
   const isCoach = user?.role ? isCoachOrAssistant(user.role) : false
+  const MAX_SHARE_RECIPIENTS = 8
+  const parsedShareEmails = shareEmailsInput
+    .split(/[\s,;]+/)
+    .map(email => email.trim().toLowerCase())
+    .filter(email => email.length > 0)
+    .filter((email, index, arr) => arr.indexOf(email) === index)
 
   // Load events when user loads
   useEffect(() => {
@@ -238,6 +249,64 @@ export default function CalendarPage() {
     }
   }
 
+  const handleShareCalendar = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    setShareError(null)
+
+    if (parsedShareEmails.length === 0) {
+      setShareError('Please enter at least one valid email address.')
+      return
+    }
+
+    if (parsedShareEmails.length > MAX_SHARE_RECIPIENTS) {
+      setShareError(`You can share with up to ${MAX_SHARE_RECIPIENTS} addresses at a time.`)
+      return
+    }
+
+    const invalidEmails = parsedShareEmails.filter(email => !emailRegex.test(email))
+    if (invalidEmails.length > 0) {
+      setShareError(`Invalid email${invalidEmails.length > 1 ? 's' : ''}: ${invalidEmails.join(', ')}`)
+      return
+    }
+
+    if (!user) {
+      setShareError('You must be signed in to share the calendar.')
+      return
+    }
+
+    setIsSharingCalendar(true)
+    try {
+      const response = await fetch('/api/calendar/share', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          recipientEmails: parsedShareEmails,
+          note: shareNote || undefined,
+          userId: user.id
+        })
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || 'Unable to share calendar right now.')
+      }
+
+      showToast('Calendar shared successfully!', 'success')
+      setShowShareModal(false)
+      setShareEmailsInput('')
+      setShareNote('')
+    } catch (error: any) {
+      console.error('Error sharing calendar:', error)
+      setShareError(error.message || 'Failed to share calendar. Please try again.')
+      showToast('Failed to share calendar.', 'error')
+    } finally {
+      setIsSharingCalendar(false)
+    }
+  }
+
   const handleEditEvent = (event: any) => {
     setEditingEvent(event)
     
@@ -328,6 +397,7 @@ export default function CalendarPage() {
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ]
+  const upcomingEventsPreview = getUpcomingEvents().slice(0, 4)
 
   // Redirect to login if no user (with small delay to allow auth restoration)
   useEffect(() => {
@@ -373,27 +443,36 @@ export default function CalendarPage() {
               <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">Manage your team schedule and events</p>
             </div>
           </div>
-          {isCoach && (
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => {
-                setEventForm({
-                  title: '',
-                  date: '',
-                  time: '',
-                  duration: '60',
-                  location: '',
-                  type: 'practice',
-                  description: '',
-                  attendees: ''
-                })
-                setShowCreateEvent(true)
-              }}
-              className="flex items-center space-x-2 bg-blue-500 hover:bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-2xl transition-colors text-sm sm:text-base"
+              onClick={() => setShowShareModal(true)}
+              className="flex items-center space-x-2 bg-gray-200 hover:bg-gray-300 text-gray-900 px-3 sm:px-4 py-2 rounded-2xl transition-colors text-sm sm:text-base dark:bg-slate-700 dark:text-gray-100 dark:hover:bg-slate-600"
             >
-              <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
-              <span>Create Event</span>
+              <Share2 className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span>Share Calendar</span>
             </button>
-          )}
+            {isCoach && (
+              <button
+                onClick={() => {
+                  setEventForm({
+                    title: '',
+                    date: '',
+                    time: '',
+                    duration: '60',
+                    location: '',
+                    type: 'practice',
+                    description: '',
+                    attendees: ''
+                  })
+                  setShowCreateEvent(true)
+                }}
+                className="flex items-center space-x-2 bg-blue-500 hover:bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-2xl transition-colors text-sm sm:text-base"
+              >
+                <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span>Create Event</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Calendar Navigation */}
@@ -599,6 +678,114 @@ export default function CalendarPage() {
           </div>
         </div>
       </div>
+
+      {/* Share Calendar Modal */}
+      {showShareModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-lg">
+            <div className="p-6 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Share Calendar</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Send upcoming events to parents, supporters, or anyone who needs visibility.
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowShareModal(false)
+                  setShareError(null)
+                }}
+                className="p-2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
+              >
+                <span className="text-2xl">&times;</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleShareCalendar} className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                  Recipient emails
+                </label>
+                <textarea
+                  rows={3}
+                  value={shareEmailsInput}
+                  onChange={(e) => setShareEmailsInput(e.target.value)}
+                  placeholder="parent1@email.com, parent2@email.com"
+                  className="w-full px-4 py-3 border-2 border-gray-200 dark:border-slate-600 rounded-2xl focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                />
+                <div className="flex items-center justify-between mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  <span>Separate addresses with commas or spaces.</span>
+                  <span>{parsedShareEmails.length}/{MAX_SHARE_RECIPIENTS}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+                  Optional note
+                </label>
+                <textarea
+                  rows={3}
+                  value={shareNote}
+                  onChange={(e) => setShareNote(e.target.value)}
+                  placeholder="Add any extra context for the recipients..."
+                  className="w-full px-4 py-3 border-2 border-gray-200 dark:border-slate-600 rounded-2xl focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-500/30 focus:border-blue-500 dark:focus:border-blue-400 transition-all duration-300 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                />
+              </div>
+
+              <div className="bg-gray-50 dark:bg-slate-700/40 rounded-2xl p-4">
+                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Upcoming highlights</p>
+                {upcomingEventsPreview.length > 0 ? (
+                  <div className="space-y-2">
+                    {upcomingEventsPreview.map(event => (
+                      <div key={event.id} className="flex items-start space-x-3 text-sm text-gray-700 dark:text-gray-200">
+                        <div className="mt-1 h-2 w-2 rounded-full bg-blue-500"></div>
+                        <div>
+                          <p className="font-medium">{event.title}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {formatDate(event.start_time)} · {formatTime(event.start_time)}{event.location ? ` · ${event.location}` : ''}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No events scheduled over the next week.</p>
+                )}
+              </div>
+
+              {shareError && (
+                <p className="text-sm text-red-500">{shareError}</p>
+              )}
+
+              <div className="flex items-center justify-end space-x-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowShareModal(false)
+                    setShareError(null)
+                  }}
+                  className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
+                  disabled={isSharingCalendar}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSharingCalendar || parsedShareEmails.length === 0}
+                  className="flex items-center space-x-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-2xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSharingCalendar ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <Share2 className="h-4 w-4" />
+                  )}
+                  <span>{isSharingCalendar ? 'Sending...' : 'Send Calendar'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Create/Edit Event Modal */}
       {showCreateEvent && (
