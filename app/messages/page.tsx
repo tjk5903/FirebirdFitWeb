@@ -717,8 +717,21 @@ export default function MessagesPage() {
                       messages.map((msg) => (
                         <div key={msg.id} className="space-y-2">
                           <div
-                            className={`flex ${msg.sender.id === user.id ? 'justify-end' : 'justify-start'}`}
+                            className={`flex items-end gap-2 ${msg.sender.id === user.id ? 'justify-end' : 'justify-start'}`}
                           >
+                            {msg.sender.id !== user.id && (
+                              <div className="h-8 w-8 rounded-full overflow-hidden bg-gradient-to-br from-royal-blue to-blue-600 text-white font-semibold text-xs flex items-center justify-center flex-shrink-0">
+                                {msg.sender.avatar ? (
+                                  <img 
+                                    src={msg.sender.avatar} 
+                                    alt={msg.sender.name} 
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <span>{generateAvatar(msg.sender.name)}</span>
+                                )}
+                              </div>
+                            )}
                             <div
                               className={`max-w-xs lg:max-w-md px-6 py-4 rounded-3xl shadow-lg transition-all duration-300 hover:shadow-xl ${
                                 msg.sender.id === user.id
@@ -744,6 +757,19 @@ export default function MessagesPage() {
                                 )}
                               </div>
                             </div>
+                            {msg.sender.id === user.id && (
+                              <div className="h-8 w-8 rounded-full overflow-hidden bg-gradient-to-br from-royal-blue to-blue-600 text-white font-semibold text-xs flex items-center justify-center flex-shrink-0">
+                                {user?.avatar ? (
+                                  <img 
+                                    src={user.avatar} 
+                                    alt={user.name || 'You'} 
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <span>{generateAvatar(user?.name || user?.email || 'You')}</span>
+                                )}
+                              </div>
+                            )}
                           </div>
                           {selectedChat?.announcementMode && (
                             <div className={`flex ${msg.sender.id === user.id ? 'justify-end' : 'justify-start'}`}>
