@@ -29,7 +29,7 @@ import FirebirdLogo from '@/components/ui/FirebirdLogo'
 import { supabase } from '@/lib/supabaseClient'
 
 export default function ProfilePage() {
-  const { user, logout } = useAuth()
+  const { user, logout, refreshUser } = useAuth()
   const router = useRouter()
   const [isLoaded, setIsLoaded] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -297,11 +297,11 @@ export default function ProfilePage() {
           localPreviewUrlRef.current = null
         }
         
+        // Refresh user context to get updated avatar
+        await refreshUser()
+        
         // Clear success message after 3 seconds
         setTimeout(() => setProfileSaveSuccess(''), 3000)
-        
-        // TODO: Update user context with new data
-        // This would require adding a refresh function to AuthContext
       } else {
         setProfileSaveError(result.error || 'Failed to update profile')
       }

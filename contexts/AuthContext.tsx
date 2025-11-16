@@ -9,6 +9,7 @@ interface AuthContextType {
   user: User | null
   signInWithMagicLink: (email: string, role: UserRole) => Promise<void>
   updateUserRole: (newRole: UserRole) => Promise<void>
+  refreshUser: () => Promise<void>
   logout: () => Promise<void>
   isLoading: boolean
   error: string | null
@@ -574,6 +575,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
   }
 
+  // Refresh user data from database
+  const refreshUser = async () => {
+    if (!user) return
+    
+    try {
+      console.log('🔄 Refreshing user data from database')
+      
+      // Get current session
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) {
+        console.warn('No session found, cannot refresh user')
+        return
+      }
+      
+      // Fetch fresh user profile from database
+      const { data: currentProfile, error: profileError } = await supabase
+        .from('users')
+        .select('id, email, full_name, role, avatar, created_at')
+        .eq('id', session.user.id)
+        .single()
+
+      if (profileError) {
+        console.error('Error refreshing user profile:', profileError)
+        return
+      }
+
+      if (currentProfile) {
+        const updatedUser: User = {
+          id: currentProfile.id,
+          email: currentProfile.email,
+          name: currentProfile.full_name || currentProfile.email,
+          full_name: currentProfile.full_name || currentProfile.email,
+          role: currentProfile.role as UserRole,
+          avatar: currentProfile.avatar || ''
+        }
+        
+        console.log('✅ User data refreshed:', updatedUser.email)
+        setUser(updatedUser)
+        
+        // Update cache
+        try {
+          localStorage.setItem('cached_user', JSON.stringify(updatedUser))
+          localStorage.setItem('cached_user_timestamp', Date.now().toString())
+        } catch (e) {
+          console.warn('Failed to update cached user:', e)
+        }
+      }
+    } catch (error) {
+      console.error('Error in refreshUser:', error)
+    }
+  }
+
   // Logout
   const logout = async () => {
     try {
@@ -604,7 +657,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, signInWithMagicLink, updateUserRole, logout, isLoading, error, clearError, getDashboardRoute }}>
+    <AuthContext.Provider value={{ user, signInWithMagicLink, updateUserRole, refreshUser, logout, isLoading, error, clearError, getDashboardRoute }}>
       {children}
     </AuthContext.Provider>
   )
