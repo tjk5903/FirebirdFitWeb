@@ -696,7 +696,11 @@ export default function ProfilePage() {
                   <div className="relative">
                     <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-gradient-to-br from-royal-blue to-dark-blue flex items-center justify-center text-white font-bold text-xl sm:text-2xl overflow-hidden">
                       {avatarPreview ? (
-                        <img src={avatarPreview} alt={profileData.name} className="h-full w-full object-cover" />
+                        <img 
+                          src={avatarPreview} 
+                          alt={profileData.name} 
+                          className="h-full w-full object-cover"
+                        />
                       ) : (
                         profileData.name.split(' ').map(n => n[0]).join('').slice(0, 2)
                       )}
