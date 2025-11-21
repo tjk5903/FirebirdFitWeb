@@ -39,6 +39,8 @@ import FirebirdLogo from '@/components/ui/FirebirdLogo'
 import { SmartLoadingMessage, EmptyState } from '@/components/ui/LoadingStates'
 import { MemoizedMessageItem, MemoizedQuickAction } from '@/components/ui/MemoizedComponents'
 import MemberSelector from '@/components/ui/MemberSelector'
+import TeamSelector from '@/components/ui/TeamSelector'
+import { useTeamContext } from '@/contexts/TeamContext'
 
 const mockTeamStats: TeamStats = {
   totalAthletes: 24,
@@ -93,10 +95,11 @@ const MAX_EXPANDED_CHATS = 4
 const CoachDashboard = React.memo(function CoachDashboard() {
   const { user, logout } = useAuth()
   const { teams, workouts, updateWorkouts, refreshWorkouts, chats, updateChats, refreshChats } = useAppState()
+  const { selectedTeamId, userTeams } = useTeamContext()
   const router = useRouter()
   
-  // Get the first team (coaches typically manage one team at a time)
-  const selectedTeam = teams?.[0]
+  // Get the selected team from TeamContext
+  const selectedTeam = userTeams.find(team => team.id === selectedTeamId)
   
   // Refs for modal click-outside detection
   const createWorkoutModalRef = useRef<HTMLDivElement>(null)
@@ -192,14 +195,14 @@ const CoachDashboard = React.memo(function CoachDashboard() {
 
   // Messages are now loaded via the useTeamMessages hook
 
-  // Load events when user loads
+  // Load events when user loads or team changes
   useEffect(() => {
     const loadEvents = async () => {
-      if (!user) return
+      if (!user || !selectedTeamId) return
       
       setIsLoadingEvents(true)
       try {
-        const teamEvents = await getTeamEvents(user.id)
+        const teamEvents = await getTeamEvents(user.id, selectedTeamId)
         setEvents(teamEvents)
       } catch (error) {
         console.error('Error loading events:', error)
@@ -209,7 +212,7 @@ const CoachDashboard = React.memo(function CoachDashboard() {
     }
 
     loadEvents()
-  }, [user])
+  }, [user, selectedTeamId])
 
   // Handle click outside modals
   useEffect(() => {
@@ -292,6 +295,12 @@ const CoachDashboard = React.memo(function CoachDashboard() {
       alert('User not authenticated')
       return
     }
+
+    if (!selectedTeamId) {
+      console.log('❌ No team selected')
+      alert('Please select a team first')
+      return
+    }
     
     setIsCreatingWorkout(true)
     
@@ -311,7 +320,7 @@ const CoachDashboard = React.memo(function CoachDashboard() {
 
       console.log('Formatted exercises:', formattedExercises)
 
-      const result = await createWorkout(user.id, {
+      const result = await createWorkout(user.id, selectedTeamId, {
         title: workoutName,
         description: workoutDescription,
         exercises: formattedExercises
@@ -329,7 +338,7 @@ const CoachDashboard = React.memo(function CoachDashboard() {
           description: workoutDescription,
           date_assigned: new Date().toISOString(),
           assigned_to: null,
-          team_id: teams?.[0]?.id || '',
+          team_id: selectedTeamId || '',
           exercises: formattedExercises.map(exercise => ({
             name: exercise.name,
             sets: exercise.sets,
@@ -399,7 +408,7 @@ const CoachDashboard = React.memo(function CoachDashboard() {
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user || !eventForm.title || !eventForm.date || !eventForm.time) return
+    if (!user || !selectedTeamId || !eventForm.title || !eventForm.date || !eventForm.time) return
 
     setIsCreatingEvent(true)
     
@@ -409,7 +418,7 @@ const CoachDashboard = React.memo(function CoachDashboard() {
       const startTime = new Date(startDateTime)
       const endTime = new Date(startTime.getTime() + parseInt(eventForm.duration) * 60 * 1000)
 
-      const result = await createEvent(user.id, {
+      const result = await createEvent(user.id, selectedTeamId, {
         title: eventForm.title,
         description: eventForm.description || '',
         event_type: eventForm.type,
@@ -422,9 +431,9 @@ const CoachDashboard = React.memo(function CoachDashboard() {
         console.log('Event created successfully')
         
         // Refresh events list
-        if (user) {
+        if (user && selectedTeamId) {
           try {
-            const teamEvents = await getTeamEvents(user.id)
+            const teamEvents = await getTeamEvents(user.id, selectedTeamId)
             setEvents(teamEvents)
           } catch (error) {
             console.error('Error refreshing events:', error)
@@ -468,11 +477,11 @@ const CoachDashboard = React.memo(function CoachDashboard() {
 
   // Handle create chat
   const handleCreateChat = async () => {
-    if (!newChatName.trim() || !user?.id) return
+    if (!newChatName.trim() || !user?.id || !selectedTeamId) return
 
     setIsCreatingChat(true)
     try {
-      const result = await createChat(user.id, newChatName.trim(), selectedMembers, false)
+      const result = await createChat(user.id, selectedTeamId, newChatName.trim(), selectedMembers, false)
       
       if (result.success) {
         console.log('Chat created successfully, updating local state...')
@@ -564,8 +573,8 @@ const CoachDashboard = React.memo(function CoachDashboard() {
             </div>
             
             {/* Navigation Tabs - Compact on Mobile */}
-            <div className="flex items-center justify-center flex-1 px-1 sm:px-4 min-w-0">
-              <div className="flex space-x-0.5 sm:space-x-1 p-0.5 sm:p-2 bg-gray-100 dark:bg-slate-800 rounded-lg sm:rounded-2xl overflow-x-auto scrollbar-hide">
+            <div className="flex items-center justify-center flex-1 px-1 sm:px-2 md:px-4 min-w-0">
+              <div className="flex space-x-0.5 sm:space-x-1 p-0.5 sm:p-1.5 md:p-2 bg-gray-100 dark:bg-slate-800 rounded-lg sm:rounded-2xl overflow-x-auto scrollbar-hide">
                 {[
                   { id: 'workouts', label: 'Workouts', icon: Dumbbell, href: '/workouts' },
                   { id: 'calendar', label: 'Calendar', icon: Calendar, href: '/calendar' },
@@ -580,14 +589,15 @@ const CoachDashboard = React.memo(function CoachDashboard() {
                       onClick={() => {
                         router.push(tab.href)
                       }}
-                      className={`flex items-center justify-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg sm:rounded-xl font-medium transition-all duration-200 min-w-[60px] sm:min-w-[80px] touch-manipulation ${
+                      className={`flex items-center justify-center space-x-1 sm:space-x-2 px-3 sm:px-3 md:px-4 py-2.5 sm:py-2 rounded-lg sm:rounded-xl font-medium transition-all duration-200 min-w-[60px] sm:min-w-[60px] md:min-w-[80px] touch-manipulation ${
                         isActive
                           ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
                           : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-slate-700/50 active:bg-white/70 dark:active:bg-slate-700/70'
                       }`}
+                      title={tab.label}
                     >
-                      <Icon className="h-4 w-4 sm:h-4 sm:w-4 flex-shrink-0" />
-                      <span className="hidden sm:block text-sm whitespace-nowrap">{tab.label}</span>
+                      <Icon className="h-4 w-4 sm:h-4 md:h-4 sm:w-4 md:w-4 flex-shrink-0" />
+                      <span className="hidden lg:block text-sm whitespace-nowrap">{tab.label}</span>
                     </button>
                   )
                 })}
@@ -595,8 +605,13 @@ const CoachDashboard = React.memo(function CoachDashboard() {
             </div>
             
             {/* Right Side - Ultra Compact Mobile */}
-            <div className="flex items-center space-x-0.5 sm:space-x-3 flex-shrink-0">
+            <div className="flex items-center space-x-0.5 sm:space-x-1.5 md:space-x-2 lg:space-x-3 flex-shrink-0">
               <NotificationCenter />
+              
+              {/* Team Selector - Only shows if user has 2+ teams */}
+              {userTeams.length >= 2 && (
+                <TeamSelector />
+              )}
               
               {/* Mobile Menu Button */}
               <div className="relative" ref={menuRef}>
@@ -1289,6 +1304,7 @@ const CoachDashboard = React.memo(function CoachDashboard() {
                     onMemberToggle={toggleMemberSelection}
                     onMembersChange={setSelectedMembers}
                     userId={user?.id || ''}
+                    teamId={selectedTeamId || ''}
                     title="Select Members (Optional)"
                     description="You can add members now or later. Group chats can be created without initial members."
                   />

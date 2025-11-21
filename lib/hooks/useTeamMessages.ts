@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { getUserChats, ChatData, formatTimeAgo, generateAvatar } from '@/lib/utils'
 import { useAppState } from '@/contexts/AppStateContext'
+import { useTeamContext } from '@/contexts/TeamContext'
 
 export function useTeamMessages(userId: string | undefined) {
+  const { selectedTeamId } = useTeamContext()
   const [teamMessages, setTeamMessages] = useState<any[]>([])
   const [isLoadingMessages, setIsLoadingMessages] = useState(true)
   const { invalidateCache } = useAppState()
@@ -18,9 +20,13 @@ export function useTeamMessages(userId: string | undefined) {
       try {
         setIsLoadingMessages(true)
         const chats = await getUserChats(userId)
+        // Filter chats by selected team if teamId is available
+        const filteredChats = selectedTeamId 
+          ? chats.filter(chat => chat.teamId === selectedTeamId)
+          : chats
         
         // Transform ChatData to match the expected format for the dashboard
-        const transformedMessages = chats.map((chat: ChatData) => ({
+        const transformedMessages = filteredChats.map((chat: ChatData) => ({
           id: chat.id,
           name: chat.name,
           lastMessage: chat.lastMessage || 'No messages yet',
@@ -42,7 +48,7 @@ export function useTeamMessages(userId: string | undefined) {
     }
 
     fetchMessages()
-  }, [userId])
+  }, [userId, selectedTeamId])
 
   // Removed the problematic AppState listener that was causing infinite loops
 
@@ -58,9 +64,13 @@ export function useTeamMessages(userId: string | undefined) {
           invalidateCache(['chats'])
           
           const chats = await getUserChats(userId)
+          // Filter chats by selected team if teamId is available
+          const filteredChats = selectedTeamId 
+            ? chats.filter(chat => chat.teamId === selectedTeamId)
+            : chats
           
           // Transform ChatData to match the expected format for the dashboard
-          const transformedMessages = chats.map((chat: ChatData) => ({
+          const transformedMessages = filteredChats.map((chat: ChatData) => ({
             id: chat.id,
             name: chat.name,
             lastMessage: chat.lastMessage || 'No messages yet',
@@ -82,7 +92,7 @@ export function useTeamMessages(userId: string | undefined) {
       }
       fetchMessages()
     }
-  }, [userId, invalidateCache])
+  }, [userId, invalidateCache, selectedTeamId])
 
   // Memoize the return object to prevent unnecessary re-renders
   const memoizedReturn = useMemo(() => ({

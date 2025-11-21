@@ -16,6 +16,7 @@ interface MemberSelectorProps {
   onMemberToggle: (memberId: string) => void
   onMembersChange: (memberIds: string[]) => void
   userId: string
+  teamId: string
   title?: string
   description?: string
 }
@@ -25,6 +26,7 @@ export default function MemberSelector({
   onMemberToggle,
   onMembersChange,
   userId,
+  teamId,
   title = "Select Members",
   description = "Choose team members to add to this chat"
 }: MemberSelectorProps) {
@@ -36,13 +38,13 @@ export default function MemberSelector({
   // Load team members
   useEffect(() => {
     const loadTeamMembers = async () => {
-      if (!userId) return
+      if (!userId || !teamId) return
       
       setIsLoading(true)
       setError(null)
       
       try {
-        const members = await getTeamMembers(userId)
+        const members = await getTeamMembers(userId, teamId)
         setTeamMembers(members)
       } catch (err) {
         console.error('Error loading team members:', err)
@@ -53,7 +55,7 @@ export default function MemberSelector({
     }
 
     loadTeamMembers()
-  }, [userId])
+  }, [userId, teamId])
 
   // Filter members based on search term
   const filteredMembers = teamMembers.filter(member =>

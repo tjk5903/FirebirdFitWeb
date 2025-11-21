@@ -99,7 +99,7 @@ export type UserRole = 'coach' | 'athlete' | 'assistant_coach'
 
 // Permission helper functions
 export const canCreateTeams = (userRole: UserRole): boolean => {
-  return userRole === 'coach'
+  return userRole === 'coach' || userRole === 'assistant_coach'
 }
 
 export const canCreateGroupChats = (userRole: UserRole): boolean => {
@@ -269,6 +269,7 @@ export interface ChatData {
   announcementMode?: boolean
   ownerId?: string
   avatar?: string | null
+  teamId?: string
 }
 
 // Type definitions for Supabase query results
@@ -281,6 +282,7 @@ type UserChatResult = {
     owner_id: string | null
     announcement_mode: boolean | null
     avatar?: string | null
+    team_id: string | null
   }
 }
 
@@ -306,7 +308,8 @@ export async function getUserChats(userId: string): Promise<ChatData[]> {
           created_at,
           owner_id,
           announcement_mode,
-          avatar
+          avatar,
+          team_id
         )
       `)
       .eq('user_id', userId) as { data: UserChatResult[] | null, error: any }
@@ -391,7 +394,8 @@ export async function getUserChats(userId: string): Promise<ChatData[]> {
         memberCount: memberCountMap.get(chat.id) || 0,
         announcementMode: Boolean(chat.announcement_mode),
         ownerId: chat.owner_id || undefined,
-        avatar: chat.avatar || null
+        avatar: chat.avatar || null,
+        teamId: chat.team_id || undefined
       }
     })
 
@@ -1122,12 +1126,13 @@ export async function getAvailableUsersForChat(chatId: string, teamId?: string):
 // Create a chat - simple function that just creates a chat with selected members
 export async function createChat(
   creatorId: string,
+  teamId: string,
   chatName: string,
   memberIds: string[] = [],
   announcementMode: boolean = false
 ): Promise<{ success: boolean; chatId?: string; error?: string }> {
   try {
-    console.log('🔧 createChat: Starting with creatorId:', creatorId)
+    console.log('🔧 createChat: Starting with creatorId:', creatorId, 'teamId:', teamId)
     console.log('🔧 createChat: Chat name:', chatName)
     console.log('🔧 createChat: Member IDs:', memberIds)
     console.log('🔧 createChat: Announcement mode:', announcementMode)
@@ -1147,19 +1152,20 @@ export async function createChat(
       return { success: false, error: 'Only coaches and assistant coaches can create chats' }
     }
 
-    // Get the creator's team
-    console.log('🔍 createChat: Getting creator team...')
-    const { data: userTeam, error: teamError } = await supabase
+    // Verify user is a member of the specified team
+    console.log('🔍 createChat: Verifying team membership...')
+    const { data: userTeamMembership, error: membershipError } = await supabase
       .from('team_members')
       .select('team_id')
       .eq('user_id', creatorId)
+      .eq('team_id', teamId)
       .single()
 
-    console.log('🔍 createChat: Team lookup result:', { userTeam, teamError })
+    console.log('🔍 createChat: Team membership verification:', { userTeamMembership, membershipError })
 
-    if (teamError) {
+    if (membershipError || !userTeamMembership) {
       console.log('🚨 createChat: Team verification failed')
-      return { success: false, error: `Unable to verify team membership: ${teamError.message}` }
+      return { success: false, error: `Unable to verify team membership: ${membershipError?.message || 'User is not a member of this team'}` }
     }
 
     // If members are provided, verify they're all part of the same team
@@ -1174,7 +1180,7 @@ export async function createChat(
       }
 
       // Check if all members are in the same team
-      const allInSameTeam = memberTeams.every((member: any) => member.team_id === userTeam.team_id)
+      const allInSameTeam = memberTeams.every((member: any) => member.team_id === teamId)
       if (!allInSameTeam) {
         return { success: false, error: 'All members must be in the same team' }
       }
@@ -1183,7 +1189,7 @@ export async function createChat(
     // Create the chat - no type needed, just a simple chat
     console.log('🔧 createChat: Creating chat with data:', {
       name: chatName.trim(),
-      team_id: userTeam.team_id,
+      team_id: teamId,
       owner_id: creatorId,
       announcement_mode: announcementMode
     })
@@ -1191,7 +1197,7 @@ export async function createChat(
       .from('chats')
       .insert({
         name: chatName.trim(),
-        team_id: userTeam.team_id,
+        team_id: teamId,
         owner_id: creatorId,
         announcement_mode: announcementMode,
         created_at: new Date().toISOString()
@@ -1406,20 +1412,6 @@ export async function deleteChat(
 // Create a new team and add the coach as a member
 export async function createTeam(coachId: string, coachName: string): Promise<{ teamId: string, joinCode: string }> {
   try {
-    // First, check if coach is already part of any team
-    const { data: existingTeams, error: existingTeamsError } = await supabase
-      .from('team_members')
-      .select('id')
-      .eq('user_id', coachId)
-
-    if (existingTeamsError) {
-      throw existingTeamsError
-    }
-
-    if (existingTeams && existingTeams.length > 0) {
-      throw new Error('You are already part of a team')
-    }
-
     // Generate unique join code
     const joinCode = await generateUniqueJoinCode()
     
@@ -1427,6 +1419,7 @@ export async function createTeam(coachId: string, coachName: string): Promise<{ 
     const teamName = `Team ${joinCode}`
     
     // Insert new team
+    console.log('🔧 Creating team with coach_id:', coachId)
     const { data: team, error: teamError } = await supabase
       .from('teams')
       .insert({
@@ -1439,31 +1432,177 @@ export async function createTeam(coachId: string, coachName: string): Promise<{ 
       .single()
 
     if (teamError) {
+      console.error('❌ Error creating team:', teamError)
       throw teamError
+    }
+    
+    console.log('✅ Team created successfully:', { team_id: team.id, coach_id: team.coach_id })
+    
+    // Verify the team was created with the correct coach_id
+    if (team.coach_id !== coachId) {
+      console.error('❌ Team coach_id mismatch!', { expected: coachId, actual: team.coach_id })
+      throw new Error('Team was created but coach_id does not match')
     }
 
     // Add coach as team member
-    const { error: memberError } = await supabase
-      .from('team_members')
-      .insert({
-        team_id: team.id,
-        user_id: coachId,
-        role: 'coach',
-        joined_at: new Date().toISOString()
-      })
+    // Use a database function to bypass RLS issues
+    console.log('🔧 Creating team member record:', { team_id: team.id, user_id: coachId, role: 'coach' })
+    
+    let memberError = null
+    let memberCreated = false
+    
+    // Try using the database function first (if it exists)
+    const { data: functionResult, error: functionErr } = await supabase.rpc('create_team_member', {
+      p_team_id: team.id,
+      p_user_id: coachId,
+      p_role: 'coach'
+    })
+    
+    if (!functionErr) {
+      // Function succeeded (even if it returned NULL due to conflict, that's OK)
+      console.log('✅ Team member function executed:', functionResult)
+      // If function returned a UUID, member was created. If NULL, it already existed (ON CONFLICT DO NOTHING)
+      if (functionResult) {
+        console.log('✅ Team member created via function:', functionResult)
+        memberCreated = true
+      } else {
+        // Function returned NULL - check if record exists (might have been created by function)
+        console.log('⚠️ Function returned NULL - checking if record exists...')
+        await new Promise(resolve => setTimeout(resolve, 300))
+        const { data: checkRecord } = await supabase
+          .from('team_members')
+          .select('id')
+          .eq('team_id', team.id)
+          .eq('user_id', coachId)
+          .maybeSingle()
+        
+        if (checkRecord) {
+          console.log('✅ Record exists - function worked (ON CONFLICT handled)')
+          memberCreated = true
+        } else {
+          console.log('⚠️ Function returned NULL and record not found - trying direct insert...')
+        }
+      }
+    }
+    
+    if (!memberCreated) {
+      console.log('⚠️ Function not available or failed, trying direct insert...', functionErr)
+      
+      // Fallback to direct insert
+      const { data: insertData, error: insertErr } = await supabase
+        .from('team_members')
+        .insert({
+          team_id: team.id,
+          user_id: coachId,
+          role: 'coach',
+          joined_at: new Date().toISOString()
+        })
+        .select('id')
+        .single()
+    
+      if (insertErr) {
+        memberError = insertErr
+        console.log('⚠️ Insert failed:', memberError)
+        
+        // If it's a unique constraint violation, try to verify the record exists
+        if (memberError.code === '23505') {
+          console.log('🔍 Unique constraint violation - checking if record exists...')
+        // Wait a moment for potential async operations
+        await new Promise(resolve => setTimeout(resolve, 300))
+        
+        // Try to query the record
+        const { data: existingRecord, error: queryErr } = await supabase
+          .from('team_members')
+          .select('id')
+          .eq('team_id', team.id)
+          .eq('user_id', coachId)
+          .maybeSingle()
+        
+        console.log('🔍 Query result:', { existingRecord, queryErr })
+        
+        if (existingRecord) {
+          console.log('✅ Record exists - team creation successful')
+          memberCreated = true
+        } else {
+          console.warn('⚠️ Record does not exist - INSERT was blocked by RLS')
+          console.warn('🔍 Verifying team coach_id for RLS policy check...')
+          
+          // Verify the team's coach_id matches (needed for RLS policy)
+          const { data: teamCheck, error: teamCheckErr } = await supabase
+            .from('teams')
+            .select('id, coach_id')
+            .eq('id', team.id)
+            .single()
+          
+          console.log('🔍 Team verification:', { teamCheck, teamCheckErr, expectedCoachId: coachId })
+          
+          if (teamCheck && teamCheck.coach_id === coachId) {
+            console.log('✅ Team coach_id is correct - RLS policy should allow insert')
+          } else {
+            console.error('❌ Team coach_id mismatch or team not found!')
+          }
+          // Try upsert as fallback
+          const { data: upsertData, error: upsertErr } = await supabase
+            .from('team_members')
+            .upsert({
+              team_id: team.id,
+              user_id: coachId,
+              role: 'coach',
+              joined_at: new Date().toISOString()
+            }, {
+              onConflict: 'team_id,user_id'
+            })
+            .select('id')
+            .single()
+          
+          if (upsertErr) {
+            console.error('❌ Upsert also failed:', upsertErr)
+            memberError = upsertErr
+          } else {
+            console.log('✅ Upsert succeeded:', upsertData)
+            memberCreated = true
+            memberError = null
+          }
+        }
+      } else {
+        // For other errors, try upsert as fallback
+        console.log('🔄 Trying upsert as fallback...')
+        const { data: upsertData, error: upsertErr } = await supabase
+          .from('team_members')
+          .upsert({
+            team_id: team.id,
+            user_id: coachId,
+            role: 'coach',
+            joined_at: new Date().toISOString()
+          }, {
+            onConflict: 'team_id,user_id'
+          })
+          .select('id')
+          .single()
+        
+        if (upsertErr) {
+          console.error('❌ Upsert failed:', upsertErr)
+          memberError = upsertErr
+        } else {
+          console.log('✅ Upsert succeeded:', upsertData)
+          memberCreated = true
+          memberError = null
+        }
+      }
+      } else {
+        console.log('✅ Insert succeeded:', insertData)
+        memberCreated = true
+      }
+    }
 
-    if (memberError) {
-      // If adding member fails, we should clean up the team
+    if (memberError && !memberCreated) {
+      // For other errors, clean up the team and throw
+      console.error('❌ Error adding coach to team:', memberError)
       await supabase
         .from('teams')
         .delete()
         .eq('id', team.id)
-      
-      // Handle race condition - coach might have joined another team between our checks
-      if (memberError.code === '23505') { // Unique constraint violation
-        throw new Error('You have already joined a team. Please refresh the page to see your current team membership.')
-      }
-      throw memberError
+      throw new Error(`Failed to add you as team member: ${memberError.message || 'Unknown error'}. Please check your RLS policies.`)
     }
 
     return {
@@ -1485,23 +1624,6 @@ export async function joinTeam(userId: string, joinCode: string): Promise<{ team
     console.log('   - Join Code Type:', typeof joinCode)
     console.log('   - Join Code Length:', joinCode?.length)
     
-    // First, check if user is already part of any team
-    const { data: existingTeams, error: existingTeamsError } = await supabase
-      .from('team_members')
-      .select('id')
-      .eq('user_id', userId)
-
-    if (existingTeamsError) {
-      console.error('Error checking existing teams:', existingTeamsError)
-      throw existingTeamsError
-    }
-
-    console.log('🔍 Existing teams check result:', { existingTeams, error: existingTeamsError })
-
-    if (existingTeams && existingTeams.length > 0) {
-      throw new Error('You are already part of a team. Please leave your current team first before joining a new one.')
-    }
-
     // Get user's role to assign correct team member role
     const { data: userProfile, error: userError } = await supabase
       .from('users')
@@ -1560,9 +1682,9 @@ export async function joinTeam(userId: string, joinCode: string): Promise<{ team
       })
 
     if (insertError) {
-      // Handle race condition - user might have joined another team between our checks
+      // Handle duplicate team membership (user already in this specific team)
       if (insertError.code === '23505') { // Unique constraint violation
-        throw new Error('You have already joined a team. Please refresh the page to see your current team membership.')
+        throw new Error('You are already a member of this team.')
       }
       throw insertError
     }
@@ -1642,54 +1764,60 @@ export async function leaveTeam(userId: string): Promise<{ success: boolean; err
 }
 
 // Delete a team (coaches only)
-export async function deleteTeam(userId: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteTeam(userId: string, teamId?: string): Promise<{ success: boolean; error?: string }> {
   try {
     const result = await queryWithRetry(async () => {
       console.log('🗑️ DELETE TEAM DEBUG - Starting delete team process')
       console.log('   - User ID:', userId)
+      console.log('   - Team ID:', teamId)
       
-      // First, check if user is a coach of any team
-      const { data: teamMembership, error: membershipError } = await supabase
-        .from('team_members')
-        .select('id, team_id, role')
-        .eq('user_id', userId)
-        .eq('role', 'coach')
-        .single()
+      let teamToDelete = null
+      
+      if (teamId) {
+        // If teamId is provided, check that team directly
+        const { data: team, error: teamError } = await supabase
+          .from('teams')
+          .select('id, name, coach_id')
+          .eq('id', teamId)
+          .single()
 
-      if (membershipError) {
-        if (membershipError.code === 'PGRST116') {
-          // No team membership found or not a coach
+        if (teamError) {
+          console.error('Error fetching team details:', teamError)
+          throw new Error('Team not found')
+        }
+
+        if (team.coach_id !== userId) {
+          throw new Error('You are not authorized to delete this team. Only the team coach can delete it.')
+        }
+
+        teamToDelete = team
+      } else {
+        // If no teamId provided, find the first team where user is coach_id
+        const { data: teams, error: teamsError } = await supabase
+          .from('teams')
+          .select('id, name, coach_id')
+          .eq('coach_id', userId)
+          .limit(1)
+
+        if (teamsError) {
+          console.error('Error fetching teams:', teamsError)
+          throw teamsError
+        }
+
+        if (!teams || teams.length === 0) {
           throw new Error('You are not a coach of any team')
         }
-        console.error('Error checking team membership:', membershipError)
-        throw membershipError
+
+        teamToDelete = teams[0]
       }
 
-      console.log('🔍 Team membership found:', teamMembership)
-
-      // Verify the user is actually the coach of this team
-      const { data: team, error: teamError } = await supabase
-        .from('teams')
-        .select('id, name, coach_id')
-        .eq('id', teamMembership.team_id)
-        .single()
-
-      if (teamError) {
-        console.error('Error fetching team details:', teamError)
-        throw teamError
-      }
-
-      if (team.coach_id !== userId) {
-        throw new Error('You are not authorized to delete this team')
-      }
-
-      console.log('🔍 Team to delete:', team)
+      console.log('🔍 Team to delete:', teamToDelete)
 
       // Delete all team members first (cascade should handle this, but being explicit)
       const { error: membersDeleteError } = await supabase
         .from('team_members')
         .delete()
-        .eq('team_id', team.id)
+        .eq('team_id', teamToDelete.id)
 
       if (membersDeleteError) {
         console.error('Error deleting team members:', membersDeleteError)
@@ -1700,14 +1828,14 @@ export async function deleteTeam(userId: string): Promise<{ success: boolean; er
       const { error: teamDeleteError } = await supabase
         .from('teams')
         .delete()
-        .eq('id', team.id)
+        .eq('id', teamToDelete.id)
 
       if (teamDeleteError) {
         console.error('Error deleting team:', teamDeleteError)
         throw teamDeleteError
       }
 
-      console.log('✅ Successfully deleted team:', team.name)
+      console.log('✅ Successfully deleted team:', teamToDelete.name)
       return { success: true }
     }, 'Delete Team', 3, 5000)
 
@@ -1992,7 +2120,7 @@ export function formatTime(dateString: string): string {
 } 
 
 // Get team events for a user
-export async function getTeamEvents(userId: string): Promise<Array<{
+export async function getTeamEvents(userId: string, teamId: string): Promise<Array<{
   id: string
   title: string
   description: string | null
@@ -2003,23 +2131,20 @@ export async function getTeamEvents(userId: string): Promise<Array<{
   created_at: string
 }>> {
   try {
-    // First, get the user's team
-    const { data: userTeam, error: teamError } = await supabase
+    // Verify user is a member of the specified team
+    const { data: userTeamMembership, error: membershipError } = await supabase
       .from('team_members')
       .select('team_id')
       .eq('user_id', userId)
+      .eq('team_id', teamId)
       .single()
 
-    if (teamError) {
-      console.error('Error fetching user team:', teamError)
-      throw new Error('Unable to verify team membership')
+    if (membershipError || !userTeamMembership) {
+      console.error('Error verifying team membership:', membershipError)
+      throw new Error('User is not a member of this team')
     }
 
-    if (!userTeam) {
-      return []
-    }
-
-    // Get events for the user's team, ordered by start_time
+    // Get events for the specified team, ordered by start_time
     const { data: events, error: eventsError } = await supabase
       .from('events')
       .select(`
@@ -2032,7 +2157,7 @@ export async function getTeamEvents(userId: string): Promise<Array<{
         location,
         created_at
       `)
-      .eq('team_id', userTeam.team_id)
+      .eq('team_id', teamId)
       .order('start_time', { ascending: true })
 
     if (eventsError) {
@@ -2050,6 +2175,7 @@ export async function getTeamEvents(userId: string): Promise<Array<{
 // Create a new event
 export async function createEvent(
   userId: string,
+  teamId: string,
   eventData: {
     title: string
     description?: string
@@ -2060,33 +2186,29 @@ export async function createEvent(
   }
 ): Promise<{ success: boolean; eventId?: string; error?: string }> {
   try {
-    console.log('🔧 createEvent: Starting with userId:', userId)
+    console.log('🔧 createEvent: Starting with userId:', userId, 'teamId:', teamId)
     console.log('🔧 createEvent: Event data:', eventData)
     
-    // First, get the user's team
-    const { data: userTeam, error: teamError } = await supabase
+    // Verify user is a member of the specified team
+    const { data: userTeamMembership, error: membershipError } = await supabase
       .from('team_members')
       .select('team_id')
       .eq('user_id', userId)
+      .eq('team_id', teamId)
       .single()
 
-    console.log('🔧 createEvent: Team lookup result:', { userTeam, teamError })
+    console.log('🔧 createEvent: Team membership verification:', { userTeamMembership, membershipError })
 
-    if (teamError) {
-      console.error('Error fetching user team:', teamError)
-      return { success: false, error: `Unable to verify team membership: ${teamError.message}` }
+    if (membershipError || !userTeamMembership) {
+      console.error('Error verifying team membership:', membershipError)
+      return { success: false, error: `Unable to verify team membership: ${membershipError?.message || 'User is not a member of this team'}` }
     }
 
-    if (!userTeam) {
-      console.log('🔧 createEvent: No team found for user')
-      return { success: false, error: 'User is not part of any team' }
-    }
-
-    console.log('🔧 createEvent: User team found:', userTeam.team_id)
+    console.log('🔧 createEvent: User is a member of team:', teamId)
 
     // Insert the new event
     const insertData = {
-      team_id: userTeam.team_id,
+      team_id: teamId,
       title: eventData.title,
       description: eventData.description || null,
       event_type: eventData.event_type,
@@ -2387,7 +2509,7 @@ export async function getUncompletedUserWorkouts(userId: string): Promise<Array<
 }
 
 // Get workouts for a user (either assigned to them or to their team)
-export async function getUserWorkouts(userId: string): Promise<Array<{
+export async function getUserWorkouts(userId: string, teamId?: string): Promise<Array<{
   id: string
   team_id: string
   title: string
@@ -2397,8 +2519,49 @@ export async function getUserWorkouts(userId: string): Promise<Array<{
   created_at: string
 }>> {
   try {
-    console.log('Fetching workouts for user:', userId)
+    console.log('Fetching workouts for user:', userId, teamId ? `team: ${teamId}` : 'all teams')
     
+    // If teamId is provided, filter by that team only
+    if (teamId) {
+      // Verify user is a member of the specified team
+      const { data: userTeamMembership, error: membershipError } = await supabase
+        .from('team_members')
+        .select('team_id')
+        .eq('user_id', userId)
+        .eq('team_id', teamId)
+        .single()
+
+      if (membershipError || !userTeamMembership) {
+        console.error('Error verifying team membership:', membershipError)
+        throw new Error('User is not a member of this team')
+      }
+
+      // Fetch workouts for the specific team or directly assigned to user
+      console.log('Fetching workouts for specific team and user assignments')
+      const { data: workouts, error } = await supabase
+        .from('workouts')
+        .select(`
+          id,
+          team_id,
+          title,
+          description,
+          assigned_to,
+          date_assigned,
+          created_at
+        `)
+        .or(`team_id.eq.${teamId},assigned_to.eq.${userId}`)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching workouts:', error)
+        throw error
+      }
+
+      console.log('Workouts fetched for team:', workouts)
+      return workouts || []
+    }
+
+    // If no teamId provided, get workouts from all user's teams
     // First, get the user's teams
     const userTeams = await getUserTeams(userId)
     const teamIds = userTeams.map(team => team.id)
@@ -2465,7 +2628,8 @@ export async function getUserWorkouts(userId: string): Promise<Array<{
 
 // Create a new workout with exercises
 export async function createWorkout(
-  userId: string, 
+  userId: string,
+  teamId: string,
   workoutData: { 
     title: string; 
     description?: string; 
@@ -2480,21 +2644,24 @@ export async function createWorkout(
   }
 ): Promise<{ success: boolean; workoutId?: string; error?: string }> {
   try {
-    console.log('🔧 createWorkout: Starting with userId:', userId)
+    console.log('🔧 createWorkout: Starting with userId:', userId, 'teamId:', teamId)
     console.log('🔧 createWorkout: Workout data:', workoutData)
     
-    // Get user's teams to get a team_id
-    console.log('🔍 createWorkout: Getting user teams...')
-    const userTeams = await getUserTeams(userId)
-    console.log('🔍 createWorkout: User teams result:', userTeams)
+    // Verify user is a member of the specified team
+    console.log('🔍 createWorkout: Verifying team membership...')
+    const { data: userTeamMembership, error: membershipError } = await supabase
+      .from('team_members')
+      .select('team_id')
+      .eq('user_id', userId)
+      .eq('team_id', teamId)
+      .single()
     
-    if (userTeams.length === 0) {
-      console.error('🚨 createWorkout: User has no teams')
-      return { success: false, error: 'User must be part of a team to create workouts' }
+    if (membershipError || !userTeamMembership) {
+      console.error('🚨 createWorkout: Team membership verification failed:', membershipError)
+      return { success: false, error: `Unable to verify team membership: ${membershipError?.message || 'User is not a member of this team'}` }
     }
     
-    const teamId = userTeams[0].id // Use the first team
-    console.log('✅ createWorkout: Using team ID:', teamId)
+    console.log('✅ createWorkout: User is a member of team:', teamId)
     
     // Create the workout with exercises
     const insertData = {
@@ -2632,30 +2799,25 @@ export async function getWorkoutExercises(workoutId: string): Promise<Array<{
 }
 
 // Get team members for workout assignment
-export async function getTeamMembers(userId: string): Promise<Array<{
+export async function getTeamMembers(userId: string, teamId: string): Promise<Array<{
   id: string
   name: string
   email: string
   role: string
 }>> {
   try {
-    // First, get the user's team
-    const { data: userTeams, error: teamError } = await supabase
+    // Verify user is a member of the specified team
+    const { data: userTeamMembership, error: membershipError } = await supabase
       .from('team_members')
       .select('team_id')
       .eq('user_id', userId)
+      .eq('team_id', teamId)
+      .single()
 
-    if (teamError) {
-      console.error('Error fetching user team:', teamError)
-      throw teamError
+    if (membershipError || !userTeamMembership) {
+      console.error('Error verifying team membership:', membershipError)
+      throw new Error('User is not a member of this team')
     }
-
-    if (!userTeams || userTeams.length === 0) {
-      return []
-    }
-
-    // Use the first team (users should only be in one team)
-    const userTeam = userTeams[0]
 
     // Get all team members for this team
     const { data: teamMembers, error: membersError } = await supabase
@@ -2669,7 +2831,7 @@ export async function getTeamMembers(userId: string): Promise<Array<{
           email
         )
       `)
-      .eq('team_id', userTeam.team_id)
+      .eq('team_id', teamId)
 
     if (membersError) {
       console.error('Error fetching team members:', membersError)

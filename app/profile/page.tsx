@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTeamContext } from '@/contexts/TeamContext'
 import { DashboardErrorBoundary } from '@/components/ui/DashboardErrorBoundary'
 import { SmartLoadingMessage, EmptyState } from '@/components/ui/LoadingStates'
 import { createTeam, joinTeam, leaveTeam, deleteTeam, getUserTeams, updateTeamName, updateUserProfile, getTeamMembersForTeam, removeTeamMember, UserRole, canCreateTeams, canJoinTeams } from '@/lib/utils'
@@ -30,6 +31,7 @@ import { supabase } from '@/lib/supabaseClient'
 
 export default function ProfilePage() {
   const { user, logout, refreshUser } = useAuth()
+  const { refreshTeams: refreshTeamContext } = useTeamContext()
   const router = useRouter()
   const [isLoaded, setIsLoaded] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -61,6 +63,7 @@ export default function ProfilePage() {
   const [deleteTeamError, setDeleteTeamError] = useState('')
   const [deleteTeamSuccess, setDeleteTeamSuccess] = useState('')
   const [showDeleteTeamConfirm, setShowDeleteTeamConfirm] = useState(false)
+  const [teamToDelete, setTeamToDelete] = useState<string | null>(null)
   const [teamMembers, setTeamMembers] = useState<any[]>([])
   const [isLoadingTeamMembers, setIsLoadingTeamMembers] = useState(false)
   const [teamMembersError, setTeamMembersError] = useState('')
@@ -351,10 +354,42 @@ export default function ProfilePage() {
       setJoinCode(result.joinCode)
       setShowJoinCode(true)
       
-      // Refresh user teams after creating
-      const teams = await getUserTeams(user.id)
+      // Add a small delay to ensure database transaction is committed
+      await new Promise(resolve => setTimeout(resolve, 300))
+      
+      // Refresh user teams after creating - try multiple times if needed
+      console.log('🔄 Refreshing teams after creation...')
+      console.log('🆔 New team ID:', result.teamId)
+      
+      let teams = await getUserTeams(user.id)
+      console.log('✅ Teams refreshed (first attempt):', teams)
+      console.log('🔍 Looking for team ID:', result.teamId)
+      console.log('🔍 Found team IDs:', teams.map(t => t.id))
+      
+      // If the new team isn't found, wait a bit more and try again (up to 3 times)
+      let attempts = 0
+      const maxAttempts = 3
+      while (!teams.some(t => t.id === result.teamId) && attempts < maxAttempts) {
+        attempts++
+        console.log(`⏳ New team not found (attempt ${attempts}/${maxAttempts}), waiting and retrying...`)
+        await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second
+        teams = await getUserTeams(user.id)
+        console.log('✅ Teams refreshed (retry):', teams)
+        console.log('🔍 Found team IDs:', teams.map(t => t.id))
+      }
+      
+      if (!teams.some(t => t.id === result.teamId)) {
+        console.warn('⚠️ New team still not found after retries. Team may need to be refreshed manually.')
+      } else {
+        console.log('✅ New team found in list!')
+      }
+      
       setUserTeams(teams)
+      
+      // Refresh TeamContext to update team selector
+      await refreshTeamContext()
     } catch (err: any) {
+      console.error('❌ Error creating team:', err)
       setError(err.message || 'Failed to create team. Please try again.')
     } finally {
       setIsCreatingTeam(false)
@@ -393,6 +428,9 @@ export default function ProfilePage() {
       // Refresh user teams after joining
       const teams = await getUserTeams(user.id)
       setUserTeams(teams)
+      
+      // Refresh TeamContext to update team selector
+      refreshTeamContext()
     } catch (err: any) {
       console.error('Join team error:', err)
       setJoinTeamError(err.message || 'Failed to join team. Please try again.')
@@ -433,22 +471,26 @@ export default function ProfilePage() {
   }
 
   const handleDeleteTeam = async () => {
-    if (!user || isDeletingTeam) return
+    if (!user || isDeletingTeam || !teamToDelete) return
 
     setIsDeletingTeam(true)
     setDeleteTeamError('')
     setDeleteTeamSuccess('')
 
     try {
-      const result = await deleteTeam(user.id)
+      const result = await deleteTeam(user.id, teamToDelete)
       
       if (result.success) {
         setDeleteTeamSuccess('Team deleted successfully!')
         setShowDeleteTeamConfirm(false)
+        setTeamToDelete(null)
         
         // Refresh user teams after deletion
         const teams = await getUserTeams(user.id)
         setUserTeams(teams)
+        
+        // Refresh team context
+        refreshTeamContext()
         
         // Clear success message after 3 seconds
         setTimeout(() => setDeleteTeamSuccess(''), 3000)
@@ -1075,7 +1117,10 @@ export default function ProfilePage() {
                            {/* Action Buttons based on role */}
                            {team.role === 'coach' ? (
                              <button
-                               onClick={() => setShowDeleteTeamConfirm(true)}
+                               onClick={() => {
+                                 setTeamToDelete(team.id)
+                                 setShowDeleteTeamConfirm(true)
+                               }}
                                className="mt-2 px-3 py-1 text-xs bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/40 text-red-700 dark:text-red-300 rounded-lg transition-all duration-200"
                              >
                                Delete Team

@@ -103,36 +103,36 @@ export function EmptyState({ type, title, description, actionText, onAction }: E
       icon: MessageSquare,
       defaultTitle: 'No messages yet',
       defaultDescription: 'Team conversations will appear here',
-      color: 'text-gray-400',
-      bgColor: 'bg-gray-50'
+      color: 'text-gray-400 dark:text-gray-500',
+      bgColor: 'bg-gray-50 dark:bg-slate-700/50'
     },
     teams: {
       icon: Users,
       defaultTitle: 'No teams yet',
       defaultDescription: 'Join or create a team to get started',
-      color: 'text-gray-400',
-      bgColor: 'bg-gray-50'
+      color: 'text-gray-400 dark:text-gray-500',
+      bgColor: 'bg-gray-50 dark:bg-slate-700/50'
     },
     workouts: {
       icon: Dumbbell,
       defaultTitle: 'No workouts yet',
       defaultDescription: 'Your assigned workouts will appear here',
-      color: 'text-gray-400',
-      bgColor: 'bg-gray-50'
+      color: 'text-gray-400 dark:text-gray-500',
+      bgColor: 'bg-gray-50 dark:bg-slate-700/50'
     },
     events: {
       icon: Calendar,
       defaultTitle: 'No events scheduled',
       defaultDescription: 'Upcoming team events will appear here',
-      color: 'text-gray-400',
-      bgColor: 'bg-gray-50'
+      color: 'text-gray-400 dark:text-gray-500',
+      bgColor: 'bg-gray-50 dark:bg-slate-700/50'
     },
     members: {
       icon: Users,
       defaultTitle: 'No members yet',
       defaultDescription: 'Team members will appear here',
-      color: 'text-gray-400',
-      bgColor: 'bg-gray-50'
+      color: 'text-gray-400 dark:text-gray-500',
+      bgColor: 'bg-gray-50 dark:bg-slate-700/50'
     }
   }
   
@@ -142,16 +142,16 @@ export function EmptyState({ type, title, description, actionText, onAction }: E
   return (
     <div className={`text-center py-12 ${config.bgColor} rounded-xl`}>
       <Icon className={`h-16 w-16 ${config.color} mx-auto mb-4`} />
-      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
         {title || config.defaultTitle}
       </h3>
-      <p className="text-gray-600 mb-4">
+      <p className="text-gray-600 dark:text-gray-300 mb-4">
         {description || config.defaultDescription}
       </p>
       {actionText && onAction && (
         <button
           onClick={onAction}
-          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl transition-all duration-200"
+          className="px-4 py-2 bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-xl transition-all duration-200"
         >
           {actionText}
         </button>

@@ -35,6 +35,8 @@ import {
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
 import { SmartLoadingMessage, EmptyState } from '@/components/ui/LoadingStates'
 import { DashboardErrorBoundary } from '@/components/ui/DashboardErrorBoundary'
+import TeamSelector from '@/components/ui/TeamSelector'
+import { useTeamContext } from '@/contexts/TeamContext'
 
 const mockAthleteStats: AthleteStats = {
   totalWorkouts: 45,
@@ -53,6 +55,7 @@ const MAX_EXPANDED_CHATS = 4
 
 const AthleteDashboard = React.memo(function AthleteDashboard() {
   const { user, logout } = useAuth()
+  const { userTeams } = useTeamContext()
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('')
   const [isLoaded, setIsLoaded] = useState(false)
@@ -158,8 +161,8 @@ const AthleteDashboard = React.memo(function AthleteDashboard() {
             </div>
             
             {/* Navigation Tabs - Compact on Mobile */}
-            <div className="flex items-center justify-center flex-1 px-1 sm:px-4 min-w-0">
-              <div className="flex space-x-0.5 sm:space-x-1 p-0.5 sm:p-2 bg-gray-100 dark:bg-slate-800 rounded-lg sm:rounded-2xl overflow-x-auto scrollbar-hide">
+            <div className="flex items-center justify-center flex-1 px-1 sm:px-2 md:px-4 min-w-0">
+              <div className="flex space-x-0.5 sm:space-x-1 p-0.5 sm:p-1.5 md:p-2 bg-gray-100 dark:bg-slate-800 rounded-lg sm:rounded-2xl overflow-x-auto scrollbar-hide">
                 {[
                   { id: 'workouts', label: 'Workouts', icon: Dumbbell, href: '/workouts' },
                   { id: 'calendar', label: 'Calendar', icon: Calendar, href: '/calendar' },
@@ -174,14 +177,15 @@ const AthleteDashboard = React.memo(function AthleteDashboard() {
                       onClick={() => {
                         router.push(tab.href)
                       }}
-                      className={`flex items-center justify-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg sm:rounded-xl font-medium transition-all duration-200 min-w-[60px] sm:min-w-[80px] touch-manipulation ${
+                      className={`flex items-center justify-center space-x-1 sm:space-x-2 px-3 sm:px-3 md:px-4 py-2.5 sm:py-2 rounded-lg sm:rounded-xl font-medium transition-all duration-200 min-w-[60px] sm:min-w-[60px] md:min-w-[80px] touch-manipulation ${
                         isActive
                           ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
                           : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-slate-700/50 active:bg-white/70 dark:active:bg-slate-700/70'
                       }`}
+                      title={tab.label}
                     >
-                      <Icon className="h-4 w-4 sm:h-4 sm:w-4 flex-shrink-0" />
-                      <span className="hidden sm:block text-sm whitespace-nowrap">{tab.label}</span>
+                      <Icon className="h-4 w-4 sm:h-4 md:h-4 sm:w-4 md:w-4 flex-shrink-0" />
+                      <span className="hidden lg:block text-sm whitespace-nowrap">{tab.label}</span>
                     </button>
                   )
                 })}
@@ -189,8 +193,13 @@ const AthleteDashboard = React.memo(function AthleteDashboard() {
             </div>
             
             {/* Right Side - Ultra Compact Mobile */}
-            <div className="flex items-center space-x-0.5 sm:space-x-3 flex-shrink-0">
+            <div className="flex items-center space-x-0.5 sm:space-x-1.5 md:space-x-2 lg:space-x-3 flex-shrink-0">
               <NotificationCenter />
+              
+              {/* Team Selector - Only shows if user has 2+ teams */}
+              {userTeams.length >= 2 && (
+                <TeamSelector />
+              )}
               
               {/* Mobile Menu Button */}
               <div className="relative" ref={menuRef}>

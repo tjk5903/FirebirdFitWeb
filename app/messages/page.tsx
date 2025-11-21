@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { useAppState } from '@/contexts/AppStateContext'
+import { useTeamContext } from '@/contexts/TeamContext'
 import { LoadingCard, ErrorMessage } from '@/components/ui/LoadingSpinner'
 import { 
   getChatMessages, 
@@ -36,6 +37,7 @@ import MemberSelector from '@/components/ui/MemberSelector'
 
 export default function MessagesPage() {
   const { user } = useAuth()
+  const { selectedTeamId } = useTeamContext()
   const { showToast } = useToast()
   const { 
     chats, 
@@ -202,9 +204,14 @@ export default function MessagesPage() {
     }
   }, [])
 
-  const filteredChats = chats.filter(chat =>
-    chat.name.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredChats = chats.filter(chat => {
+    // Filter by selected team if teamId is available
+    if (selectedTeamId && chat.teamId && chat.teamId !== selectedTeamId) {
+      return false
+    }
+    // Filter by search term
+    return chat.name.toLowerCase().includes(searchTerm.toLowerCase())
+  })
 
   const selectedChat = selectedChatId ? chats.find(c => c.id === selectedChatId) : null
   const isAnnouncementLocked = !!(selectedChat?.announcementMode && selectedChat.ownerId && selectedChat.ownerId !== user?.id)
@@ -272,8 +279,14 @@ export default function MessagesPage() {
     setIsCreatingChat(true)
 
     try {
+      if (!selectedTeamId) {
+        showToast('Please select a team first', 'warning')
+        setIsCreatingChat(false)
+        return
+      }
+
       console.log('📞 handleCreateChat: Calling createChat function...')
-      const result = await createChat(user.id, newChatName.trim(), selectedMembersToAdd, newChatAnnouncementMode)
+      const result = await createChat(user.id, selectedTeamId, newChatName.trim(), selectedMembersToAdd, newChatAnnouncementMode)
       console.log('📊 handleCreateChat: Create result:', result)
       
       if (result.success) {
@@ -1073,6 +1086,7 @@ export default function MessagesPage() {
                 }}
                 onMembersChange={setSelectedMembersToAdd}
                 userId={user?.id || ''}
+                teamId={selectedTeamId || ''}
                 title="Select Members to Add"
                 description="Choose team members to add to this chat"
               />

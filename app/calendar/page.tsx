@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
+import { useTeamContext } from '@/contexts/TeamContext'
 import { getTeamEvents, createEvent, updateEvent, deleteEvent, isCoachOrAssistant } from '@/lib/utils'
 import { Calendar, Plus, Edit, Trash2, Clock, MapPin, Users, ChevronLeft, ChevronRight, ArrowLeft, Share2 } from 'lucide-react'
 import MainNavigation from '@/components/navigation/MainNavigation'
@@ -19,6 +20,7 @@ const eventTypes = [
 
 export default function CalendarPage() {
   const { user } = useAuth()
+  const { selectedTeamId } = useTeamContext()
   const { showToast } = useToast()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -67,14 +69,14 @@ export default function CalendarPage() {
     .filter(email => email.length > 0)
     .filter((email, index, arr) => arr.indexOf(email) === index)
 
-  // Load events when user loads
+  // Load events when user loads or team changes
   useEffect(() => {
     const loadEvents = async () => {
-      if (!user) return
+      if (!user || !selectedTeamId) return
       
       setIsLoadingEvents(true)
       try {
-        const teamEvents = await getTeamEvents(user.id)
+        const teamEvents = await getTeamEvents(user.id, selectedTeamId)
         setEvents(teamEvents)
       } catch (error) {
         console.error('Error loading events:', error)
@@ -84,7 +86,7 @@ export default function CalendarPage() {
     }
 
     loadEvents()
-  }, [user])
+  }, [user, selectedTeamId])
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoaded(true), 100)
@@ -218,13 +220,19 @@ export default function CalendarPage() {
 
       console.log('📅 Calendar: Event data prepared:', eventData)
 
+      if (!selectedTeamId) {
+        showToast('Please select a team first', 'warning')
+        setIsCreatingEvent(false)
+        return
+      }
+
       let result
       if (editingEvent) {
         console.log('✏️ Calendar: Updating existing event:', editingEvent.id)
         result = await updateEvent(editingEvent.id, eventData)
       } else {
         console.log('➕ Calendar: Creating new event')
-        result = await createEvent(user.id, eventData)
+        result = await createEvent(user.id, selectedTeamId, eventData)
       }
       
       console.log('📊 Calendar: API result:', result)
@@ -234,7 +242,7 @@ export default function CalendarPage() {
         
         // Refresh events
         console.log('🔄 Refreshing events list...')
-        const teamEvents = await getTeamEvents(user.id)
+        const teamEvents = await getTeamEvents(user.id, selectedTeamId)
         console.log('📅 Updated events:', teamEvents)
         setEvents(teamEvents)
         
@@ -357,7 +365,7 @@ export default function CalendarPage() {
         showToast('Event deleted successfully!', 'success')
         // Refresh events
         if (user) {
-          const teamEvents = await getTeamEvents(user.id)
+          const teamEvents = await getTeamEvents(user.id, selectedTeamId || '')
           setEvents(teamEvents)
         }
       } else {

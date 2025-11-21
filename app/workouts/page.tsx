@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppState } from '@/contexts/AppStateContext'
 import { useToast } from '@/contexts/ToastContext'
+import { useTeamContext } from '@/contexts/TeamContext'
 import { createWorkout, formatDate, getWorkoutExercises, deleteWorkout as deleteWorkoutFromDB, isCoachOrAssistant, updateWorkout } from '@/lib/utils'
 import WorkoutCompletionButton from '@/components/ui/WorkoutCompletionButton'
 import { 
@@ -220,6 +221,7 @@ function WorkoutExercisePreview({ workoutId }: { workoutId: string }) {
 
 export default function WorkoutsPage() {
   const { user, logout } = useAuth()
+  const { selectedTeamId } = useTeamContext()
   const { 
     workouts, 
     teamMembers, 
@@ -277,10 +279,15 @@ export default function WorkoutsPage() {
 
   useEffect(() => {
     filterWorkouts()
-  }, [searchTerm, selectedType, workouts])
+  }, [searchTerm, selectedType, workouts, selectedTeamId])
 
   const filterWorkouts = () => {
     let filtered = workouts
+
+    // Filter by selected team if teamId is available
+    if (selectedTeamId) {
+      filtered = filtered.filter(workout => workout.team_id === selectedTeamId)
+    }
 
     if (searchTerm) {
       filtered = filtered.filter(workout =>
@@ -317,6 +324,11 @@ export default function WorkoutsPage() {
       showToast('User not authenticated', 'error')
       return
     }
+
+    if (!selectedTeamId) {
+      showToast('Please select a team first', 'warning')
+      return
+    }
     
     setIsCreatingWorkout(true)
     
@@ -337,7 +349,7 @@ export default function WorkoutsPage() {
 
       console.log('Formatted exercises:', formattedExercises)
 
-      const result = await createWorkout(user.id, {
+      const result = await createWorkout(user.id, selectedTeamId, {
         title: workoutName,
         description: workoutDescription,
         assigned_to: selectedMembers.length > 0 ? selectedMembers : [],

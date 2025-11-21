@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTeamContext } from '@/contexts/TeamContext'
 import { supabase } from '@/lib/supabaseClient'
 import { 
   getUserWorkouts, 
@@ -81,6 +82,7 @@ const AppStateContext = createContext<AppStateContextType | undefined>(undefined
 
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
+  const { selectedTeamId } = useTeamContext()
   
   // Data states
   const [workouts, setWorkouts] = useState<WorkoutData[]>([])
@@ -143,8 +145,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     }
     
     try {
-      // Use a more resilient approach for workouts - no timeout with indexes
-      const fetchedWorkouts = await getUserWorkouts(user.id) as any
+      // Use a more resilient approach for workouts - filter by selected team if available
+      const fetchedWorkouts = await getUserWorkouts(user.id, selectedTeamId || undefined) as any
       
       setWorkouts(fetchedWorkouts || [])
       console.log('✅ Workouts loaded successfully:', fetchedWorkouts?.length || 0)
@@ -165,7 +167,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         setIsLoadingWorkouts(false)
       }
     }
-  }, [user?.id, workouts.length])
+  }, [user?.id, workouts.length, selectedTeamId])
   
   const refreshTeams = useCallback(async (showLoading = true) => {
     if (!user?.id || isRequestingTeams) {
@@ -224,9 +226,9 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const refreshTeamMembers = useCallback(async (showLoading = true) => {
     if (!user?.id || isRequestingTeamMembers) return
     
-    // Only fetch team members if user has teams
-    if (teams.length === 0) {
-      console.log('No teams found, skipping team members fetch')
+    // Only fetch team members if a team is selected
+    if (!selectedTeamId) {
+      console.log('No team selected, skipping team members fetch')
       setTeamMembers([])
       setIsLoadingTeamMembers(false)
       return
@@ -240,7 +242,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     setTeamMembersError(null)
     
     try {
-      const fetchedMembers = await getTeamMembers(user.id)
+      const fetchedMembers = await getTeamMembers(user.id, selectedTeamId)
       setTeamMembers(fetchedMembers)
     } catch (error: any) {
       console.error('❌ Error fetching team members:', error)
@@ -259,7 +261,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         setIsLoadingTeamMembers(false)
       }
     }
-  }, [user?.id, teams.length])
+  }, [user?.id, selectedTeamId])
   
   const refreshChats = useCallback(async (showLoading = true) => {
     if (!user?.id || isRequestingChats) return
@@ -273,7 +275,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     
     try {
       const fetchedChats = await getUserChats(user.id)
-      setChats(fetchedChats)
+      // Filter chats by selected team if teamId is available
+      const filteredChats = selectedTeamId 
+        ? fetchedChats.filter(chat => chat.teamId === selectedTeamId)
+        : fetchedChats
+      setChats(filteredChats)
     } catch (error: any) {
       console.error('❌ Error fetching chats:', error)
       
@@ -291,7 +297,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
         setIsLoadingChats(false)
       }
     }
-  }, [user?.id])
+  }, [user?.id, selectedTeamId])
   
   // Optimized data fetching with deduplication and throttling
   const optimizedRefreshAll = useCallback(async (showLoading = true) => {
@@ -631,6 +637,17 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       console.log('📱 Using cached data, skipping initial fetch')
     }
   }, [user?.id, hasLoadedFromStorage, optimizedRefreshAll])
+
+  // Refresh data when team selection changes
+  useEffect(() => {
+    if (!user?.id || !selectedTeamId) return
+    
+    console.log('🔄 Team changed, refreshing all data for team:', selectedTeamId)
+    // Refresh all team-specific data when team changes
+    refreshWorkouts(false)
+    refreshTeamMembers(false)
+    refreshChats(false)
+  }, [selectedTeamId, user?.id, refreshWorkouts, refreshTeamMembers, refreshChats])
   
   // Persist data to localStorage for tab switching
   useEffect(() => {

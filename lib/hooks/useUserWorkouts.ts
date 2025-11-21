@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { getUserWorkouts } from '@/lib/utils'
+import { useTeamContext } from '@/contexts/TeamContext'
 
 interface Workout {
   id: string
@@ -12,6 +13,7 @@ interface Workout {
 }
 
 export function useUserWorkouts(userId: string | undefined) {
+  const { selectedTeamId } = useTeamContext()
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [isLoadingWorkouts, setIsLoadingWorkouts] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -27,7 +29,7 @@ export function useUserWorkouts(userId: string | undefined) {
       try {
         setIsLoadingWorkouts(true)
         setError(null)
-        const userWorkouts = await getUserWorkouts(userId)
+        const userWorkouts = await getUserWorkouts(userId, selectedTeamId || undefined)
         setWorkouts(userWorkouts)
       } catch (err) {
         console.error('Error fetching workouts:', err)
@@ -39,7 +41,7 @@ export function useUserWorkouts(userId: string | undefined) {
     }
 
     fetchWorkouts()
-  }, [userId])
+  }, [userId, selectedTeamId])
 
   const refetch = useCallback(() => {
     if (userId) {
@@ -47,7 +49,7 @@ export function useUserWorkouts(userId: string | undefined) {
         try {
           setIsLoadingWorkouts(true)
           setError(null)
-          const userWorkouts = await getUserWorkouts(userId)
+          const userWorkouts = await getUserWorkouts(userId, selectedTeamId || undefined)
           setWorkouts(userWorkouts)
         } catch (err) {
           console.error('Error fetching workouts:', err)
@@ -59,7 +61,7 @@ export function useUserWorkouts(userId: string | undefined) {
       }
       fetchWorkouts()
     }
-  }, [userId])
+  }, [userId, selectedTeamId])
 
   // Memoize the return object to prevent unnecessary re-renders
   const memoizedReturn = useMemo(() => ({
