@@ -7,6 +7,7 @@ import { useTeamContext } from '@/contexts/TeamContext'
 import { DashboardErrorBoundary } from '@/components/ui/DashboardErrorBoundary'
 import { SmartLoadingMessage, EmptyState } from '@/components/ui/LoadingStates'
 import { createTeam, joinTeam, leaveTeam, deleteTeam, getUserTeams, updateTeamName, updateUserProfile, getTeamMembersForTeam, removeTeamMember, UserRole, canCreateTeams, canJoinTeams } from '@/lib/utils'
+import PersonalPerformanceCard from '@/components/ui/PersonalPerformanceCard'
 import NotificationPreferencesModal from '@/components/ui/NotificationPreferencesModal'
 import SettingsModal from '@/components/ui/SettingsModal'
 import { 
@@ -71,6 +72,7 @@ export default function ProfilePage() {
   const [isRemovingMember, setIsRemovingMember] = useState(false)
   const [memberToRemove, setMemberToRemove] = useState<any>(null)
   const [showRemoveMemberConfirm, setShowRemoveMemberConfirm] = useState(false)
+  const [selectedMemberForPerformance, setSelectedMemberForPerformance] = useState<{ id: string, name: string } | null>(null)
   const [showNotificationPreferences, setShowNotificationPreferences] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [profileData, setProfileData] = useState({
@@ -1255,17 +1257,29 @@ export default function ProfilePage() {
                                  </div>
                                </div>
                              </div>
-                             {member.role !== 'coach' && (
-                               <button
-                                 onClick={() => {
-                                   setMemberToRemove(member)
-                                   setShowRemoveMemberConfirm(true)
-                                 }}
-                                 className="px-3 py-1 text-xs bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/40 text-red-700 dark:text-red-300 rounded-lg transition-all duration-200"
-                               >
-                                 Remove
-                               </button>
-                             )}
+                             <div className="flex items-center space-x-2">
+                               {member.role === 'athlete' && (
+                                 <button
+                                   onClick={() => {
+                                     setSelectedMemberForPerformance({ id: member.userId, name: member.name })
+                                   }}
+                                   className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-lg transition-all duration-200"
+                                 >
+                                   View Performance
+                                 </button>
+                               )}
+                               {member.role !== 'coach' && (
+                                 <button
+                                   onClick={() => {
+                                     setMemberToRemove(member)
+                                     setShowRemoveMemberConfirm(true)
+                                   }}
+                                   className="px-3 py-1 text-xs bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/40 text-red-700 dark:text-red-300 rounded-lg transition-all duration-200"
+                                 >
+                                   Remove
+                                 </button>
+                               )}
+                             </div>
                            </div>
                          ))}
                        </div>
@@ -1276,6 +1290,27 @@ export default function ProfilePage() {
                          </div>
                          <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">No Members Yet</h4>
                          <p className="text-gray-600 dark:text-gray-300">Share your join code with athletes and assistant coaches to add them to your team.</p>
+                       </div>
+                     )}
+                     
+                     {/* Player Performance Section */}
+                     {selectedMemberForPerformance && (
+                       <div className="mt-6 pt-6 border-t border-gray-200 dark:border-slate-700">
+                         <div className="flex items-center justify-between mb-4">
+                           <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                             {selectedMemberForPerformance.name}'s Performance
+                           </h4>
+                           <button
+                             onClick={() => setSelectedMemberForPerformance(null)}
+                             className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                           >
+                             <X className="h-5 w-5" />
+                           </button>
+                         </div>
+                         <PersonalPerformanceCard 
+                           userId={selectedMemberForPerformance.id}
+                           className="mt-4"
+                         />
                        </div>
                      )}
                    </div>

@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { useTeamContext } from '@/contexts/TeamContext'
 import { getTeamEvents, createEvent, updateEvent, deleteEvent, isCoachOrAssistant } from '@/lib/utils'
+import { getEventAttendance } from '@/lib/attendance'
 import { Calendar, Plus, Edit, Trash2, Clock, MapPin, Users, ChevronLeft, ChevronRight, ArrowLeft, Share2 } from 'lucide-react'
 import MainNavigation from '@/components/navigation/MainNavigation'
 import AttendanceButtons from '@/components/ui/AttendanceButtons'
@@ -49,6 +50,7 @@ export default function CalendarPage() {
   const [shareNote, setShareNote] = useState('')
   const [isSharingCalendar, setIsSharingCalendar] = useState(false)
   const [shareError, setShareError] = useState<string | null>(null)
+  const [attendanceCount, setAttendanceCount] = useState<number>(0)
   
   const [eventForm, setEventForm] = useState({
     title: '',
@@ -106,6 +108,26 @@ export default function CalendarPage() {
     setSelectedDate(eventDate)
     setCurrentDate(new Date(eventDate.getFullYear(), eventDate.getMonth(), 1))
   }, [eventFromQuery, events])
+
+  // Fetch attendance count when event is selected
+  useEffect(() => {
+    const fetchAttendance = async () => {
+      if (!selectedEvent?.id) {
+        setAttendanceCount(0)
+        return
+      }
+
+      try {
+        const attendance = await getEventAttendance(selectedEvent.id)
+        setAttendanceCount(attendance.attending)
+      } catch (error) {
+        console.error('Error fetching attendance:', error)
+        setAttendanceCount(0)
+      }
+    }
+
+    fetchAttendance()
+  }, [selectedEvent?.id])
 
   // Calendar navigation
   const goToPreviousMonth = () => {
@@ -1031,12 +1053,23 @@ export default function CalendarPage() {
 
               {/* Attendance Section */}
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Will you attend this event?</h4>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Will you attend this event?</h4>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Attending: {attendanceCount}
+                  </span>
+                </div>
                 <AttendanceButtons 
                   eventId={selectedEvent.id}
-                  onAttendanceChange={(status) => {
+                  onAttendanceChange={async (status) => {
                     console.log('Attendance changed to:', status)
-                    // Could refresh attendance count here if needed
+                    // Refresh attendance count after change
+                    try {
+                      const attendance = await getEventAttendance(selectedEvent.id)
+                      setAttendanceCount(attendance.attending)
+                    } catch (error) {
+                      console.error('Error refreshing attendance:', error)
+                    }
                   }}
                 />
               </div>
