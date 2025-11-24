@@ -331,7 +331,8 @@ export default function CalendarPage() {
         body: JSON.stringify({
           recipientEmails: parsedShareEmails,
           note: shareNote || undefined,
-          userId: user.id
+          userId: user.id,
+          teamId: selectedTeamId
         })
       })
 

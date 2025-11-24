@@ -23,6 +23,7 @@ export async function POST(request: Request) {
     rangeStart?: string
     rangeEnd?: string
     userId?: string
+    teamId?: string
   }
 
   try {
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
   }
 
-  const { recipientEmails, note = '', rangeStart, rangeEnd, userId } = payload || {}
+  const { recipientEmails, note = '', rangeStart, rangeEnd, userId, teamId } = payload || {}
 
   if (!userId) {
     return NextResponse.json({ error: 'Missing user identifier.' }, { status: 400 })
@@ -70,19 +71,45 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'You do not have access to share the calendar.' }, { status: 403 })
     }
 
-    const { data: membership, error: membershipError } = await supabaseAdmin
-      .from('team_members')
-      .select('team_id, teams(name)')
-      .eq('user_id', userProfile.id)
-      .single()
+    // Get team membership - use selected team if provided, otherwise get first team
+    let membership: any = null
+    let finalTeamId: string | null = null
+    let teamName = 'FirebirdFit Team'
 
-    if (membershipError || !membership?.team_id) {
-      return NextResponse.json({ error: 'You must belong to a team to share its calendar.' }, { status: 400 })
+    if (teamId) {
+      // Use the provided teamId to get specific team membership
+      const { data: membershipData, error: membershipError } = await supabaseAdmin
+        .from('team_members')
+        .select('team_id, teams(name)')
+        .eq('user_id', userProfile.id)
+        .eq('team_id', teamId)
+        .single()
+
+      if (membershipError || !membershipData?.team_id) {
+        return NextResponse.json({ error: 'You must belong to the selected team to share its calendar.' }, { status: 400 })
+      }
+
+      membership = membershipData
+      finalTeamId = membership.team_id
+      const relatedTeam = Array.isArray(membership.teams) ? membership.teams[0] : membership.teams
+      teamName = relatedTeam?.name || 'FirebirdFit Team'
+    } else {
+      // Fallback: get first team if no teamId provided
+      const { data: memberships, error: membershipError } = await supabaseAdmin
+        .from('team_members')
+        .select('team_id, teams(name)')
+        .eq('user_id', userProfile.id)
+        .limit(1)
+
+      if (membershipError || !memberships || memberships.length === 0) {
+        return NextResponse.json({ error: 'You must belong to a team to share its calendar.' }, { status: 400 })
+      }
+
+      membership = memberships[0]
+      finalTeamId = membership.team_id
+      const relatedTeam = Array.isArray(membership.teams) ? membership.teams[0] : membership.teams
+      teamName = relatedTeam?.name || 'FirebirdFit Team'
     }
-
-    const teamId = membership.team_id
-    const relatedTeam = Array.isArray(membership.teams) ? membership.teams[0] : membership.teams
-    const teamName = relatedTeam?.name || 'FirebirdFit Team'
 
     const requestedStart = rangeStart ? new Date(rangeStart) : new Date()
     const startWindow = Number.isNaN(requestedStart.getTime()) ? new Date() : requestedStart
@@ -94,7 +121,7 @@ export async function POST(request: Request) {
     const { data: events, error: eventsError } = await supabaseAdmin
       .from('events')
       .select('id, title, start_time, end_time, location, description, event_type')
-      .eq('team_id', teamId)
+      .eq('team_id', finalTeamId)
       .gte('start_time', startWindow.toISOString())
       .lte('start_time', endWindow.toISOString())
       .order('start_time', { ascending: true })
