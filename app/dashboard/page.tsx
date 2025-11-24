@@ -21,40 +21,54 @@ export default function DashboardPage() {
     
     if (hasMagicLinkHash && !user) {
       // Hash detected but no user yet - wait for Supabase to process
+      console.log('Dashboard: Hash detected, waiting for auth...')
       setIsWaitingForAuth(true)
       
       // Listen for auth state change
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        console.log('Dashboard: Auth state changed:', event, session?.user?.email)
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('Dashboard: User signed in via magic link')
-          // Give AuthContext a moment to update user state
-          setTimeout(() => {
-            setIsWaitingForAuth(false)
-          }, 500)
+          setIsWaitingForAuth(false)
         }
       })
       
-      // Fallback: Check session directly and wait up to 3 seconds
+      // Also watch for user state to update (AuthContext might update before event fires)
+      // Check both session and user state, wait up to 3 seconds
       let attempts = 0
       const maxAttempts = 6 // 6 attempts over 3 seconds
       const checkInterval = setInterval(async () => {
         attempts++
+        console.log(`Dashboard: Checking auth (attempt ${attempts}/${maxAttempts})`)
+        
+        // Check if user state updated
+        if (user) {
+          console.log('Dashboard: User state updated, stopping wait')
+          clearInterval(checkInterval)
+          setIsWaitingForAuth(false)
+          return
+        }
+        
+        // Check session directly
         const { data: { session } } = await supabase.auth.getSession()
         
         if (session?.user) {
           console.log('Dashboard: Session found, waiting for user state update')
-          clearInterval(checkInterval)
-          setTimeout(() => {
+          // Give AuthContext time to update user state
+          if (attempts < maxAttempts - 1) {
+            // Wait a bit more for user state
+            return
+          } else {
+            // Last attempt, stop waiting
+            clearInterval(checkInterval)
             setIsWaitingForAuth(false)
-          }, 500)
+          }
         } else if (attempts >= maxAttempts) {
           // No session after 3 seconds, stop waiting
-          console.log('Dashboard: No session found after waiting')
+          console.log('Dashboard: No session found after waiting, redirecting to login')
           clearInterval(checkInterval)
           setIsWaitingForAuth(false)
-          if (!user) {
-            router.push('/login')
-          }
+          router.push('/login')
         }
       }, 500) // Check every 500ms
       
@@ -73,6 +87,14 @@ export default function DashboardPage() {
       return () => clearTimeout(checkAuth)
     }
   }, [user, router])
+
+  // If user becomes available while waiting, stop waiting
+  useEffect(() => {
+    if (user && isWaitingForAuth) {
+      console.log('Dashboard: User available, stopping wait')
+      setIsWaitingForAuth(false)
+    }
+  }, [user, isWaitingForAuth])
 
   // Show loading while waiting for auth from hash
   if (isWaitingForAuth) {
