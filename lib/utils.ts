@@ -2698,25 +2698,15 @@ export async function createWorkout(
 }
 
 
-// Update team name (only for coaches)
+// Update team name (only for team owners)
 export async function updateTeamName(
   coachId: string,
   teamId: string,
   newName: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // Verify the user is a coach and owns this team
-    const { data: userProfile, error: profileError } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', coachId)
-      .single()
-
-    if (profileError || userProfile.role !== 'coach') {
-      return { success: false, error: 'Only coaches can update team names' }
-    }
-
-    // Verify the coach owns this team
+    // Verify the user owns this team (check coach_id, not role)
+    // This allows assistant coaches who created their own teams to update them
     const { data: teamOwnership, error: ownershipError } = await supabase
       .from('teams')
       .select('coach_id')
@@ -2725,6 +2715,7 @@ export async function updateTeamName(
       .single()
 
     if (ownershipError || !teamOwnership) {
+      console.error('Team ownership verification failed:', ownershipError)
       return { success: false, error: 'You can only update teams you own' }
     }
 
@@ -2736,7 +2727,7 @@ export async function updateTeamName(
 
     if (updateError) {
       console.error('Error updating team name:', updateError)
-      return { success: false, error: 'Failed to update team name' }
+      return { success: false, error: updateError.message || 'Failed to update team name. Please check RLS policies.' }
     }
 
     return { success: true }
