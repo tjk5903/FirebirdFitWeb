@@ -203,13 +203,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Handle redirect if needed
       if (shouldRedirect && typeof window !== 'undefined') {
-        const baseUrl = getBaseUrl()
         const currentPath = window.location.pathname
         
         if (currentPath === '/' || currentPath === '/login') {
-          const dashboardUrl = `${baseUrl}/dashboard`
-          console.log('🔄 Redirecting to:', dashboardUrl)
-          window.location.href = dashboardUrl
+          // Import PWA detection dynamically to avoid SSR issues
+          const { isPWA } = await import('@/lib/pwaUtils')
+          
+          if (isPWA()) {
+            // In PWA mode, use replace to avoid full page reload and stay in app
+            console.log('🔄 PWA detected - using replace for redirect to /dashboard')
+            window.location.replace('/dashboard')
+          } else {
+            // In browser mode, use full URL redirect
+            const baseUrl = getBaseUrl()
+            const dashboardUrl = `${baseUrl}/dashboard`
+            console.log('🔄 Browser mode - redirecting to:', dashboardUrl)
+            window.location.href = dashboardUrl
+          }
         }
       }
 
@@ -641,17 +651,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Error signing out:', error)
       }
       
-      // Redirect to login page using correct domain
+      // Redirect to login page
       if (typeof window !== 'undefined') {
-        const baseUrl = getBaseUrl()
-        window.location.href = `${baseUrl}/login`
+        // Import PWA detection dynamically
+        const { isPWA } = await import('@/lib/pwaUtils')
+        
+        if (isPWA()) {
+          // In PWA mode, use replace to stay in app
+          console.log('🔄 PWA detected - using replace for redirect to /login')
+          window.location.replace('/login')
+        } else {
+          // In browser mode, use full URL
+          const baseUrl = getBaseUrl()
+          window.location.href = `${baseUrl}/login`
+        }
       }
     } catch (error) {
       console.error('Error during logout:', error)
       // Still redirect even if there's an error
       if (typeof window !== 'undefined') {
-        const baseUrl = getBaseUrl()
-        window.location.href = `${baseUrl}/login`
+        const { isPWA } = await import('@/lib/pwaUtils')
+        
+        if (isPWA()) {
+          window.location.replace('/login')
+        } else {
+          const baseUrl = getBaseUrl()
+          window.location.href = `${baseUrl}/login`
+        }
       }
     }
   }
