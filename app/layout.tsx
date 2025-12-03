@@ -12,7 +12,11 @@ import HydrationFix from '@/components/ui/HydrationFix'
 
 const inter = Inter({ subsets: ['latin'] })
 
+// Get the base URL for absolute image URLs (required for social media)
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.firebirdfit.app'
+
 export const metadata: Metadata = {
+  metadataBase: new URL(baseUrl),
   title: 'Firebird Fit - Performance Dashboard',
   description: 'Modern fitness tracking and team management platform for athletes and coaches',
   icons: {
@@ -31,6 +35,26 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: 'default',
     title: 'Firebird Fit',
+  },
+  openGraph: {
+    type: 'website',
+    title: 'Firebird Fit - Performance Dashboard',
+    description: 'Modern fitness tracking and team management platform for athletes and coaches',
+    siteName: 'Firebird Fit',
+    images: [
+      {
+        url: '/firebird-mascot.png',
+        width: 512,
+        height: 512,
+        alt: 'Firebird Fit Logo',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Firebird Fit - Performance Dashboard',
+    description: 'Modern fitness tracking and team management platform for athletes and coaches',
+    images: ['/firebird-mascot.png'],
   },
 }
 
