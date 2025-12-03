@@ -17,10 +17,13 @@ export const metadata: Metadata = {
   description: 'Modern fitness tracking and team management platform for athletes and coaches',
   icons: {
     icon: [
+      { url: '/firebird-mascot.png', sizes: '32x32', type: 'image/png' },
+      { url: '/firebird-mascot.png', sizes: '16x16', type: 'image/png' },
       { url: '/firebird-mascot.png', sizes: '192x192', type: 'image/png' },
       { url: '/firebird-mascot.png', sizes: '512x512', type: 'image/png' },
     ],
     apple: '/firebird-mascot.png',
+    shortcut: '/firebird-mascot.png',
   },
   manifest: '/manifest.json',
   themeColor: '#dc2626',
