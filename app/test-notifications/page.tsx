@@ -297,7 +297,7 @@ export default function TestNotificationsPage() {
             const reg = await navigator.serviceWorker.getRegistration()
             if (reg) {
               console.log('🧪 Testing direct notification display...')
-              await reg.showNotification('Direct Test Notification', {
+              const notificationOptions: NotificationOptions & { vibrate?: number[] } = {
                 body: 'If you see this, browser notifications are working! This should stay visible.',
                 icon: '/firebird-mascot.png',
                 badge: '/firebird-mascot.png',
@@ -305,7 +305,8 @@ export default function TestNotificationsPage() {
                 requireInteraction: true, // Keep it visible longer
                 silent: false,
                 vibrate: [200, 100, 200]
-              })
+              }
+              await reg.showNotification('Direct Test Notification', notificationOptions)
               console.log('✅ Direct notification test sent')
             }
           } catch (e: any) {
