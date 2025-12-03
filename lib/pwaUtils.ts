@@ -44,3 +44,17 @@ export function getDisplayMode(): 'browser' | 'standalone' | 'fullscreen' | 'min
   return 'browser'
 }
 
+/**
+ * Attempts to open the current URL in the installed PWA
+ * This works by navigating to the same URL, which should open in the PWA if installed
+ */
+export function attemptOpenInPWA(currentUrl?: string): void {
+  if (typeof window === 'undefined') return
+
+  const url = currentUrl || window.location.href
+  
+  // Try to open in PWA by navigating to the same URL
+  // On mobile devices, if the PWA is installed, this may prompt to open in the app
+  window.location.href = url
+}
+

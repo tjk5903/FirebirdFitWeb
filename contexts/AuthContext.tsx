@@ -535,8 +535,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sign in with magic link (unified auth method)
   const signInWithMagicLink = async (email: string, role: UserRole) => {
     const baseUrl = getBaseUrl()
-    // Always redirect to /dashboard - role-based rendering happens inside the dashboard page
-    const redirectUrl = `${baseUrl}/dashboard`
+    // Redirect to auth callback page which handles PWA vs browser detection
+    const redirectUrl = `${baseUrl}/auth/callback`
     
     console.log('Magic link will redirect to:', redirectUrl)
     
