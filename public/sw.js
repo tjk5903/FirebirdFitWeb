@@ -166,7 +166,19 @@ self.addEventListener('notificationclick', (event) => {
   }
 
   // Default action or 'view' action - open the app
-  const urlToOpen = data.url || '/'
+  let urlToOpen = data.url || '/'
+  
+  // Ensure URL is relative to keep navigation within PWA
+  try {
+    const urlObj = new URL(urlToOpen, self.location.origin)
+    // If it's the same origin, use just the pathname
+    if (urlObj.origin === self.location.origin) {
+      urlToOpen = urlObj.pathname + urlObj.search + urlObj.hash
+    }
+  } catch (e) {
+    // If URL parsing fails, assume it's already a relative path
+    console.log('⚠️ Could not parse URL, using as-is:', urlToOpen)
+  }
   
   event.waitUntil(
     // Check if app is already open
@@ -186,8 +198,8 @@ self.addEventListener('notificationclick', (event) => {
           }
         }
         
-        // If app is not open, open it
-        console.log('🚀 Opening new app window')
+        // If app is not open, open it with relative URL to stay in PWA
+        console.log('🚀 Opening new app window with URL:', urlToOpen)
         return self.clients.openWindow(urlToOpen)
       })
   )

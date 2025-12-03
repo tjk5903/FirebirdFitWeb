@@ -9,6 +9,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext'
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { GlobalLoadingManager } from '@/components/ui/GlobalLoadingManager'
 import HydrationFix from '@/components/ui/HydrationFix'
+import PWANavigationInterceptor from '@/components/ui/PWANavigationInterceptor'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -74,6 +75,7 @@ export default function RootLayout({
                   <ToastProvider>
                     <GlobalLoadingManager>
                       <HydrationFix />
+                      <PWANavigationInterceptor />
                       <div className="min-h-screen bg-soft-white dark:bg-slate-900 transition-colors duration-300">
                         {children}
                       </div>

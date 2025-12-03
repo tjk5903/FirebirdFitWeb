@@ -3,6 +3,7 @@
   "short_name": "FirebirdFit",
   "description": "Modern fitness tracking and team management platform for athletes and coaches",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#1e3a8a",
   "theme_color": "#1e40af",

@@ -58,3 +58,53 @@ export function attemptOpenInPWA(currentUrl?: string): void {
   window.location.href = url
 }
 
+/**
+ * Checks if a URL is an internal link (same origin)
+ */
+export function isInternalLink(url: string): boolean {
+  if (typeof window === 'undefined') return false
+  
+  try {
+    const urlObj = new URL(url, window.location.origin)
+    return urlObj.origin === window.location.origin
+  } catch {
+    // If URL parsing fails, treat relative URLs as internal
+    return !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('//')
+  }
+}
+
+/**
+ * Gets the pathname from a URL, handling both absolute and relative URLs
+ */
+export function getPathnameFromUrl(url: string): string | null {
+  if (typeof window === 'undefined') return null
+  
+  try {
+    const urlObj = new URL(url, window.location.origin)
+    return urlObj.pathname
+  } catch {
+    // If URL parsing fails, try to extract pathname from relative URL
+    const match = url.match(/^([^?#]*)/)
+    return match ? match[1] : null
+  }
+}
+
+/**
+ * Checks if a link should be handled by the router (internal link)
+ * or opened in browser (external link, mailto, tel, etc.)
+ */
+export function shouldUseRouter(href: string): boolean {
+  if (!href || href === '#') return false
+  
+  // Don't intercept special protocols
+  if (href.startsWith('mailto:') || 
+      href.startsWith('tel:') || 
+      href.startsWith('javascript:') ||
+      href.startsWith('data:')) {
+    return false
+  }
+  
+  // Check if it's an internal link
+  return isInternalLink(href)
+}
+
