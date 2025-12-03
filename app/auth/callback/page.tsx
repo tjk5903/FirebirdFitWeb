@@ -3,7 +3,14 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabaseClient'
-import { isPWA } from '@/lib/pwaUtils'
+import { 
+  isPWA, 
+  isIOS, 
+  shouldAttemptPWATransfer,
+  markSessionTransferNeeded,
+  attemptOpenInPWA,
+  attemptOpenInPWAWithRetry
+} from '@/lib/pwaUtils'
 import FirebirdLogo from '@/components/ui/FirebirdLogo'
 
 export default function AuthCallbackPage() {
@@ -22,38 +29,76 @@ export default function AuthCallbackPage() {
         // Get the hash from URL (magic link contains auth tokens in hash)
         const hash = window.location.hash
         const urlParams = new URLSearchParams(window.location.search)
+        const fullUrl = window.location.href
+        
+        console.log('🔐 Auth callback - Full URL:', fullUrl)
+        console.log('🔐 Auth callback - Hash:', hash)
+        console.log('🔐 Auth callback - Search:', window.location.search)
         
         // Check if we have auth tokens in hash or query params
-        const hasAuthHash = hash.includes('access_token') || hash.includes('type=recovery')
+        const hasAuthHash = hash && (hash.includes('access_token') || hash.includes('type=recovery'))
         const hasAuthParams = urlParams.has('access_token') || urlParams.has('type')
         
         if (!hasAuthHash && !hasAuthParams) {
-          // No auth tokens found, might be a direct visit
-          console.log('No auth tokens found in URL')
+          // No auth tokens found, might be a direct visit or hash was lost
+          console.error('❌ No auth tokens found in URL')
+          console.error('   Hash:', hash)
+          console.error('   Search params:', window.location.search)
+          console.error('   Full URL:', fullUrl)
           setStatus('error')
           setErrorMessage('Invalid authentication link. Please request a new magic link.')
           return
         }
 
         // Supabase will automatically handle the hash and set the session
-        // We just need to wait for it to process
-        console.log('Processing authentication...')
+        // We need to wait for it to process and explicitly check
+        console.log('⏳ Processing authentication...')
         
-        // Wait a moment for Supabase to process the auth
-        await new Promise(resolve => setTimeout(resolve, 500))
+        // Give Supabase time to process the hash - wait longer for reliability
+        await new Promise(resolve => setTimeout(resolve, 1000))
         
-        // Check if session was created
+        // Try to get session - Supabase should have processed the hash by now
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
         
         if (sessionError) {
-          console.error('Error getting session:', sessionError)
+          console.error('❌ Error getting session:', sessionError)
           setStatus('error')
           setErrorMessage(sessionError.message || 'Failed to authenticate')
           return
         }
 
-        if (!session) {
-          console.log('No session found after processing')
+        let finalSession = session
+        
+        if (!finalSession) {
+          // If no session yet, wait a bit more and try again
+          console.log('⏳ No session found, waiting longer...')
+          await new Promise(resolve => setTimeout(resolve, 1000))
+          
+          const { data: { session: retrySession }, error: retryError } = await supabase.auth.getSession()
+          
+          if (retryError) {
+            console.error('❌ Error on retry:', retryError)
+            setStatus('error')
+            setErrorMessage(retryError.message || 'Failed to authenticate')
+            return
+          }
+          
+          if (!retrySession) {
+            console.error('❌ No session found after retry')
+            setStatus('error')
+            setErrorMessage('Authentication failed. The link may have expired. Please request a new magic link.')
+            return
+          }
+          
+          // Use the retry session
+          finalSession = retrySession
+          console.log('✅ Session found on retry')
+        } else {
+          console.log('✅ Session found on first try')
+        }
+
+        if (!finalSession) {
+          console.error('❌ No session available after all attempts')
           setStatus('error')
           setErrorMessage('Authentication failed. Please try again.')
           return
@@ -70,9 +115,43 @@ export default function AuthCallbackPage() {
             router.push('/dashboard')
           }, 500)
         } else {
-          // If in browser, show option to open in PWA
-          console.log('🌐 Browser mode - showing PWA open option')
-          setStatus('browser')
+          // If in browser, check if we should attempt PWA transfer (iOS)
+          const shouldTransfer = shouldAttemptPWATransfer()
+          const isIOSDevice = isIOS()
+          
+          if (shouldTransfer && isIOSDevice) {
+            console.log('📱 iOS browser mode detected - attempting PWA transfer')
+            
+            // Mark session transfer as needed
+            markSessionTransferNeeded()
+            
+            // Attempt automatic redirect to PWA
+            // Use dashboard URL since auth is complete
+            const dashboardUrl = `${window.location.origin}/dashboard`
+            console.log('🔄 Attempting to open PWA with URL:', dashboardUrl)
+            
+            // Try to open in PWA with retry
+            const opened = attemptOpenInPWAWithRetry(dashboardUrl)
+            
+            if (opened) {
+              // Give it a moment to see if redirect worked
+              setTimeout(() => {
+                // If we're still here after 2 seconds, show the manual option
+                if (window.location.pathname === '/auth/callback') {
+                  console.log('⚠️ Automatic PWA redirect may have failed, showing manual option')
+                  setStatus('browser')
+                }
+              }, 2000)
+            } else {
+              // Automatic redirect failed, show manual option
+              console.log('⚠️ Automatic PWA redirect failed, showing manual option')
+              setStatus('browser')
+            }
+          } else {
+            // Not iOS or PWA not likely installed, show standard browser option
+            console.log('🌐 Browser mode - showing PWA open option')
+            setStatus('browser')
+          }
         }
 
       } catch (error: any) {
@@ -86,9 +165,20 @@ export default function AuthCallbackPage() {
   }, [router])
 
   const handleOpenInPWA = () => {
-    // Import and use the PWA utility
-    const { attemptOpenInPWA } = require('@/lib/pwaUtils')
-    attemptOpenInPWA(window.location.href)
+    // Mark session transfer as needed before attempting
+    markSessionTransferNeeded()
+    
+    // Use dashboard URL since auth is complete
+    const dashboardUrl = `${window.location.origin}/dashboard`
+    
+    // Try multiple methods to open PWA
+    const opened = attemptOpenInPWAWithRetry(dashboardUrl, 3)
+    
+    if (!opened) {
+      // If all methods failed, show instructions
+      console.log('⚠️ All PWA opening methods failed')
+      // The UI will remain showing, user can try again or continue in browser
+    }
   }
 
   const handleContinueInBrowser = () => {
@@ -133,6 +223,9 @@ export default function AuthCallbackPage() {
   }
 
   if (status === 'browser') {
+    const isIOSDevice = isIOS()
+    const shouldTransfer = shouldAttemptPWATransfer()
+    
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 p-4">
         <div className="max-w-md w-full bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl p-8 text-center space-y-6">
@@ -142,7 +235,19 @@ export default function AuthCallbackPage() {
           <div className="space-y-4">
             <h2 className="text-2xl font-bold text-gray-900">Open in App</h2>
             <p className="text-gray-600">
-              You're signed in! For the best experience, open this link in the Firebird Fit app on your home screen.
+              {isIOSDevice && shouldTransfer ? (
+                <>
+                  You're signed in! To use the Firebird Fit app from your home screen:
+                  <br /><br />
+                  <strong>1.</strong> Tap the button below to try opening the app
+                  <br />
+                  <strong>2.</strong> If that doesn't work, go to your home screen and open the Firebird Fit app
+                  <br />
+                  <strong>3.</strong> Your session will be ready when you open the app
+                </>
+              ) : (
+                "You're signed in! For the best experience, open this link in the Firebird Fit app on your home screen."
+              )}
             </p>
           </div>
           <div className="space-y-3">
@@ -150,7 +255,7 @@ export default function AuthCallbackPage() {
               onClick={handleOpenInPWA}
               className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300"
             >
-              Open in Firebird Fit App
+              {isIOSDevice ? 'Try Opening Firebird Fit App' : 'Open in Firebird Fit App'}
             </button>
             <button
               onClick={handleContinueInBrowser}
@@ -159,6 +264,12 @@ export default function AuthCallbackPage() {
               Continue in Browser
             </button>
           </div>
+          {isIOSDevice && (
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg text-left text-sm text-blue-800">
+              <p className="font-semibold mb-1">💡 Tip:</p>
+              <p>If the app doesn't open automatically, find the Firebird Fit icon on your home screen and tap it. Your login is already complete!</p>
+            </div>
+          )}
         </div>
       </div>
     )

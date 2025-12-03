@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { shouldUseRouter, getPathnameFromUrl } from '@/lib/pwaUtils'
+import { shouldUseRouter, getPathnameFromUrl, isAuthCallbackRoute } from '@/lib/pwaUtils'
 
 /**
  * PWA Navigation Interceptor
@@ -24,6 +24,12 @@ export default function PWANavigationInterceptor() {
 
       const href = anchor.getAttribute('href')
       if (!href) return
+
+      // NEVER intercept auth callback routes - these need default browser behavior
+      // to preserve hash fragments with authentication tokens
+      if (isAuthCallbackRoute(href)) {
+        return
+      }
 
       // Check if this link should use router navigation
       if (!shouldUseRouter(href)) {
@@ -48,12 +54,34 @@ export default function PWANavigationInterceptor() {
       const pathname = getPathnameFromUrl(href)
       if (!pathname) return
 
+      // Extract hash and search params to preserve them
+      let fullPath = pathname
+      try {
+        const urlObj = new URL(href, window.location.origin)
+        if (urlObj.search) {
+          fullPath += urlObj.search
+        }
+        if (urlObj.hash) {
+          fullPath += urlObj.hash
+        }
+      } catch {
+        // If URL parsing fails, try to extract hash/search from href string
+        const hashMatch = href.match(/#(.+)$/)
+        const searchMatch = href.match(/\?([^#]+)/)
+        if (searchMatch) {
+          fullPath += '?' + searchMatch[1]
+        }
+        if (hashMatch) {
+          fullPath += '#' + hashMatch[1]
+        }
+      }
+
       // Prevent default navigation
       event.preventDefault()
       event.stopPropagation()
 
-      // Use Next.js router for navigation
-      router.push(pathname)
+      // Use Next.js router for navigation, preserving hash and search params
+      router.push(fullPath)
     }
 
     // Add click listener to document

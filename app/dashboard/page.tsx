@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabaseClient'
 import { isCoachOrAssistant } from '@/lib/utils'
+import { isPWA, getSessionTransferData, clearSessionTransfer } from '@/lib/pwaUtils'
 import CoachDashboard from '@/components/dashboard/CoachDashboard'
 import AthleteDashboard from '@/components/dashboard/AthleteDashboard'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
@@ -15,6 +16,18 @@ export default function DashboardPage() {
   const [isWaitingForAuth, setIsWaitingForAuth] = useState(false)
 
   useEffect(() => {
+    // Check for session transfer (when PWA opens after browser auth)
+    if (isPWA()) {
+      const transferData = getSessionTransferData()
+      if (transferData) {
+        console.log('✅ PWA opened - session transfer detected from browser auth')
+        console.log('   Transfer URL:', transferData.url)
+        // Clear the transfer flag since we're now in PWA
+        clearSessionTransfer()
+        // Session should already be available via Supabase (shared localStorage)
+      }
+    }
+    
     // Check if URL has hash (magic link session)
     const hash = typeof window !== 'undefined' ? window.location.hash : ''
     const hasMagicLinkHash = hash && (hash.includes('access_token') || hash.includes('type=recovery'))
