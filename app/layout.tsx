@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     shortcut: '/firebird-mascot.png',
   },
   manifest: '/manifest.json',
-  themeColor: '#dc2626',
+  themeColor: '#1e40af',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
