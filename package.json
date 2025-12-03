@@ -9,7 +9,8 @@
     "lint": "next lint",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "generate-vapid-keys": "node -e \"const webpush = require('web-push'); const vapidKeys = webpush.generateVAPIDKeys(); console.log('\\nVAPID Keys Generated:\\n'); console.log('NEXT_PUBLIC_VAPID_PUBLIC_KEY=' + vapidKeys.publicKey); console.log('VAPID_PRIVATE_KEY=' + vapidKeys.privateKey); console.log('\\nAdd these to your .env.local file\\n')\""
   },
   "dependencies": {
     "@supabase/storage-js": "^2.81.1",
@@ -20,7 +21,8 @@
     "react": "^18",
     "react-dom": "^18",
     "resend": "^6.4.2",
-    "tailwind-merge": "^2.0.0"
+    "tailwind-merge": "^2.0.0",
+    "web-push": "^3.6.6"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",
@@ -30,6 +32,7 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/web-push": "^3.6.4",
     "autoprefixer": "^10.0.1",
     "eslint": "^8",
     "eslint-config-next": "14.0.4",

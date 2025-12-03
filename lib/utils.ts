@@ -658,6 +658,48 @@ export async function sendChatMessage(
       reactions: createEmptyReactions()
     }
 
+    // Create notifications for chat members (except sender)
+    try {
+      console.log('🔔 Creating message notifications for chat members')
+      const { data: chatMembers, error: membersError } = await supabase
+        .from('chat_members')
+        .select('user_id, chats!inner(team_id)')
+        .eq('chat_id', chatId)
+      
+      if (!membersError && chatMembers && chatMembers.length > 0) {
+        // Get team_id from chat (first member's chat should have it)
+        const teamId = (chatMembers[0] as any)?.chats?.team_id || null
+        
+        // Get all member IDs except sender
+        const userIds = chatMembers
+          .map(m => m.user_id)
+          .filter(id => id !== senderId)
+        
+        if (userIds.length > 0 && teamId) {
+          const messagePreview = newMessage.message.length > 100 
+            ? newMessage.message.substring(0, 100) + '...'
+            : newMessage.message
+          
+          await createNotificationsForUsers(
+            userIds,
+            teamId,
+            'message',
+            `New message from ${userData?.full_name || 'Unknown User'}`,
+            messagePreview,
+            {
+              chatId,
+              messageId: newMessage.id,
+              senderId,
+              senderName: userData?.full_name || 'Unknown User'
+            }
+          )
+        }
+      }
+    } catch (notificationError) {
+      // Don't fail message sending if notification creation fails
+      console.error('⚠️ Error creating message notifications (non-fatal):', notificationError)
+    }
+
     return transformedMessage
 
   } catch (error) {
@@ -2235,6 +2277,40 @@ export async function createEvent(
 
     console.log('🔧 createEvent: Success! Event ID:', newEvent.id)
     
+    // Create notifications for all team members
+    try {
+      console.log('🔔 Creating event notifications for team members')
+      const { data: teamMembers, error: membersError } = await supabase
+        .from('team_members')
+        .select('user_id')
+        .eq('team_id', teamId)
+      
+      if (!membersError && teamMembers && teamMembers.length > 0) {
+        const userIds = teamMembers.map(m => m.user_id).filter(id => id !== userId) // Exclude creator
+        if (userIds.length > 0) {
+          await createNotificationsForUsers(
+            userIds,
+            teamId,
+            'event',
+            `New Event: ${eventData.title}`,
+            eventData.description || `${eventData.event_type} - ${new Date(eventData.start_time).toLocaleString()}`,
+            {
+              eventId: newEvent.id,
+              teamId,
+              title: eventData.title,
+              eventType: eventData.event_type,
+              startTime: eventData.start_time,
+              endTime: eventData.end_time,
+              location: eventData.location
+            }
+          )
+        }
+      }
+    } catch (notificationError) {
+      // Don't fail event creation if notification creation fails
+      console.error('⚠️ Error creating event notifications (non-fatal):', notificationError)
+    }
+    
     // Clear cache to ensure fresh data on next load
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -2690,6 +2766,35 @@ export async function createWorkout(
     
     console.log('✅ createWorkout: Workout created successfully:', workout)
     
+    // Create notifications for assigned athletes
+    if (workout.assigned_to) {
+      try {
+        const assignedUserIds = Array.isArray(workoutData.assigned_to) 
+          ? workoutData.assigned_to 
+          : [workout.assigned_to]
+        
+        if (assignedUserIds.length > 0) {
+          console.log('🔔 Creating workout notifications for assigned athletes:', assignedUserIds)
+          await createNotificationsForUsers(
+            assignedUserIds,
+            teamId,
+            'workout',
+            'New Workout Assigned',
+            workoutData.title,
+            {
+              workoutId: workout.id,
+              teamId,
+              title: workoutData.title,
+              description: workoutData.description
+            }
+          )
+        }
+      } catch (notificationError) {
+        // Don't fail workout creation if notification creation fails
+        console.error('⚠️ Error creating workout notifications (non-fatal):', notificationError)
+      }
+    }
+    
     return { success: true, workoutId: workout.id }
   } catch (error) {
     console.error('Error in createWorkout:', error)
@@ -2942,6 +3047,138 @@ export async function getUserNotificationPreferences(userId: string): Promise<No
     console.error('Error fetching notification preferences:', error)
     return null
   }
+}
+
+// Helper function to check if we're in quiet hours
+function isInQuietHours(quietHoursStart: string, quietHoursEnd: string): boolean {
+  if (!quietHoursStart || !quietHoursEnd) return false
+  
+  const now = new Date()
+  const currentTime = now.getHours() * 60 + now.getMinutes() // minutes since midnight
+  
+  const [startHour, startMin] = quietHoursStart.split(':').map(Number)
+  const [endHour, endMin] = quietHoursEnd.split(':').map(Number)
+  const startMinutes = startHour * 60 + startMin
+  const endMinutes = endHour * 60 + endMin
+  
+  // Handle quiet hours that span midnight (e.g., 22:00 to 07:00)
+  if (startMinutes > endMinutes) {
+    return currentTime >= startMinutes || currentTime <= endMinutes
+  }
+  
+  return currentTime >= startMinutes && currentTime <= endMinutes
+}
+
+// Create a notification for a single user (respects preferences)
+async function createNotificationForUser(
+  userId: string,
+  teamId: string,
+  type: 'workout' | 'event' | 'message',
+  title: string,
+  message: string,
+  data: any
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Get user's notification preferences
+    const preferences = await getUserNotificationPreferences(userId)
+    
+    // Check if user wants this type of notification
+    let shouldNotify = true
+    if (preferences) {
+      switch (type) {
+        case 'workout':
+          shouldNotify = preferences.new_workouts
+          break
+        case 'event':
+          shouldNotify = preferences.new_events
+          break
+        case 'message':
+          shouldNotify = preferences.new_messages
+          break
+      }
+      
+      // Check quiet hours
+      if (shouldNotify && preferences.quiet_hours_enabled) {
+        if (isInQuietHours(preferences.quiet_hours_start, preferences.quiet_hours_end)) {
+          console.log(`🔕 Skipping notification for user ${userId} - in quiet hours`)
+          return { success: true } // Not an error, just respecting preferences
+        }
+      }
+    }
+    
+    if (!shouldNotify) {
+      console.log(`🔕 Skipping notification for user ${userId} - preference disabled for ${type}`)
+      return { success: true } // Not an error, just respecting preferences
+    }
+    
+    // Create the notification
+    const { error } = await supabase
+      .from('notifications')
+      .insert({
+        user_id: userId,
+        team_id: teamId,
+        type,
+        title,
+        message,
+        data,
+        read: false,
+        created_at: new Date().toISOString()
+      })
+    
+    if (error) {
+      console.error(`❌ Error creating notification for user ${userId}:`, error)
+      return { success: false, error: error.message }
+    }
+    
+    console.log(`✅ Notification created for user ${userId}: ${title}`)
+    return { success: true }
+  } catch (error: any) {
+    console.error(`❌ Error in createNotificationForUser:`, error)
+    return { success: false, error: error.message || 'Unknown error' }
+  }
+}
+
+// Create notifications for multiple users (batch operation)
+export async function createNotificationsForUsers(
+  userIds: string[],
+  teamId: string,
+  type: 'workout' | 'event' | 'message',
+  title: string,
+  message: string,
+  data: any
+): Promise<{ success: boolean; created: number; skipped: number; errors: number }> {
+  let created = 0
+  let skipped = 0
+  let errors = 0
+  
+  // Process notifications in parallel but limit concurrency
+  const batchSize = 10
+  for (let i = 0; i < userIds.length; i += batchSize) {
+    const batch = userIds.slice(i, i + batchSize)
+    const results = await Promise.allSettled(
+      batch.map(userId => createNotificationForUser(userId, teamId, type, title, message, data))
+    )
+    
+    results.forEach((result) => {
+      if (result.status === 'fulfilled') {
+        if (result.value.success) {
+          created++
+        } else {
+          // Check if it was skipped due to preferences (not an error)
+          if (result.value.error?.includes('Skipping')) {
+            skipped++
+          } else {
+            errors++
+          }
+        }
+      } else {
+        errors++
+      }
+    })
+  }
+  
+  console.log(`📊 Notification creation summary: ${created} created, ${skipped} skipped, ${errors} errors`)
+  return { success: errors === 0, created, skipped, errors }
 }
 
 // Save user's notification preferences

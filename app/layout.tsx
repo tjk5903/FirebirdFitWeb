@@ -15,6 +15,9 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'Firebird Fit - Performance Dashboard',
   description: 'Modern fitness tracking and team management platform for athletes and coaches',
+  icons: {
+    icon: '/favicon.ico',
+  },
 }
 
 export default function RootLayout({

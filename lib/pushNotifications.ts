@@ -2,9 +2,8 @@
 
 import { supabase } from './supabaseClient'
 
-// VAPID keys - you'll need to generate these
-// For now, we'll use placeholder values
-const VAPID_PUBLIC_KEY = 'BEl62iUYgUivxIkv69yViEuiBIa40HcCWLrUjHLRBmF_wBHVFVYmHBGAcpEjkqfCqVwPiMRfGbhGl3tzVOvBKdI'
+// VAPID public key - must be prefixed with NEXT_PUBLIC_ to be available in client code
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BEl62iUYgUivxIkv69yViEuiBIa40HcCWLrUjHLRBmF_wBHVFVYmHBGAcpEjkqfCqVwPiMRfGbhGl3tzVOvBKdI'
 
 // Check if push notifications are supported
 export function isPushSupported(): boolean {
@@ -101,9 +100,11 @@ export async function subscribeToPush(userId: string): Promise<PushSubscription 
     console.log('🔔 Creating push subscription...')
     
     // Create push subscription
+    const vapidKeyArray = urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true, // Required by Chrome
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      // @ts-ignore - Uint8Array is a valid BufferSource, TypeScript type definition issue
+      applicationServerKey: vapidKeyArray
     })
 
     console.log('✅ Push subscription created:', subscription)

@@ -3,10 +3,9 @@
 
 import { supabase } from './supabaseClient'
 
-// VAPID keys - In production, you'd generate these and keep the private key secure
-const VAPID_PUBLIC_KEY = 'BEl62iUYgUivxIkv69yViEuiBIa40HcCWLrUjHLRBmF_wBHVFVYmHBGAcpEjkqfCqVwPiMRfGbhGl3tzVOvBKdI'
-// In a real app, the private key would be on your server, not in client code
-const VAPID_PRIVATE_KEY = 'your-vapid-private-key-here'
+// Note: VAPID keys are now stored in environment variables
+// Public key is available via NEXT_PUBLIC_VAPID_PUBLIC_KEY
+// Private key is only used server-side in the API route
 
 interface PushNotificationData {
   title: string
@@ -42,24 +41,45 @@ export async function sendPushNotificationToUser(
 
     console.log('📱 Found', subscriptions.length, 'push subscription(s) for user')
 
-    // Send push notification to each subscription
+    // Send push notification to each subscription via API route
     const pushPromises = subscriptions.map(async (sub) => {
       try {
-        // In a real app, this would be done on your server using web-push library
-        // For now, we'll simulate it or use a serverless function
-        
         console.log('📤 Sending push to subscription:', sub.subscription.endpoint?.substring(0, 50) + '...')
         
-        // This is where you'd use the web-push library on your server:
-        // await webpush.sendNotification(sub.subscription, JSON.stringify(notificationData))
-        
-        // For now, we'll just log it
+        // Call the server-side API route to send the push notification
+        const response = await fetch('/api/push/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            subscription: sub.subscription,
+            notificationData: notificationData
+          })
+        })
+
+        const result = await response.json()
+
+        if (!response.ok || !result.success) {
+          // If subscription expired, we should remove it from database
+          if (response.status === 410 || result.expired) {
+            console.log('⚠️ Subscription expired, removing from database')
+            // Since we use UNIQUE(user_id), we can delete by user_id
+            // If supporting multiple devices in future, would need to match by endpoint
+            await supabase
+              .from('push_subscriptions')
+              .delete()
+              .eq('user_id', userId)
+          }
+          throw new Error(result.error || 'Failed to send push notification')
+        }
+
         console.log('✅ Push notification sent successfully')
         return { success: true }
         
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ Error sending push to subscription:', error)
-        return { success: false, error }
+        return { success: false, error: error.message || 'Failed to send push notification' }
       }
     })
 
