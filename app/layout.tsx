@@ -16,7 +16,18 @@ export const metadata: Metadata = {
   title: 'Firebird Fit - Performance Dashboard',
   description: 'Modern fitness tracking and team management platform for athletes and coaches',
   icons: {
-    icon: '/favicon.ico',
+    icon: [
+      { url: '/firebird-mascot.png', sizes: '192x192', type: 'image/png' },
+      { url: '/firebird-mascot.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: '/firebird-mascot.png',
+  },
+  manifest: '/manifest.json',
+  themeColor: '#dc2626',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Firebird Fit',
   },
 }
 
